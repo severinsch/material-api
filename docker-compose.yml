@@ -1,0 +1,49 @@
+# docker-compose.yml
+# Defines the multi-service development environment for the application.
+
+version: '3.8'
+
+services:
+  # ------ PostgreSQL Database Service ------
+  postgres:
+    image: postgres:16-alpine
+    container_name: scout_db
+    restart: always
+    environment:
+      POSTGRES_USER: scout
+      POSTGRES_PASSWORD: scoutpass # Use a more secure password in production
+      POSTGRES_DB: scout_material
+    ports:
+      - "5432:5432" # Expose DB port to the host machine for IDE access
+    volumes:
+      # This correctly maps the named volume 'postgres_data' to the container's data directory.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # This ensures the API service only starts after the DB is fully ready.
+      test: ["CMD-SHELL", "pg_isready -U scout -d scout_material"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------ Ktor Backend API Service ------
+  api:
+    # 'build: .' tells Docker Compose to look for a Dockerfile in the current directory and build it.
+    build: .
+    container_name: material_api
+    image: material_api:dev   # <— add this
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # Expose Ktor API port to the host machine
+    environment:
+      # Pass database credentials to the Ktor application.
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/scout_material"
+      DATABASE_USER: "scout"
+      DATABASE_PASSWORD: "scoutpass"
+    depends_on:
+      postgres:
+        condition: service_healthy # Critical: Ensures DB is ready before API starts.
+
+# ------ Top-level Volume Definition ------
+# This is where the named volume is officially declared. Docker will manage its lifecycle.
+volumes:
+  postgres_data:

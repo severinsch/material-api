@@ -1,0 +1,221 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "OpenAPI example",
+        "version": "2.1",
+        "summary": "Material management api",
+        "description": "This is a longer description",
+        "termsOfService": "https://example.com/terms/",
+        "contact": "severin@dpsg-langenbach.de",
+        "license": "Apache/1.0"
+    },
+    "paths": {
+        "/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/damages": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DamageReport"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewDamageReport"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Material"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewMaterial"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "DamageReport": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "inventoryItemId": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isResolved": {
+                        "type": "boolean"
+                    },
+                    "reportedAt": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewDamageReport": {
+                "type": "object",
+                "properties": {
+                    "inventoryItemId": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isResolved": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Material": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "string"
+                    },
+                    "storageLocationId": {
+                        "type": "string"
+                    },
+                    "quantityAvailable": {
+                        "type": "integer"
+                    },
+                    "quantityDamaged": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewMaterial": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "string"
+                    },
+                    "storageLocationId": {
+                        "type": "string"
+                    },
+                    "quantityAvailable": {
+                        "type": "integer"
+                    },
+                    "quantityDamaged": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}
