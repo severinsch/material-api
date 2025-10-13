@@ -10,6 +10,22 @@
         "license": "Apache/1.0"
     },
     "paths": {
+        "/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/materials": {
             "get": {
                 "responses": {
@@ -20,7 +36,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/<error>"
+                                        "$ref": "#/components/schemas/MaterialSummaryResponse"
                                     }
                                 }
                             }
@@ -57,6 +73,48 @@
                     },
                     "404": {
                         "description": ""
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials/{id}/items": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": ""
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/IndividualItemResponse"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -64,9 +122,138 @@
     },
     "components": {
         "schemas": {
-            "<error>": {
+            "MaterialSummaryResponse": {
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "id": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "object",
+                                "properties": {
+                                    "mostSignificantBits": {
+                                        "type": "integer"
+                                    },
+                                    "leastSignificantBits": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "IndividualItemResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "materialId": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "identifier": {
+                        "type": "string"
+                    },
+                    "condition": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "storageLocation": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "object",
+                                "properties": {
+                                    "mostSignificantBits": {
+                                        "type": "integer"
+                                    },
+                                    "leastSignificantBits": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    }
+                }
             }
         }
     }

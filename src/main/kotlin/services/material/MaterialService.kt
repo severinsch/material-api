@@ -1,4 +1,4 @@
-package services
+package services.material
 import database.BulkStock
 import database.Materials
 import database.IndividualItems

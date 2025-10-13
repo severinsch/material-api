@@ -1,5 +1,6 @@
 package routes
 
+import database.ItemCondition
 import database.MaterialTrackingType
 import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
@@ -26,4 +27,15 @@ data class MaterialSummaryResponse @OptIn(ExperimentalUuidApi::class) constructo
     // For INDIVIDUAL: They are calculated by counting rows in the `individual_items` table.
     val availableCount: Int,
     val damagedCount: Int
+)
+
+@Serializable
+data class IndividualItemResponse @OptIn(ExperimentalUuidApi::class) constructor(
+    val id: Uuid,
+    val materialId: Uuid,
+    val identifier: String,
+    val condition: ItemCondition,
+    val storageLocation: StorageLocation?,
+    val purchasePrice: Double?,
+    val purchaseDate: String?
 )

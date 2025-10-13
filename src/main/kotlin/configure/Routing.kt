@@ -6,13 +6,15 @@ import io.ktor.server.routing.*
 import routes.damageRoutes
 import routes.materialRoutes
 import services.DamageService
-import services.MaterialService
+import services.material.ItemService
+import services.material.MaterialService
 
 fun Application.configureRouting() {
     val materialService = MaterialService()
+    val itemService = ItemService()
     val damageService = DamageService()
     routing {
-        materialRoutes(materialService)
+        materialRoutes(materialService, itemService)
         damageRoutes(damageService)
         route("/") {
             get {

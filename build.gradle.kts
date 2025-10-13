@@ -1,7 +1,6 @@
 import io.ktor.plugin.OpenApiPreview
 
 val exposed_version: String by project
-
 val kotlin_version: String by project
 val logback_version: String by project
 
