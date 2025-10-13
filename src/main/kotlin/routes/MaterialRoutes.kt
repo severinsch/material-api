@@ -1,48 +1,41 @@
 package routes
 
+import database.MaterialTrackingType
 import services.MaterialService
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
-@Serializable
-data class Material(
-    val id: String,
-    val name: String,
-    val trackingType: String,
-    val storageLocationId: String?,
-    val quantityAvailable: Int?,
-    val quantityDamaged: Int?,
-    val description: String?,
-    val category: String?,
-    val purchasePrice: Double?,
-    val purchaseDate: String?
-)
-
-@Serializable
-data class NewMaterial(
-    val name: String,
-    val trackingType: String,
-    val storageLocationId: String? = null,
-    val quantityAvailable: Int? = null,
-    val quantityDamaged: Int? = null,
-    val description: String? = null,
-    val category: String? = null,
-    val purchasePrice: Double? = null,
-    val purchaseDate: String? = null
-)
-
+@OptIn(ExperimentalUuidApi::class)
 fun Route.materialRoutes(materialService: MaterialService) {
     route("/materials") {
         get {
-            call.respond(materialService.getAll())
+            val qParams = call.request.queryParameters
+            if (qParams.isEmpty()) {
+                call.respond(materialService.getAll())
+                return@get
+            }
+            if (qParams["type"]?.equals("bulk", ignoreCase = true) ?: false) {
+                call.respond(materialService.getByType(MaterialTrackingType.BULK))
+                return@get
+            }
+            if (qParams["type"]?.equals("individual", ignoreCase = true) ?: false) {
+                call.respond(materialService.getByType(MaterialTrackingType.INDIVIDUAL))
+                return@get
+            }
         }
-        post {
-            val newMaterial = call.receive<NewMaterial>()
-            val createdMaterial = materialService.create(newMaterial)
-            call.respond(HttpStatusCode.Created, createdMaterial)
+        get("/{id}") {
+            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            var uuid: Uuid?
+            try {
+                uuid = Uuid.parse(id)
+            } catch (_: IllegalArgumentException) {
+                return@get call.respond(HttpStatusCode.BadRequest)
+            }
+            val material = materialService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.OK, material)
         }
     }
 }

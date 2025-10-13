@@ -1,54 +1,97 @@
 package services
+import database.BulkStock
 import database.Materials
-import database.DatabaseFactory.dbQuery
+import database.IndividualItems
+import database.ItemCondition
 import database.MaterialTrackingType
-import org.jetbrains.exposed.dao.id.EntityID
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
-import routes.Material
-import routes.NewMaterial
-import java.math.BigDecimal
-import java.time.LocalDate
+import database.StorageLocations
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import routes.MaterialSummaryResponse
+import routes.StorageLocation
 import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import kotlin.uuid.toJavaUuid
+
+data class ItemCounts(val total: Int, val damaged: Int)
 
 class MaterialService {
 
-    suspend fun getAll(): List<Material> = dbQuery {
-        Materials.selectAll().map(::toMaterial)
+    private fun getWithCondition(predicate: () -> Op<Boolean>): List<MaterialSummaryResponse> = transaction {
+        val isDamagedCondition = (IndividualItems.condition eq ItemCondition.POOR) or
+                (IndividualItems.condition eq ItemCondition.DECOMMISSIONED)
+
+        val damagedCountExpr = Case()
+            .When(isDamagedCondition, intLiteral(1))
+            .Else(intLiteral(0)).sum()
+            .alias("damaged_count")
+
+        val individualItemCounts: Map<UUID, ItemCounts> = IndividualItems
+            .select(
+                IndividualItems.materialId,
+                IndividualItems.id.count(), // total count
+                damagedCountExpr
+            )
+            .groupBy(IndividualItems.materialId)
+            .associate {
+                it[IndividualItems.materialId].value to ItemCounts(
+                    total = it[IndividualItems.id.count()].toInt(),
+                    damaged = it[damagedCountExpr] ?: 0
+
+                )
+            }
+
+        val allMaterials = Materials
+            .leftJoin(BulkStock)
+            .selectAll()
+            .where(predicate)
+            .map { row ->
+                val (available, damaged) = if (row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
+                    val counts = individualItemCounts[row[Materials.id].value]
+                    counts?.let { Pair(it.total - it.damaged, it.damaged) } ?: Pair(0, 0)
+                } else {
+                    Pair(row[BulkStock.quantityAvailable], row[BulkStock.quantityDamaged])
+                }
+                toMaterialResponse(row, available, damaged)
+            }
+
+        return@transaction allMaterials
     }
 
-    suspend fun create(newMaterial: NewMaterial): Material {
-        val id = dbQuery {
-            Materials.insert {
-                it[name] = newMaterial.name
-                it[trackingType] = MaterialTrackingType.valueOf(newMaterial.trackingType)
-                newMaterial.storageLocationId?.let { slId -> it[storageLocationId] = UUID.fromString(slId) }
-                it[quantityAvailable] = newMaterial.quantityAvailable
-                it[quantityDamaged] = newMaterial.quantityDamaged
-                it[description] = newMaterial.description
-                it[category] = newMaterial.category
-                newMaterial.purchasePrice?.let { pp -> it[purchasePrice] = BigDecimal.valueOf(pp) }
-                newMaterial.purchaseDate?.let { pd -> it[purchaseDate] = LocalDate.parse(pd) }
-            } get Materials.id
+    fun getAll(): List<MaterialSummaryResponse> = getWithCondition { Op.TRUE }
+
+    fun getByType(type: MaterialTrackingType): List<MaterialSummaryResponse> = getWithCondition { Materials.trackingType eq type }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun getById(uuid: Uuid): MaterialSummaryResponse? = getById(uuid.toJavaUuid())
+
+    private fun getById(id: UUID): MaterialSummaryResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialSummaryResponse {
+
+        val locationResponse = if (row.getOrNull(StorageLocations.id) != null) {
+            StorageLocation(
+                id = Uuid.parse(row[StorageLocations.id].value.toString()),
+                name = row[StorageLocations.name],
+                description = row[StorageLocations.description]
+            )
+        } else {
+            null
         }
-        return getById(id)!!
-    }
 
-    private suspend fun getById(id: EntityID<UUID>): Material? = dbQuery {
-        Materials.selectAll().where { Materials.id eq id }.withDistinct().map(::toMaterial).singleOrNull()
+        return MaterialSummaryResponse(
+            id = Uuid.parse(row[Materials.id].toString()),
+            name = row[Materials.name],
+            trackingType = row[Materials.trackingType],
+            location = locationResponse,
+            description = row[Materials.description],
+            category = row[Materials.category],
+            availableCount = available,
+            damagedCount = damaged
+        )
     }
-
-    private fun toMaterial(row: ResultRow): Material = Material(
-        id = row[Materials.id].toString(),
-        name = row[Materials.name],
-        trackingType = row[Materials.trackingType].name,
-        storageLocationId = row[Materials.storageLocationId]?.toString(),
-        quantityAvailable = row[Materials.quantityAvailable],
-        quantityDamaged = row[Materials.quantityDamaged],
-        description = row[Materials.description],
-        category = row[Materials.category],
-        purchasePrice = row[Materials.purchasePrice]?.toDouble(),
-        purchaseDate = row[Materials.purchaseDate]?.toString()
-    )
 }

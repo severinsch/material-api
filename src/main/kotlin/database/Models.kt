@@ -1,9 +1,19 @@
 package database
 
-import org.jetbrains.exposed.dao.id.UUIDTable
-import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.javatime.date
-import org.jetbrains.exposed.sql.javatime.timestamp
+import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
+import org.jetbrains.exposed.v1.javatime.date
+import org.jetbrains.exposed.v1.javatime.timestamp
+import org.postgresql.util.PGobject
+
+
+class PGEnum<T : Enum<T>>(enumTypeName: String, enumValue: T?) : PGobject() {
+    init {
+        value = enumValue?.name
+        type = enumTypeName
+    }
+}
 
 enum class MaterialTrackingType {
     BULK, INDIVIDUAL
@@ -20,32 +30,53 @@ object StorageLocations : UUIDTable("storage_locations") {
 
 object Materials : UUIDTable("materials") {
     val name = varchar("name", 255).uniqueIndex()
-    val trackingType = enumerationByName("tracking_type", 20, MaterialTrackingType::class)
-    val storageLocationId = reference("storage_location_id", StorageLocations).nullable()
-    val quantityAvailable = integer("quantity_available").nullable()
-    val quantityDamaged = integer("quantity_damaged").nullable()
+    val trackingType: Column<MaterialTrackingType> = customEnumeration(
+        name="tracking_type",
+        sql="material_tracking_type",
+        fromDb = { value -> MaterialTrackingType.valueOf(value as String) },
+        toDb = { PGEnum("material_tracking_type", it) })
     val description = text("description").nullable()
     val category = varchar("category", 255).nullable()
-    val purchasePrice = decimal("purchase_price", 10, 2).nullable()
-    val purchaseDate = date("purchase_date").nullable()
 }
 
-object InventoryItems : UUIDTable("inventory_items") {
+object IndividualItems : UUIDTable("individual_items") {
     val materialId = reference("material_id", Materials)
-    val storageLocationId = reference("storage_location_id", StorageLocations).nullable()
     val identifier = varchar("identifier", 255)
-    val condition = enumerationByName("condition", 20, ItemCondition::class)
+    val condition: Column<ItemCondition> = customEnumeration(
+        name="condition",
+        sql="item_condition",
+        fromDb = { value -> ItemCondition.valueOf(value as String) },
+        toDb = { PGEnum("item_condition", it) })
+    val storageLocationId = reference("storage_location_id", StorageLocations).nullable()
+    val purchasePrice = decimal("purchase_price", 10, 2).nullable()
+    val purchaseDate = date("purchase_date").nullable()
 
     init {
         uniqueIndex(materialId, identifier)
     }
 }
 
+object BulkStock : UUIDTable("bulk_stock") {
+    val materialId = reference("material_id", Materials)
+    val quantityAvailable = integer("quantity_available").default(0)
+    val quantityDamaged = integer("quantity_damaged").default(0)
+    val storageLocationId = reference("storage_location_id", StorageLocations).nullable()
+    val purchasePrice = decimal("purchase_price", 10, 2).nullable()
+    val purchaseDate = date("purchase_date").nullable()
+
+    init {
+        uniqueIndex(materialId)
+    }
+}
+
 object DamageReports : UUIDTable("damage_reports") {
-    val inventoryItemId = reference("inventory_item_id", InventoryItems)
+    val inventoryItemId = reference("individual_item_id", IndividualItems)
     val description = text("description")
     val isResolved = bool("is_resolved").default(false)
     val reportedAt = timestamp("reported_at")
+    val resolvedAt = timestamp("resolved_at").nullable()
+    val reportedBy = varchar("reported_by", 255).nullable()
+    val resolutionNotes = text("resolution_notes").nullable()
 }
 
 object Kits : UUIDTable("kits") {

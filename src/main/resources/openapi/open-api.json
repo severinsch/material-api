@@ -10,65 +10,6 @@
         "license": "Apache/1.0"
     },
     "paths": {
-        "/": {
-            "get": {
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "text/plain": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/damages": {
-            "get": {
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/DamageReport"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewDamageReport"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DamageReport"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/materials": {
             "get": {
                 "responses": {
@@ -79,35 +20,43 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/Material"
+                                        "$ref": "#/components/schemas/<error>"
                                     }
                                 }
                             }
                         }
                     }
-                }
-            },
-            "post": {
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewMaterial"
-                            }
+                },
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
                         }
                     }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Material"
-                                }
-                            }
+                ]
+            }
+        },
+        "/materials/{id}": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
                         }
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
                     }
                 }
             }
@@ -115,106 +64,9 @@
     },
     "components": {
         "schemas": {
-            "DamageReport": {
+            "<error>": {
                 "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "inventoryItemId": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "isResolved": {
-                        "type": "boolean"
-                    },
-                    "reportedAt": {
-                        "type": "string"
-                    }
-                }
-            },
-            "NewDamageReport": {
-                "type": "object",
-                "properties": {
-                    "inventoryItemId": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "isResolved": {
-                        "type": "boolean"
-                    }
-                }
-            },
-            "Material": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "trackingType": {
-                        "type": "string"
-                    },
-                    "storageLocationId": {
-                        "type": "string"
-                    },
-                    "quantityAvailable": {
-                        "type": "integer"
-                    },
-                    "quantityDamaged": {
-                        "type": "integer"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    }
-                }
-            },
-            "NewMaterial": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "trackingType": {
-                        "type": "string"
-                    },
-                    "storageLocationId": {
-                        "type": "string"
-                    },
-                    "quantityAvailable": {
-                        "type": "integer"
-                    },
-                    "quantityDamaged": {
-                        "type": "integer"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    }
-                }
+                "properties": {}
             }
         }
     }

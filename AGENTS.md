@@ -34,35 +34,68 @@ This is the most critical context. The application's logic is built entirely aro
 -   `material_tracking_type`: ENUM with values `'BULK'`, `'INDIVIDUAL'`.
 -   `item_condition`: ENUM with values `'NEW'`, `GOOD`, `FAIR`, `POOR`, `DECOMMISSIONED`.
 
-#### Tables
+#### **Database Schema Overview for Scout Equipment Management (v3)**
 
-**1. `storage_locations`**
--   Stores physical locations where equipment can be stored.
--   `id` (UUID, PK), `name` (VARCHAR, Unique), `description` (TEXT)
+This schema uses a "Class Table Inheritance" pattern. The `materials` table acts as an abstract base, defining common properties. The `individual_items` and `bulk_stock` tables provide the specific, concrete details for each tracking type. To get full details, you must join `materials` with one of the concrete tables based on its `tracking_type`.
 
-**2. `materials`**
--   The master catalog of all equipment *types*.
--   `id` (UUID, PK), `name` (VARCHAR, Unique), `tracking_type` (ENUM), `storage_location_id` (UUID, FK, Nullable)
--   **For `BULK` items only:** `quantity_available` (INT), `quantity_damaged` (INT)
--   **Descriptive fields:** `description` (TEXT), `category` (VARCHAR), `purchase_price` (DECIMAL), `purchase_date` (DATE)
+#### **ENUM Types**
 
-**3. `inventory_items`**
--   A single, physical instance of an `INDIVIDUAL` material.
--   `id` (UUID, PK), `material_id` (UUID, FK), `storage_location_id` (UUID, FK, Nullable), `identifier` (VARCHAR), `condition` (ENUM)
--   **Constraints:** `UNIQUE(material_id, identifier)`
+*   `material_tracking_type`: ENUM with values `'INDIVIDUAL'`, `'BULK'`.
+*   `item_condition`: ENUM with values `'NEW'`, `'GOOD'`, `'FAIR'`, `'POOR'`, `'DECOMMISSIONED'`.
 
-**4. `damage_reports`**
--   A log of damages for `INDIVIDUAL` items.
--   `id` (UUID, PK), `inventory_item_id` (UUID, FK), `description` (TEXT), `is_resolved` (BOOL), `reported_at` (TIMESTAMPTZ), etc.
+#### **Tables**
 
-**5. `kits`**
--   Defines a "packing list" or "recipe".
--   `id` (UUID, PK), `name` (VARCHAR, Unique), `description` (TEXT)
+**1. `storage_locations`** (Unchanged)
+*   Stores physical locations.
+*   **Columns:** `id` (UUID, PK), `name` (VARCHAR, Unique), `description` (TEXT)
 
-**6. `kit_materials`**
--   Join table for materials required for a `Kit`.
--   `kit_id` (UUID, FK), `material_id` (UUID, FK), `quantity_required` (INT)
--   **Constraints:** `PRIMARY KEY (kit_id, material_id)`
+**2. `materials` (The Abstract "Base Class")**
+*   The master catalog of all equipment *definitions*. It contains only the shared data.
+*   **Columns:**
+    *   `id`: UUID, Primary Key
+    *   `name`: VARCHAR(255), Not Null, Unique
+    *   `tracking_type`: `material_tracking_type`, Not Null
+    *   `description`: TEXT, Nullable
+    *   `category`: VARCHAR(100), Nullable
+    *   `created_at`: TIMESTAMPTZ, Not Null
+    *   `updated_at`: TIMESTAMPTZ, Not Null
+
+**3. `individual_items` (Concrete Table for `INDIVIDUAL` type)**
+*   Represents a single, physical, uniquely tracked item.
+*   **Columns:**
+    *   `id`: UUID, Primary Key
+    *   `material_id`: UUID, Not Null, Foreign Key to `materials(id) (not unique, -> 1-n)
+    *   `identifier`: VARCHAR(100), Not Null
+    *   `condition`: `item_condition`, Not Null
+    *   `storage_location_id`: UUID, Nullable, Foreign Key to `storage_locations(id)`
+    *   `purchase_price`: DECIMAL(10, 2), Nullable
+    *   `purchase_date`: DATE, Nullable
+    *   `created_at`: TIMESTAMPTZ, Not Null
+    *   `updated_at`: TIMESTAMPTZ, Not Null
+*   **Constraints:** `UNIQUE(material_id, identifier)`
+
+**4. `bulk_stock` (Concrete Table for `BULK` type)**
+*   Represents a stock of a fungible, quantity-tracked material.
+*   **Columns:**
+    *   `id`: UUID, Primary Key
+    *   `material_id`: UUID, Not Null, Unique, Foreign Key to `materials(id)` (unique -> 1-1)
+    *   `quantity_available`: INTEGER, Not Null, Default 0
+    *   `quantity_damaged`: INTEGER, Not Null, Default 0
+    *   `storage_location_id`: UUID, Nullable, Foreign Key to `storage_locations(id)`
+    *   `purchase_price`: DECIMAL(10, 2), Nullable (Represents price-per-unit for the stock)
+    *   `purchase_date`: DATE, Nullable (Represents purchase date for the stock)
+    *   `created_at`: TIMESTAMPTZ, Not Null
+    *   `updated_at`: TIMESTAMPTZ, Not Null
+
+**5. `damage_reports`** (Unchanged, but `inventory_item_id` is now `individual_item_id`)
+*   A log of damages for `INDIVIDUAL` items.
+*   **Columns:**
+    *   `id`: UUID, Primary Key
+    *   `individual_item_id`: UUID, Not Null, Foreign Key to `individual_items(id)`
+    *   ... (other columns are the same)
+
+**6. `kits` & `kit_materials`** (Unchanged)
+*   These tables correctly reference the abstract `materials` table, which is exactly what we want for defining recipes.
 
 ## 5. Coding Conventions
 

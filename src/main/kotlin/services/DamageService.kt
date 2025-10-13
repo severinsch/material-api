@@ -1,34 +1,40 @@
 package services
 import database.DamageReports
-import database.DatabaseFactory.dbQuery
-import org.jetbrains.exposed.dao.id.EntityID
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insertReturning
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import routes.DamageReport
 import routes.NewDamageReport
 import java.time.Instant
 import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import kotlin.uuid.toJavaUuid
 
 class DamageService {
 
-    suspend fun getAll(): List<DamageReport> = dbQuery {
+    fun getAll(): List<DamageReport> = transaction {
         DamageReports.selectAll().map(::toDamageReport)
     }
 
-    suspend fun create(newDamageReport: NewDamageReport): DamageReport {
-        val id = dbQuery {
-            DamageReports.insert {
+    fun create(newDamageReport: NewDamageReport): DamageReport {
+        return transaction {
+            DamageReports.insertReturning {
                 it[inventoryItemId] = UUID.fromString(newDamageReport.inventoryItemId)
                 it[description] = newDamageReport.description
                 it[isResolved] = newDamageReport.isResolved
                 it[reportedAt] = Instant.now()
-            } get DamageReports.id
+            }.single().let { toDamageReport(it) }
         }
-        return getById(id)!!
     }
 
-    private suspend fun getById(id: EntityID<UUID>): DamageReport? = dbQuery {
+    @OptIn(ExperimentalUuidApi::class)
+    fun getById(uuid: Uuid): DamageReport? = getById(uuid.toJavaUuid())
+
+    // use kotlin Uuid generally, but exposed sadly uses java UUID
+    private fun getById(id: UUID): DamageReport? = transaction {
         DamageReports.selectAll().where { DamageReports.id eq id }.withDistinct().map(::toDamageReport).singleOrNull()
     }
 
