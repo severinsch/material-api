@@ -1,13 +1,13 @@
 package routes
 
 import database.MaterialTrackingType
+import getUUIDfromCall
 import services.material.MaterialService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import services.material.ItemService
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 fun Route.materialRoutes(materialService: MaterialService, itemService: ItemService) {
@@ -28,29 +28,24 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
             }
         }
         get("/{id}") {
-            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-            var uuid: Uuid?
-            try {
-                uuid = Uuid.parse(id)
-            } catch (_: IllegalArgumentException) {
-                return@get call.respond(HttpStatusCode.BadRequest)
-            }
+            val uuid = getUUIDfromCall(call) ?: return@get
             val material = materialService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
             call.respond(HttpStatusCode.OK, material)
         }
         get("/{id}/items") {
-            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-            var uuid: Uuid
-            try {
-                uuid = Uuid.parse(id)
-            } catch (_: IllegalArgumentException) {
-                return@get call.respond(HttpStatusCode.BadRequest)
-            }
+            val uuid = getUUIDfromCall(call) ?: return@get
             val items = itemService.getAllOfType(uuid)
             call.respond(
                 HttpStatusCode.OK,
                 items
             )
+        }
+    }
+    route("/items") {
+        get("/{id}") {
+            val uuid = getUUIDfromCall(call) ?: return@get
+            val item = itemService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.OK, item)
         }
     }
 }

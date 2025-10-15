@@ -39,3 +39,13 @@ data class IndividualItemResponse @OptIn(ExperimentalUuidApi::class) constructor
     val purchasePrice: Double?,
     val purchaseDate: String?
 )
+
+@Serializable
+data class NewIndividualItem @OptIn(ExperimentalUuidApi::class) constructor(
+    val materialId: Uuid,
+    val identifier: String,
+    val condition: ItemCondition,
+    val storageLocation: StorageLocation?,
+    val purchasePrice: Double?,
+    val purchaseDate: String?
+)
