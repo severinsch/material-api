@@ -1,11 +1,13 @@
 package routes
 
+import getUUIDfromQueryParameter
 import services.DamageService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlin.uuid.ExperimentalUuidApi
 
 @Serializable
 data class DamageReport(
@@ -23,9 +25,22 @@ data class NewDamageReport(
     val isResolved: Boolean = false
 )
 
+@OptIn(ExperimentalUuidApi::class)
 fun Route.damageRoutes(damageService: DamageService) {
     route("/damages") {
+        /**
+         * Get all Damages
+         *
+         * @query item_id: The id of the item to get damages for. Get all Damages if not provided.
+         * @response 200 [DamageReport] List of damages.
+         * @response 400 If the item_id parameter is malformed.
+         */
         get {
+            val uuid = getUUIDfromQueryParameter(call, "item_id", required = false)
+            if (uuid != null) {
+                call.respond(damageService.getByItemId(uuid))
+                return@get
+            }
             call.respond(damageService.getAll())
         }
         post {

@@ -28,19 +28,31 @@
         },
         "/damages": {
             "get": {
+                "summary": "Get all Damages",
+                "parameters": [
+                    {
+                        "name": "item_id:",
+                        "in": "query",
+                        "description": "The id of the item to get damages for. Get all Damages if not provided.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "",
+                        "description": "List of damages.",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/DamageReport"
-                                    }
+                                    "$ref": "#/components/schemas/DamageReport"
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the item_id parameter is malformed."
                     }
                 }
             },
@@ -100,10 +112,12 @@
         },
         "/materials/{id}": {
             "get": {
+                "summary": "Get Material by id",
                 "parameters": [
                     {
-                        "name": "id",
+                        "name": "id:",
                         "in": "path",
+                        "description": "The id of the material to get",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -111,14 +125,8 @@
                     }
                 ],
                 "responses": {
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    },
                     "200": {
-                        "description": "",
+                        "description": "The returned Material",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -126,16 +134,24 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the id parameter is malformed."
+                    },
+                    "404": {
+                        "description": "If no Material was found for the specified ID"
                     }
                 }
             }
         },
         "/materials/{id}/items": {
             "get": {
+                "summary": "Get Items for Material by id",
                 "parameters": [
                     {
-                        "name": "id",
+                        "name": "id:",
                         "in": "path",
+                        "description": "The id of the material to get items for",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -143,21 +159,52 @@
                     }
                 ],
                 "responses": {
-                    "400": {
-                        "description": ""
-                    },
                     "200": {
-                        "description": "",
+                        "description": "The returned individual items",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/IndividualItemResponse"
-                                    }
+                                    "$ref": "#/components/schemas/IndividualItemResponse"
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the id parameter is malformed or missing."
+                    }
+                }
+            }
+        },
+        "/items/{id}": {
+            "get": {
+                "summary": "Get individual item by id",
+                "parameters": [
+                    {
+                        "name": "id:",
+                        "in": "path",
+                        "description": "The id of the item to get",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The returned Individual item",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "If the id parameter is malformed."
+                    },
+                    "404": {
+                        "description": "If no Item was found for the specified ID"
                     }
                 }
             }

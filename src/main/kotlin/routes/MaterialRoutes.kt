@@ -1,7 +1,7 @@
 package routes
 
 import database.MaterialTrackingType
-import getUUIDfromCall
+import getUUIDfromPathParameter
 import services.material.MaterialService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.*
@@ -27,13 +27,31 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
                 return@get
             }
         }
+
+        /**
+         * Get Material by id
+         *
+         * @path id: The id of the material to get
+         * @response 200 [MaterialSummaryResponse] The returned Material
+         * @response 400 If the id parameter is malformed.
+         * @response 404 If no Material was found for the specified ID
+         */
         get("/{id}") {
-            val uuid = getUUIDfromCall(call) ?: return@get
+            val uuid = getUUIDfromPathParameter(call) ?: return@get
             val material = materialService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
             call.respond(HttpStatusCode.OK, material)
         }
+
+        // TODO: how to specify array of IndividualItemResponse instead of single for openapi spec? same for other endpoints
+        /**
+         * Get Items for Material by id
+         *
+         * @path id: The id of the material to get items for
+         * @response 200 [IndividualItemResponse] The returned individual items
+         * @response 400 If the id parameter is malformed or missing.
+         */
         get("/{id}/items") {
-            val uuid = getUUIDfromCall(call) ?: return@get
+            val uuid = getUUIDfromPathParameter(call) ?: return@get
             val items = itemService.getAllOfType(uuid)
             call.respond(
                 HttpStatusCode.OK,
@@ -42,8 +60,17 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         }
     }
     route("/items") {
+
+        /**
+         * Get individual item by id
+         *
+         * @path id: The id of the item to get
+         * @response 200 [IndividualItemResponse] The returned Individual item
+         * @response 400 If the id parameter is malformed.
+         * @response 404 If no Item was found for the specified ID
+         */
         get("/{id}") {
-            val uuid = getUUIDfromCall(call) ?: return@get
+            val uuid = getUUIDfromPathParameter(call) ?: return@get
             val item = itemService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
             call.respond(HttpStatusCode.OK, item)
         }

@@ -31,6 +31,16 @@ class DamageService {
     }
 
     @OptIn(ExperimentalUuidApi::class)
+    fun getByItemId(itemId: Uuid): List<DamageReport> {
+        return transaction {
+            DamageReports
+                .selectAll()
+                .where { DamageReports.inventoryItemId eq itemId.toJavaUuid() }
+                .map(::toDamageReport)
+        }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
     fun getById(uuid: Uuid): DamageReport? = getById(uuid.toJavaUuid())
 
     // use kotlin Uuid generally, but exposed sadly uses java UUID
