@@ -1,17 +1,13 @@
 package services.material
-import database.BulkStock
-import database.Materials
-import database.IndividualItems
-import database.ItemCondition
-import database.MaterialTrackingType
-import database.StorageLocations
+
+import database.*
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import routes.MaterialSummaryResponse
 import routes.StorageLocation
-import java.util.UUID
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid
@@ -63,7 +59,8 @@ class MaterialService {
 
     fun getAll(): List<MaterialSummaryResponse> = getWithCondition { Op.TRUE }
 
-    fun getByType(type: MaterialTrackingType): List<MaterialSummaryResponse> = getWithCondition { Materials.trackingType eq type }
+    fun getByType(type: MaterialTrackingType): List<MaterialSummaryResponse> =
+        getWithCondition { Materials.trackingType eq type }
 
     @OptIn(ExperimentalUuidApi::class)
     fun getById(uuid: Uuid): MaterialSummaryResponse? = getById(uuid.toJavaUuid())

@@ -31,8 +31,8 @@ object StorageLocations : UUIDTable("storage_locations") {
 object Materials : UUIDTable("materials") {
     val name = varchar("name", 255).uniqueIndex()
     val trackingType: Column<MaterialTrackingType> = customEnumeration(
-        name="tracking_type",
-        sql="material_tracking_type",
+        name = "tracking_type",
+        sql = "material_tracking_type",
         fromDb = { value -> MaterialTrackingType.valueOf(value as String) },
         toDb = { PGEnum("material_tracking_type", it) })
     val description = text("description").nullable()
@@ -43,8 +43,8 @@ object IndividualItems : UUIDTable("individual_items") {
     val materialId = reference("material_id", Materials)
     val identifier = varchar("identifier", 255)
     val condition: Column<ItemCondition> = customEnumeration(
-        name="condition",
-        sql="item_condition",
+        name = "condition",
+        sql = "item_condition",
         fromDb = { value -> ItemCondition.valueOf(value as String) },
         toDb = { PGEnum("item_condition", it) })
     val storageLocationId = reference("storage_location_id", StorageLocations).nullable()

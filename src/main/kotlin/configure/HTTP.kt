@@ -20,6 +20,6 @@ fun Application.configureHTTP() {
         swaggerUI(path = "swagger", swaggerFile = "resources/openapi/open-api.json")
     }
     routing {
-        openAPI(path="openapi", swaggerFile = "resources/openapi/open-api.json")
+        openAPI(path = "openapi", swaggerFile = "resources/openapi/open-api.json")
     }
 }

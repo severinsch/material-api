@@ -13,7 +13,7 @@ import routes.IndividualItemResponse
 import routes.NewIndividualItem
 import routes.StorageLocation
 import java.time.LocalDate
-import java.util.UUID
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid
@@ -70,17 +70,17 @@ class ItemService {
     @OptIn(ExperimentalUuidApi::class)
     fun toIndividualItemResponseWithLocation(row: ResultRow): IndividualItemResponse {
         return IndividualItemResponse(
-                id = Uuid.parse(row[IndividualItems.id].toString()),
-        materialId = Uuid.parse(row[IndividualItems.materialId].toString()),
-        identifier = row[IndividualItems.identifier],
-        condition = row[IndividualItems.condition],
-        storageLocation = StorageLocation(
-            id = Uuid.parse(row[StorageLocations.id].toString()),
-            name = row[StorageLocations.name],
-            description = row[StorageLocations.description],
-        ),
-        purchasePrice = row[IndividualItems.purchasePrice]?.toDouble(),
-        purchaseDate = row[IndividualItems.purchaseDate]?.toString(),
+            id = Uuid.parse(row[IndividualItems.id].toString()),
+            materialId = Uuid.parse(row[IndividualItems.materialId].toString()),
+            identifier = row[IndividualItems.identifier],
+            condition = row[IndividualItems.condition],
+            storageLocation = StorageLocation(
+                id = Uuid.parse(row[StorageLocations.id].toString()),
+                name = row[StorageLocations.name],
+                description = row[StorageLocations.description],
+            ),
+            purchasePrice = row[IndividualItems.purchasePrice]?.toDouble(),
+            purchaseDate = row[IndividualItems.purchaseDate]?.toString(),
         )
     }
 }

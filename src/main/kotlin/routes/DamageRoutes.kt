@@ -1,12 +1,12 @@
 package routes
 
 import getUUIDfromQueryParameter
-import services.DamageService
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
+import io.ktor.http.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import services.DamageService
 import kotlin.uuid.ExperimentalUuidApi
 
 @Serializable

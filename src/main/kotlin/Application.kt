@@ -4,7 +4,7 @@ import configure.configureSecurity
 import configure.configureSerialization
 import database.DatabaseFactory
 import io.ktor.server.application.*
-import io.ktor.server.netty.EngineMain
+import io.ktor.server.netty.*
 
 fun main(args: Array<String>) {
     EngineMain.main(args)

@@ -1,4 +1,5 @@
 package services
+
 import database.DamageReports
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
@@ -8,7 +9,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import routes.DamageReport
 import routes.NewDamageReport
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlin.uuid.toJavaUuid

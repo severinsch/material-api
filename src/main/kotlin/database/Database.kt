@@ -9,8 +9,8 @@ object DatabaseFactory {
     fun init() {
         // TODO don't connect if envs not set
         val db_url = System.getenv("DATABASE_URL")
-        if(db_url != null) {
-            val postgresqldb = Database.connect(
+        if (db_url != null) {
+            Database.connect(
                 db_url,
                 driver = "org.postgresql.Driver",
                 user = System.getenv("DATABASE_USER") ?: "scout",
