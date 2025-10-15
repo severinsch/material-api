@@ -26,6 +26,49 @@
                 }
             }
         },
+        "/damages": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DamageReport"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewDamageReport"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/materials": {
             "get": {
                 "responses": {
@@ -122,6 +165,40 @@
     },
     "components": {
         "schemas": {
+            "DamageReport": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "inventoryItemId": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isResolved": {
+                        "type": "boolean"
+                    },
+                    "reportedAt": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewDamageReport": {
+                "type": "object",
+                "properties": {
+                    "inventoryItemId": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "isResolved": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "MaterialSummaryResponse": {
                 "type": "object",
                 "properties": {
