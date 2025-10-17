@@ -3,6 +3,7 @@ package routes
 import database.MaterialTrackingType
 import getUUIDfromPathParameter
 import io.ktor.http.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import services.material.ItemService
@@ -58,6 +59,16 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
                 items
             )
         }
+        post("/bulk") {
+            val newBulkMaterial = call.receive<NewBulkMaterial>()
+            val createdMaterial = materialService.create(newBulkMaterial)
+            call.respond(HttpStatusCode.Created, createdMaterial)
+        }
+        post {
+            val newMaterial = call.receive<NewMaterial>()
+            val createdMaterial = materialService.create(newMaterial)
+            call.respond(HttpStatusCode.Created, createdMaterial)
+        }
     }
     route("/items") {
 
@@ -73,6 +84,12 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
             val uuid = getUUIDfromPathParameter(call) ?: return@get
             val item = itemService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
             call.respond(HttpStatusCode.OK, item)
+        }
+
+        post {
+            val newItem = call.receive<NewIndividualItem>()
+            val createdItem = itemService.create(newItem) ?: return@post call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.Created, createdItem)
         }
     }
 }

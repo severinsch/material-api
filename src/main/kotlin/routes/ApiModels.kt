@@ -30,6 +30,27 @@ data class MaterialSummaryResponse @OptIn(ExperimentalUuidApi::class) constructo
 )
 
 @Serializable
+data class NewMaterial @OptIn(ExperimentalUuidApi::class) constructor(
+    val name: String,
+    val trackingType: MaterialTrackingType,
+    val category: String?,
+    val description: String?,
+)
+
+@Serializable
+data class NewBulkMaterial @OptIn(ExperimentalUuidApi::class) constructor(
+    val name: String,
+    val storageLocationId: Uuid,
+    val category: String?,
+    val description: String?,
+    val availableCount: Int,
+    val damagedCount: Int,
+    val purchaseDate: String?,
+    val purchasePrice: Double?
+)
+
+
+@Serializable
 data class IndividualItemResponse @OptIn(ExperimentalUuidApi::class) constructor(
     val id: Uuid,
     val materialId: Uuid,

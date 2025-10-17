@@ -2,11 +2,16 @@ package services.material
 
 import database.*
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import routes.MaterialSummaryResponse
+import routes.NewBulkMaterial
+import routes.NewMaterial
 import routes.StorageLocation
+import java.time.LocalDate
 import java.util.*
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -66,6 +71,42 @@ class MaterialService {
     fun getById(uuid: Uuid): MaterialSummaryResponse? = getById(uuid.toJavaUuid())
 
     private fun getById(id: UUID): MaterialSummaryResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun create(newBulkMaterial: NewBulkMaterial): MaterialSummaryResponse = transaction {
+        val newId = Materials.insertAndGetId {
+            it[name] = newBulkMaterial.name
+            it[trackingType] = MaterialTrackingType.BULK
+            it[category] = newBulkMaterial.category
+            it[description] = newBulkMaterial.description
+        }
+
+        BulkStock.insert {
+            it[materialId] = newId.value
+            it[quantityAvailable] = newBulkMaterial.availableCount
+            it[quantityDamaged] = newBulkMaterial.damagedCount
+            it[purchasePrice] = newBulkMaterial.purchasePrice?.toBigDecimal()
+            it[purchaseDate] = newBulkMaterial.purchaseDate?.let { d -> LocalDate.parse(d) }
+            it[storageLocationId] = newBulkMaterial.storageLocationId.toJavaUuid()
+        }
+
+        return@transaction getById(newId.value) ?: throw Exception(
+            "Failed to create material with name '${newBulkMaterial.name}'"
+        )
+    }
+
+    fun create(newMaterial: NewMaterial): MaterialSummaryResponse = transaction {
+        val newId = Materials.insertAndGetId {
+            it[name] = newMaterial.name
+            it[trackingType] = newMaterial.trackingType
+            it[category] = newMaterial.category
+            it[description] = newMaterial.description
+        }
+
+        return@transaction getById(newId.value) ?: throw Exception(
+            "Failed to create material with name '${newMaterial.name}'"
+        )
+    }
 
     @OptIn(ExperimentalUuidApi::class)
     private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialSummaryResponse {
