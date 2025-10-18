@@ -31,8 +31,8 @@ fun Route.damageRoutes(damageService: DamageService) {
         /**
          * Get all Damages
          *
-         * @query item_id: The id of the item to get damages for. Get all Damages if not provided.
-         * @response 200 [DamageReport] List of damages.
+         * @query item_id The id of the item to get damages for. Get all Damages if not provided.
+         * Note: don't list the successful response, as List return type cannot be specified
          * @response 400 If the item_id parameter is malformed.
          */
         get {
@@ -43,6 +43,12 @@ fun Route.damageRoutes(damageService: DamageService) {
             }
             call.respond(damageService.getAll())
         }
+
+        /**
+         * Register new damage
+         *
+         * @response 201 [DamageReport] the newly created damage report
+         */
         post {
             val newDamageReport = call.receive<NewDamageReport>()
             val createdDamageReport = damageService.create(newDamageReport)

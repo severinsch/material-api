@@ -31,7 +31,7 @@
                 "summary": "Get all Damages",
                 "parameters": [
                     {
-                        "name": "item_id:",
+                        "name": "item_id",
                         "in": "query",
                         "description": "The id of the item to get damages for. Get all Damages if not provided.",
                         "required": false,
@@ -41,8 +41,29 @@
                     }
                 ],
                 "responses": {
+                    "400": {
+                        "description": "If the item_id parameter is malformed."
+                    },
                     "200": {
-                        "description": "List of damages.",
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DamageReport"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Register new damage",
+                "responses": {
+                    "201": {
+                        "description": "the newly created damage report",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -50,13 +71,8 @@
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "If the item_id parameter is malformed."
                     }
-                }
-            },
-            "post": {
+                },
                 "requestBody": {
                     "description": "",
                     "content": {
@@ -66,24 +82,27 @@
                             }
                         }
                     }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DamageReport"
-                                }
-                            }
-                        }
-                    }
                 }
             }
         },
         "/materials": {
             "get": {
+                "summary": "Get all Materials",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "The [MaterialTrackingType] of the materials to get.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
+                    "400": {
+                        "description": "If the type parameter is malformed."
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -97,37 +116,28 @@
                             }
                         }
                     }
-                },
-                "parameters": [
-                    {
-                        "name": "type",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
+                }
             },
             "post": {
+                "summary": "Create new Individual Material",
+                "responses": {
+                    "201": {
+                        "description": "The newly created individual Material",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                },
                 "requestBody": {
                     "description": "",
                     "content": {
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/NewMaterial"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
-                                }
                             }
                         }
                     }
@@ -139,7 +149,7 @@
                 "summary": "Get Material by id",
                 "parameters": [
                     {
-                        "name": "id:",
+                        "name": "id",
                         "in": "path",
                         "description": "The id of the material to get",
                         "required": true,
@@ -173,7 +183,7 @@
                 "summary": "Get Items for Material by id",
                 "parameters": [
                     {
-                        "name": "id:",
+                        "name": "id",
                         "in": "path",
                         "description": "The id of the material to get items for",
                         "required": true,
@@ -183,42 +193,46 @@
                     }
                 ],
                 "responses": {
+                    "400": {
+                        "description": "If the id parameter is malformed or missing."
+                    },
                     "200": {
-                        "description": "The returned individual items",
+                        "description": "",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/IndividualItemResponse"
+                                    }
                                 }
                             }
                         }
-                    },
-                    "400": {
-                        "description": "If the id parameter is malformed or missing."
                     }
                 }
             }
         },
         "/materials/bulk": {
             "post": {
+                "summary": "Create new Bulk Material",
+                "responses": {
+                    "201": {
+                        "description": "The newly created bulk Material",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                },
                 "requestBody": {
                     "description": "",
                     "content": {
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/NewBulkMaterial"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
-                                }
                             }
                         }
                     }
@@ -230,7 +244,7 @@
                 "summary": "Get individual item by id",
                 "parameters": [
                     {
-                        "name": "id:",
+                        "name": "id",
                         "in": "path",
                         "description": "The id of the item to get",
                         "required": true,
@@ -261,27 +275,28 @@
         },
         "/items": {
             "post": {
+                "summary": "Create a new individual item",
+                "responses": {
+                    "201": {
+                        "description": "The newly created individual item",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "If the item could not be created"
+                    }
+                },
                 "requestBody": {
                     "description": "",
                     "content": {
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/NewIndividualItem"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "400": {
-                        "description": ""
-                    },
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualItemResponse"
-                                }
                             }
                         }
                     }
