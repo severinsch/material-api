@@ -108,6 +108,30 @@
                         }
                     }
                 ]
+            },
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewMaterial"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/materials/{id}": {
@@ -175,6 +199,32 @@
                 }
             }
         },
+        "/materials/bulk": {
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewBulkMaterial"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/items/{id}": {
             "get": {
                 "summary": "Get individual item by id",
@@ -205,6 +255,35 @@
                     },
                     "404": {
                         "description": "If no Item was found for the specified ID"
+                    }
+                }
+            }
+        },
+        "/items": {
+            "post": {
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewIndividualItem"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": ""
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -324,6 +403,126 @@
                             }
                         }
                     },
+                    "materialId": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "identifier": {
+                        "type": "string"
+                    },
+                    "condition": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "storageLocation": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "object",
+                                "properties": {
+                                    "mostSignificantBits": {
+                                        "type": "integer"
+                                    },
+                                    "leastSignificantBits": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewBulkMaterial": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "storageLocationId": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    }
+                }
+            },
+            "NewMaterial": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewIndividualItem": {
+                "type": "object",
+                "properties": {
                     "materialId": {
                         "type": "object",
                         "properties": {
