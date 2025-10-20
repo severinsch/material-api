@@ -17,7 +17,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * Get all Materials
          *
          * @query type The [MaterialTrackingType] of the materials to get.
-         * Note: don't list the successful response, as List return type cannot be specified
+         * @response 200 [MaterialSummaryResponse]+ A list of Materials
          * @response 400 If the type parameter is malformed.
          */
         get {
@@ -47,12 +47,11 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
             call.respond(HttpStatusCode.OK, material)
         }
 
-        // TODO: how to specify array of IndividualItemResponse instead of single for openapi spec? same for other endpoints
         /**
          * Get Items for Material by id
          *
          * @path id The id of the material to get items for
-         * Note: don't list the successful response, as List return type cannot be specified
+         * @response 200 [IndividualItemResponse]+ A list of Items
          * @response 400 If the id parameter is malformed or missing.
          */
         get("/{id}/items") {

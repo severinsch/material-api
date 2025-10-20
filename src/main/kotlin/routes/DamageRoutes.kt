@@ -32,7 +32,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          * Get all Damages
          *
          * @query item_id The id of the item to get damages for. Get all Damages if not provided.
-         * Note: don't list the successful response, as List return type cannot be specified
+         * @response 200 [DamageReport]+ A list of damages
          * @response 400 If the item_id parameter is malformed.
          */
         get {

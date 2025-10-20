@@ -41,11 +41,8 @@
                     }
                 ],
                 "responses": {
-                    "400": {
-                        "description": "If the item_id parameter is malformed."
-                    },
                     "200": {
-                        "description": "",
+                        "description": "A list of damages",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -56,6 +53,9 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the item_id parameter is malformed."
                     }
                 }
             },
@@ -100,11 +100,8 @@
                     }
                 ],
                 "responses": {
-                    "400": {
-                        "description": "If the type parameter is malformed."
-                    },
                     "200": {
-                        "description": "",
+                        "description": "A list of Materials",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -115,6 +112,9 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the type parameter is malformed."
                     }
                 }
             },
@@ -193,11 +193,8 @@
                     }
                 ],
                 "responses": {
-                    "400": {
-                        "description": "If the id parameter is malformed or missing."
-                    },
                     "200": {
-                        "description": "",
+                        "description": "A list of Items",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -208,6 +205,9 @@
                                 }
                             }
                         }
+                    },
+                    "400": {
+                        "description": "If the id parameter is malformed or missing."
                     }
                 }
             }
