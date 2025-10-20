@@ -7,7 +7,9 @@ import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import routes.MaterialSummaryResponse
+import routes.BulkMaterialResponse
+import routes.IndividualMaterialSummaryResponse
+import routes.MaterialResponse
 import routes.NewBulkMaterial
 import routes.NewMaterial
 import routes.StorageLocation
@@ -21,7 +23,7 @@ data class ItemCounts(val total: Int, val damaged: Int)
 
 class MaterialService {
 
-    private fun getWithCondition(predicate: () -> Op<Boolean>): List<MaterialSummaryResponse> = transaction {
+    private fun getWithCondition(predicate: () -> Op<Boolean>): List<MaterialResponse> = transaction {
         val isDamagedCondition = (IndividualItems.condition eq ItemCondition.POOR) or
                 (IndividualItems.condition eq ItemCondition.DECOMMISSIONED)
 
@@ -62,18 +64,18 @@ class MaterialService {
         return@transaction allMaterials
     }
 
-    fun getAll(): List<MaterialSummaryResponse> = getWithCondition { Op.TRUE }
+    fun getAll(): List<MaterialResponse> = getWithCondition { Op.TRUE }
 
-    fun getByType(type: MaterialTrackingType): List<MaterialSummaryResponse> =
+    fun getByType(type: MaterialTrackingType): List<MaterialResponse> =
         getWithCondition { Materials.trackingType eq type }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun getById(uuid: Uuid): MaterialSummaryResponse? = getById(uuid.toJavaUuid())
+    fun getById(uuid: Uuid): MaterialResponse? = getById(uuid.toJavaUuid())
 
-    private fun getById(id: UUID): MaterialSummaryResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
+    private fun getById(id: UUID): MaterialResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
 
     @OptIn(ExperimentalUuidApi::class)
-    fun create(newBulkMaterial: NewBulkMaterial): MaterialSummaryResponse = transaction {
+    fun create(newBulkMaterial: NewBulkMaterial): BulkMaterialResponse = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newBulkMaterial.name
             it[trackingType] = MaterialTrackingType.BULK
@@ -90,12 +92,12 @@ class MaterialService {
             it[storageLocationId] = newBulkMaterial.storageLocationId.toJavaUuid()
         }
 
-        return@transaction getById(newId.value) ?: throw Exception(
+        return@transaction (getById(newId.value) ?: throw Exception(
             "Failed to create material with name '${newBulkMaterial.name}'"
-        )
+        )) as BulkMaterialResponse
     }
 
-    fun create(newMaterial: NewMaterial): MaterialSummaryResponse = transaction {
+    fun create(newMaterial: NewMaterial): IndividualMaterialSummaryResponse = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newMaterial.name
             it[trackingType] = newMaterial.trackingType
@@ -103,13 +105,13 @@ class MaterialService {
             it[description] = newMaterial.description
         }
 
-        return@transaction getById(newId.value) ?: throw Exception(
+        return@transaction (getById(newId.value) ?: throw Exception(
             "Failed to create material with name '${newMaterial.name}'"
-        )
+        )) as IndividualMaterialSummaryResponse
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialSummaryResponse {
+    private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {
 
         val locationResponse = if (row.getOrNull(StorageLocations.id) != null) {
             StorageLocation(
@@ -121,15 +123,32 @@ class MaterialService {
             null
         }
 
-        return MaterialSummaryResponse(
-            id = Uuid.parse(row[Materials.id].toString()),
-            name = row[Materials.name],
-            trackingType = row[Materials.trackingType],
-            location = locationResponse,
-            description = row[Materials.description],
-            category = row[Materials.category],
-            availableCount = available,
-            damagedCount = damaged
-        )
+        if(row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
+            return IndividualMaterialSummaryResponse(
+                id = Uuid.parse(row[Materials.id].toString()),
+                name = row[Materials.name],
+                trackingType = row[Materials.trackingType],
+                location = locationResponse,
+                description = row[Materials.description],
+                category = row[Materials.category],
+                availableCount = available,
+                damagedCount = damaged
+            )
+        } else {
+            return BulkMaterialResponse(
+                id = Uuid.parse(row[Materials.id].toString()),
+                name = row[Materials.name],
+                trackingType = row[Materials.trackingType],
+                location = locationResponse,
+                description = row[Materials.description],
+                category = row[Materials.category],
+                availableCount = available,
+                damagedCount = damaged,
+                purchaseDate = row[BulkStock.purchaseDate]?.toString(),
+                purchasePrice = row[BulkStock.purchasePrice]?.toDouble(),
+            )
+        }
+
+
     }
 }

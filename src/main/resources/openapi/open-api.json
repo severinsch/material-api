@@ -107,7 +107,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                        "$ref": "#/components/schemas/MaterialResponse"
                                     }
                                 }
                             }
@@ -126,7 +126,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
                                 }
                             }
                         }
@@ -164,7 +164,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                    "$ref": "#/components/schemas/MaterialResponse"
                                 }
                             }
                         }
@@ -221,7 +221,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/MaterialSummaryResponse"
+                                    "$ref": "#/components/schemas/BulkMaterialResponse"
                                 }
                             }
                         }
@@ -340,7 +340,7 @@
                     }
                 }
             },
-            "MaterialSummaryResponse": {
+            "MaterialResponse": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -510,6 +510,76 @@
                     }
                 }
             },
+            "BulkMaterialResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "object",
+                                "properties": {
+                                    "mostSignificantBits": {
+                                        "type": "integer"
+                                    },
+                                    "leastSignificantBits": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "purchaseDate": {
+                        "type": "string"
+                    },
+                    "purchasePrice": {
+                        "type": "number"
+                    }
+                }
+            },
             "NewMaterial": {
                 "type": "object",
                 "properties": {
@@ -532,6 +602,70 @@
                     },
                     "description": {
                         "type": "string"
+                    }
+                }
+            },
+            "IndividualMaterialSummaryResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "trackingType": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "ordinal": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "object",
+                                "properties": {
+                                    "mostSignificantBits": {
+                                        "type": "integer"
+                                    },
+                                    "leastSignificantBits": {
+                                        "type": "integer"
+                                    }
+                                }
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
                     }
                 }
             },

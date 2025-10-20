@@ -13,11 +13,12 @@ import kotlin.uuid.ExperimentalUuidApi
 @OptIn(ExperimentalUuidApi::class)
 fun Route.materialRoutes(materialService: MaterialService, itemService: ItemService) {
     route("/materials") {
+        // TODO add post-processing for openApi spec to use oneOf with the sub types instead of interface
         /**
          * Get all Materials
          *
          * @query type The [MaterialTrackingType] of the materials to get.
-         * @response 200 [MaterialSummaryResponse]+ A list of Materials
+         * @response 200 [MaterialResponse]+ A list of Materials
          * @response 400 If the type parameter is malformed.
          */
         get {
@@ -37,7 +38,8 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * Get Material by id
          *
          * @path id The id of the material to get
-         * @response 200 [MaterialSummaryResponse] The returned Material
+         *   format: uuid
+         * @response 200 [MaterialResponse] The returned Material
          * @response 400 If the id parameter is malformed.
          * @response 404 If no Material was found for the specified ID
          */
@@ -51,6 +53,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * Get Items for Material by id
          *
          * @path id The id of the material to get items for
+         *   format: uuid
          * @response 200 [IndividualItemResponse]+ A list of Items
          * @response 400 If the id parameter is malformed or missing.
          */
@@ -66,7 +69,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Create new Bulk Material
          *
-         * @response 201 [MaterialSummaryResponse] The newly created bulk Material
+         * @response 201 [BulkMaterialResponse] The newly created bulk Material
          */
         post("/bulk") {
             val newBulkMaterial = call.receive<NewBulkMaterial>()
@@ -77,7 +80,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Create new Individual Material
          *
-         * @response 201 [MaterialSummaryResponse] The newly created individual Material
+         * @response 201 [IndividualMaterialSummaryResponse] The newly created individual Material
          */
         post {
             val newMaterial = call.receive<NewMaterial>()
@@ -91,6 +94,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * Get individual item by id
          *
          * @path id The id of the item to get
+         *   format: uuid
          * @response 200 [IndividualItemResponse] The returned Individual item
          * @response 400 If the id parameter is malformed.
          * @response 404 If no Item was found for the specified ID
