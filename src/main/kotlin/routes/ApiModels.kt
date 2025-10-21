@@ -5,7 +5,7 @@ import database.MaterialTrackingType
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class StorageLocation (
+data class StorageLocation(
     val id: String,
     val name: String,
     val description: String?
@@ -25,7 +25,7 @@ sealed interface MaterialResponse {
 
 
 @Serializable
-data class BulkMaterialResponse (
+data class BulkMaterialResponse(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
@@ -40,7 +40,7 @@ data class BulkMaterialResponse (
 ) : MaterialResponse
 
 @Serializable
-data class IndividualMaterialSummaryResponse (
+data class IndividualMaterialSummaryResponse(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
@@ -53,7 +53,7 @@ data class IndividualMaterialSummaryResponse (
 ) : MaterialResponse
 
 @Serializable
-data class NewMaterial (
+data class NewMaterial(
     val name: String,
     val trackingType: MaterialTrackingType,
     val category: String?,
@@ -61,7 +61,7 @@ data class NewMaterial (
 )
 
 @Serializable
-data class NewBulkMaterial (
+data class NewBulkMaterial(
     val name: String,
     val storageLocationId: String,
     val category: String?,
@@ -74,7 +74,7 @@ data class NewBulkMaterial (
 
 
 @Serializable
-data class IndividualItemResponse (
+data class IndividualItemResponse(
     val id: String,
     val materialId: String,
     val identifier: String,
@@ -85,7 +85,7 @@ data class IndividualItemResponse (
 )
 
 @Serializable
-data class NewIndividualItem (
+data class NewIndividualItem(
     val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
@@ -95,7 +95,7 @@ data class NewIndividualItem (
 )
 
 @Serializable
-data class DamageReport (
+data class DamageReport(
     val id: String,
     val inventoryItemId: String,
     val description: String,
@@ -104,7 +104,7 @@ data class DamageReport (
 )
 
 @Serializable
-data class NewDamageReport (
+data class NewDamageReport(
     val inventoryItemId: String,
     val description: String,
     val isResolved: Boolean = false

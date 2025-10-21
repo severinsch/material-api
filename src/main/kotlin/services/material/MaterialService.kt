@@ -8,12 +8,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import parseUUID
-import routes.BulkMaterialResponse
-import routes.IndividualMaterialSummaryResponse
-import routes.MaterialResponse
-import routes.NewBulkMaterial
-import routes.NewMaterial
-import routes.StorageLocation
+import routes.*
 import java.time.LocalDate
 import java.util.*
 
@@ -116,7 +111,7 @@ class MaterialService {
             null
         }
 
-        if(row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
+        if (row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
             return IndividualMaterialSummaryResponse(
                 id = row[Materials.id].toString(),
                 name = row[Materials.name],
