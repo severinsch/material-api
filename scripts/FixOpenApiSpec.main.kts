@@ -4,12 +4,15 @@ val openApiFile = File(args[0])
 val openApiJson = openApiFile.readText()
 
 fun String.fixMaterialResponse() = this.replace(
-    $$"\"$ref\": \"#/components/schemas/MaterialResponse\"",
+    Regex($$"""
+        (?<padding>\h*)"\$ref": "#/components/schemas/MaterialResponse"
+        """.trimIndent()
+    ),
     $$"""
-        "anyOf": [ 
-                                                    { "$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
-                                                    { "$ref": "#/components/schemas/BulkMaterialResponse" }
-                                                ]""".trimIndent()
+    ${padding}"anyOf": [ 
+        ${padding}{ "\$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
+        ${padding}{ "\$ref": "#/components/schemas/BulkMaterialResponse" }
+    ${padding}]""".trimIndent()
 )
 
 val uuidFields = listOf("id", "materialId", "storageLocationId", "inventoryItemId")
@@ -18,7 +21,10 @@ fun String.addUuidFormat(): String = uuidFields.fold(
     this
 ) { acc, field ->
     acc.replace(
-        Regex("(?<padding>\\h*)\"$field\": \\{\\s*\"type\": \"string\"\\s*\\}"),
+        Regex("""
+            (?<padding>\h*)"$field": \{\s*"type": "string"\s*\}
+            """.trimIndent()
+        ),
         $$"""
         ${padding}"$$field": {
             ${padding}"type": "string",
