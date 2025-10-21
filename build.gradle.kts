@@ -57,3 +57,17 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }
+
+tasks.register("fixOpenApiSpec", Exec::class) {
+    group = "openapi"
+    description = "Fixes the generated OpenAPI spec"
+    commandLine("kotlinc", "-script", file("scripts/FixOpenApiSpec.main.kts").absolutePath, file("src/main/resources/openapi/open-api.json").absolutePath)
+}
+
+tasks.named("buildOpenApi") {
+    doFirst { tasks.named("clean") }
+}
+
+tasks.named("buildOpenApi") {
+    finalizedBy(tasks.named("fixOpenApiSpec"))
+}

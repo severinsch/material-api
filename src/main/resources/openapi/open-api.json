@@ -107,7 +107,10 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/MaterialResponse"
+                                        "anyOf": [ 
+                                            { "$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
+                                            { "$ref": "#/components/schemas/BulkMaterialResponse" }
+                                        ]
                                     }
                                 }
                             }
@@ -115,31 +118,6 @@
                     },
                     "400": {
                         "description": "If the type parameter is malformed."
-                    }
-                }
-            },
-            "post": {
-                "summary": "Create new Individual Material",
-                "responses": {
-                    "201": {
-                        "description": "The newly created individual Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
-                                }
-                            }
-                        }
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewMaterial"
-                            }
-                        }
                     }
                 }
             }
@@ -164,7 +142,10 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/MaterialResponse"
+                                    "anyOf": [ 
+                                            { "$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
+                                            { "$ref": "#/components/schemas/BulkMaterialResponse" }
+                                        ]
                                 }
                             }
                         }
@@ -233,6 +214,33 @@
                         "application/json": {
                             "schema": {
                                 "$ref": "#/components/schemas/NewBulkMaterial"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials/individual": {
+            "post": {
+                "summary": "Create new Individual Material",
+                "responses": {
+                    "201": {
+                        "description": "The newly created individual Material",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewMaterial"
                             }
                         }
                     }
@@ -310,7 +318,15 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "mostSigBits": {
+                                "type": "integer"
+                            },
+                            "leastSigBits": {
+                                "type": "integer"
+                            }
+                        }
                     },
                     "inventoryItemId": {
                         "type": "string"
@@ -330,7 +346,15 @@
                 "type": "object",
                 "properties": {
                     "inventoryItemId": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "mostSignificantBits": {
+                                "type": "integer"
+                            },
+                            "leastSignificantBits": {
+                                "type": "integer"
+                            }
+                        }
                     },
                     "description": {
                         "type": "string"

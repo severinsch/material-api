@@ -13,7 +13,6 @@ import kotlin.uuid.ExperimentalUuidApi
 @OptIn(ExperimentalUuidApi::class)
 fun Route.materialRoutes(materialService: MaterialService, itemService: ItemService) {
     route("/materials") {
-        // TODO add post-processing for openApi spec to use oneOf with the sub types instead of interface
         /**
          * Get all Materials
          *
@@ -82,7 +81,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          *
          * @response 201 [IndividualMaterialSummaryResponse] The newly created individual Material
          */
-        post {
+        post("/individual") {
             val newMaterial = call.receive<NewMaterial>()
             val createdMaterial = materialService.create(newMaterial)
             call.respond(HttpStatusCode.Created, createdMaterial)
