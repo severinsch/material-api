@@ -2,43 +2,18 @@ package routes
 
 import database.ItemCondition
 import database.MaterialTrackingType
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
-
-@OptIn(ExperimentalUuidApi::class)
-object UuidToStringSerializer : KSerializer<Uuid> {
-    override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("uuid", PrimitiveKind.STRING)
-
-    override fun serialize(encoder: Encoder, value: Uuid) =
-        encoder.encodeString(value.toString())
-
-    override fun deserialize(decoder: Decoder): Uuid =
-        Uuid.parse(decoder.decodeString())
-}
 
 @Serializable
-data class StorageLocation @OptIn(ExperimentalUuidApi::class) constructor(
-    @Serializable(with = UuidToStringSerializer::class)
-    val id: Uuid,
+data class StorageLocation (
+    val id: String,
     val name: String,
     val description: String?
 )
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 sealed interface MaterialResponse {
-    @OptIn(ExperimentalUuidApi::class)
-    @Serializable(with = UuidToStringSerializer::class)
-    val id: Uuid
+    val id: String
     val name: String
     val trackingType: MaterialTrackingType
     val category: String?
@@ -50,9 +25,8 @@ sealed interface MaterialResponse {
 
 
 @Serializable
-data class BulkMaterialResponse @OptIn(ExperimentalUuidApi::class) constructor(
-    @Serializable(with = UuidToStringSerializer::class)
-    override val id: Uuid,
+data class BulkMaterialResponse (
+    override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
     override val category: String?,
@@ -66,12 +40,8 @@ data class BulkMaterialResponse @OptIn(ExperimentalUuidApi::class) constructor(
 ) : MaterialResponse
 
 @Serializable
-data class IndividualMaterialSummaryResponse @OptIn(ExperimentalUuidApi::class) constructor(
-    @Serializable(with = UuidToStringSerializer::class)
-    /**
-     * @format uuid
-     */
-    override val id: Uuid,
+data class IndividualMaterialSummaryResponse (
+    override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
     override val category: String?,
@@ -83,7 +53,7 @@ data class IndividualMaterialSummaryResponse @OptIn(ExperimentalUuidApi::class) 
 ) : MaterialResponse
 
 @Serializable
-data class NewMaterial @OptIn(ExperimentalUuidApi::class) constructor(
+data class NewMaterial (
     val name: String,
     val trackingType: MaterialTrackingType,
     val category: String?,
@@ -91,10 +61,9 @@ data class NewMaterial @OptIn(ExperimentalUuidApi::class) constructor(
 )
 
 @Serializable
-data class NewBulkMaterial @OptIn(ExperimentalUuidApi::class) constructor(
+data class NewBulkMaterial (
     val name: String,
-    @Serializable(with = UuidToStringSerializer::class)
-    val storageLocationId: Uuid,
+    val storageLocationId: String,
     val category: String?,
     val description: String?,
     val availableCount: Int,
@@ -105,11 +74,9 @@ data class NewBulkMaterial @OptIn(ExperimentalUuidApi::class) constructor(
 
 
 @Serializable
-data class IndividualItemResponse @OptIn(ExperimentalUuidApi::class) constructor(
-    @Serializable(with = UuidToStringSerializer::class)
-    val id: Uuid,
-    @Serializable(with = UuidToStringSerializer::class)
-    val materialId: Uuid,
+data class IndividualItemResponse (
+    val id: String,
+    val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
     val storageLocation: StorageLocation?,
@@ -118,12 +85,27 @@ data class IndividualItemResponse @OptIn(ExperimentalUuidApi::class) constructor
 )
 
 @Serializable
-data class NewIndividualItem @OptIn(ExperimentalUuidApi::class) constructor(
-    @Serializable(with = UuidToStringSerializer::class)
-    val materialId: Uuid,
+data class NewIndividualItem (
+    val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
     val storageLocation: StorageLocation?,
     val purchasePrice: Double?,
     val purchaseDate: String?
+)
+
+@Serializable
+data class DamageReport (
+    val id: String,
+    val inventoryItemId: String,
+    val description: String,
+    val isResolved: Boolean,
+    val reportedAt: String
+)
+
+@Serializable
+data class NewDamageReport (
+    val inventoryItemId: String,
+    val description: String,
+    val isResolved: Boolean = false
 )

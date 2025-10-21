@@ -9,18 +9,16 @@ import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import parseUUID
 import routes.IndividualItemResponse
 import routes.NewIndividualItem
 import routes.StorageLocation
 import java.time.LocalDate
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
-import kotlin.uuid.toJavaUuid
+
 
 class ItemService {
 
-    @OptIn(ExperimentalUuidApi::class)
     private fun getWithCondition(predicate: () -> Op<Boolean>): List<IndividualItemResponse> {
         return IndividualItems
             .leftJoin(StorageLocations, { IndividualItems.storageLocationId }, { StorageLocations.id })
@@ -31,51 +29,40 @@ class ItemService {
             }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun getAllOfType(typeId: Uuid): List<IndividualItemResponse> {
-        val id = typeId.toJavaUuid()
-
-        return getWithCondition { IndividualItems.materialId eq id }
+    fun getAllOfType(typeId: UUID): List<IndividualItemResponse> {
+        return getWithCondition { IndividualItems.materialId eq typeId }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun getById(id: Uuid): IndividualItemResponse? {
-        return getById(id.toJavaUuid())
-    }
-
-    private fun getById(id: UUID): IndividualItemResponse? {
+    fun getById(id: UUID): IndividualItemResponse? {
         return getWithCondition { IndividualItems.id eq id }.singleOrNull()
     }
 
 
-    @OptIn(ExperimentalUuidApi::class)
     fun create(newIndividualItem: NewIndividualItem): IndividualItemResponse? {
         val id = IndividualItems
             .insertAndGetId {
-                it[materialId] = newIndividualItem.materialId.toJavaUuid()
+                it[materialId] = parseUUID(newIndividualItem.materialId)
                 it[identifier] = newIndividualItem.identifier
                 it[condition] = newIndividualItem.condition
-                it[storageLocationId] = newIndividualItem.storageLocation?.id?.toJavaUuid()
+                it[storageLocationId] = newIndividualItem.storageLocation?.id?.let { id -> parseUUID(id) }
                 it[purchasePrice] = newIndividualItem.purchasePrice?.toBigDecimal()
                 it[purchaseDate] = newIndividualItem.purchaseDate?.let { d -> LocalDate.parse(d) }
             }
         return getById(id.value)
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun delete(id: Uuid) {
-        IndividualItems.deleteWhere { IndividualItems.id eq id.toJavaUuid() }
+    fun delete(id: UUID) {
+        IndividualItems.deleteWhere { IndividualItems.id eq id }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     fun toIndividualItemResponseWithLocation(row: ResultRow): IndividualItemResponse {
         return IndividualItemResponse(
-            id = Uuid.parse(row[IndividualItems.id].toString()),
-            materialId = Uuid.parse(row[IndividualItems.materialId].toString()),
+            id = row[IndividualItems.id].toString(),
+            materialId = row[IndividualItems.materialId].toString(),
             identifier = row[IndividualItems.identifier],
             condition = row[IndividualItems.condition],
             storageLocation = StorageLocation(
-                id = Uuid.parse(row[StorageLocations.id].toString()),
+                id = row[StorageLocations.id].toString(),
                 name = row[StorageLocations.name],
                 description = row[StorageLocations.description],
             ),

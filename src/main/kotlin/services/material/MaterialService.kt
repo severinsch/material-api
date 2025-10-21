@@ -7,6 +7,7 @@ import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import parseUUID
 import routes.BulkMaterialResponse
 import routes.IndividualMaterialSummaryResponse
 import routes.MaterialResponse
@@ -15,9 +16,6 @@ import routes.NewMaterial
 import routes.StorageLocation
 import java.time.LocalDate
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
-import kotlin.uuid.toJavaUuid
 
 data class ItemCounts(val total: Int, val damaged: Int)
 
@@ -69,12 +67,8 @@ class MaterialService {
     fun getByType(type: MaterialTrackingType): List<MaterialResponse> =
         getWithCondition { Materials.trackingType eq type }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun getById(uuid: Uuid): MaterialResponse? = getById(uuid.toJavaUuid())
+    fun getById(id: UUID): MaterialResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
 
-    private fun getById(id: UUID): MaterialResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
-
-    @OptIn(ExperimentalUuidApi::class)
     fun create(newBulkMaterial: NewBulkMaterial): BulkMaterialResponse = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newBulkMaterial.name
@@ -89,7 +83,7 @@ class MaterialService {
             it[quantityDamaged] = newBulkMaterial.damagedCount
             it[purchasePrice] = newBulkMaterial.purchasePrice?.toBigDecimal()
             it[purchaseDate] = newBulkMaterial.purchaseDate?.let { d -> LocalDate.parse(d) }
-            it[storageLocationId] = newBulkMaterial.storageLocationId.toJavaUuid()
+            it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
         }
 
         return@transaction (getById(newId.value) ?: throw Exception(
@@ -110,12 +104,11 @@ class MaterialService {
         )) as IndividualMaterialSummaryResponse
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {
 
         val locationResponse = if (row.getOrNull(StorageLocations.id) != null) {
             StorageLocation(
-                id = Uuid.parse(row[StorageLocations.id].value.toString()),
+                id = row[StorageLocations.id].value.toString(),
                 name = row[StorageLocations.name],
                 description = row[StorageLocations.description]
             )
@@ -125,7 +118,7 @@ class MaterialService {
 
         if(row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
             return IndividualMaterialSummaryResponse(
-                id = Uuid.parse(row[Materials.id].toString()),
+                id = row[Materials.id].toString(),
                 name = row[Materials.name],
                 trackingType = row[Materials.trackingType],
                 location = locationResponse,
@@ -136,7 +129,7 @@ class MaterialService {
             )
         } else {
             return BulkMaterialResponse(
-                id = Uuid.parse(row[Materials.id].toString()),
+                id = row[Materials.id].toString(),
                 name = row[Materials.name],
                 trackingType = row[Materials.trackingType],
                 location = locationResponse,

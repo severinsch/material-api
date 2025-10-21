@@ -6,13 +6,11 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insertReturning
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import parseUUID
 import routes.DamageReport
 import routes.NewDamageReport
 import java.time.Instant
 import java.util.*
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
-import kotlin.uuid.toJavaUuid
 
 class DamageService {
 
@@ -23,7 +21,7 @@ class DamageService {
     fun create(newDamageReport: NewDamageReport): DamageReport {
         return transaction {
             DamageReports.insertReturning {
-                it[inventoryItemId] = UUID.fromString(newDamageReport.inventoryItemId)
+                it[inventoryItemId] = parseUUID(newDamageReport.inventoryItemId)
                 it[description] = newDamageReport.description
                 it[isResolved] = newDamageReport.isResolved
                 it[reportedAt] = Instant.now()
@@ -31,26 +29,21 @@ class DamageService {
         }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun getByItemId(itemId: Uuid): List<DamageReport> {
+    fun getByItemId(itemId: UUID): List<DamageReport> {
         return transaction {
             DamageReports
                 .selectAll()
-                .where { DamageReports.inventoryItemId eq itemId.toJavaUuid() }
+                .where { DamageReports.inventoryItemId eq itemId }
                 .map(::toDamageReport)
         }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
-    fun getById(uuid: Uuid): DamageReport? = getById(uuid.toJavaUuid())
-
-    // use kotlin Uuid generally, but exposed sadly uses java UUID
-    private fun getById(id: UUID): DamageReport? = transaction {
+    fun getById(id: UUID): DamageReport? = transaction {
         DamageReports.selectAll().where { DamageReports.id eq id }.withDistinct().map(::toDamageReport).singleOrNull()
     }
 
     private fun toDamageReport(row: ResultRow): DamageReport = DamageReport(
-        id = row[DamageReports.id].toString(),
+        id = row[DamageReports.id].value.toString(),
         inventoryItemId = row[DamageReports.inventoryItemId].toString(),
         description = row[DamageReports.description],
         isResolved = row[DamageReports.isResolved],

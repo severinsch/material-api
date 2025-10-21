@@ -5,27 +5,8 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
 import services.DamageService
-import kotlin.uuid.ExperimentalUuidApi
 
-@Serializable
-data class DamageReport(
-    val id: String,
-    val inventoryItemId: String,
-    val description: String,
-    val isResolved: Boolean,
-    val reportedAt: String
-)
-
-@Serializable
-data class NewDamageReport(
-    val inventoryItemId: String,
-    val description: String,
-    val isResolved: Boolean = false
-)
-
-@OptIn(ExperimentalUuidApi::class)
 fun Route.damageRoutes(damageService: DamageService) {
     route("/damages") {
         /**

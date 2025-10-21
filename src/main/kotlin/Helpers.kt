@@ -1,8 +1,7 @@
 import io.ktor.http.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
+import java.util.UUID
 
 private enum class ParameterType { Query, Path }
 
@@ -15,8 +14,7 @@ private enum class ParameterType { Query, Path }
  * @param required Whether the parameter is required. For required parameters a Bad Request response is sent if it is missing.
  * @return The parsed UUID if valid; null if the parameter is missing or invalid.
  */
-@OptIn(ExperimentalUuidApi::class)
-suspend fun getUUIDfromPathParameter(call: RoutingCall, paramName: String = "id", required: Boolean = true): Uuid? {
+suspend fun getUUIDfromPathParameter(call: RoutingCall, paramName: String = "id", required: Boolean = true): UUID? {
     return getUUIDfromParameter(ParameterType.Path, call, paramName, required)
 }
 
@@ -29,18 +27,16 @@ suspend fun getUUIDfromPathParameter(call: RoutingCall, paramName: String = "id"
  * @param required Whether the parameter is required. For required parameters a Bad Request response is sent if it is missing.
  * @return The parsed UUID if valid; null if the parameter is missing or invalid.
  */
-@OptIn(ExperimentalUuidApi::class)
-suspend fun getUUIDfromQueryParameter(call: RoutingCall, paramName: String = "id", required: Boolean = false): Uuid? {
+suspend fun getUUIDfromQueryParameter(call: RoutingCall, paramName: String = "id", required: Boolean = false): UUID? {
     return getUUIDfromParameter(ParameterType.Query, call, paramName, required)
 }
 
-@OptIn(ExperimentalUuidApi::class)
 private suspend fun getUUIDfromParameter(
     type: ParameterType,
     call: RoutingCall,
     paramName: String = "id",
     required: Boolean = false
-): Uuid? {
+): UUID? {
     val params = when (type) {
         ParameterType.Query -> call.request.queryParameters
         ParameterType.Path -> call.parameters
@@ -52,12 +48,20 @@ private suspend fun getUUIDfromParameter(
         return null
     }
     val id = params[paramName]!!
-    var uuid: Uuid?
+    var uuid: UUID?
     try {
-        uuid = Uuid.parse(id)
+        uuid = UUID.fromString(id)
     } catch (_: IllegalArgumentException) {
         call.respond(HttpStatusCode.BadRequest)
         return null
     }
     return uuid
+}
+
+fun parseUUID(id: String): UUID {
+    return try {
+        UUID.fromString(id)
+    } catch (_: IllegalArgumentException) {
+        throw IllegalArgumentException("Invalid UUID: $id")
+    }
 }

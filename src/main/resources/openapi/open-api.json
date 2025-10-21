@@ -318,15 +318,7 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "object",
-                        "properties": {
-                            "mostSigBits": {
-                                "type": "integer"
-                            },
-                            "leastSigBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "inventoryItemId": {
                         "type": "string"
@@ -346,15 +338,7 @@
                 "type": "object",
                 "properties": {
                     "inventoryItemId": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "description": {
                         "type": "string"
@@ -368,15 +352,7 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "name": {
                         "type": "string"
@@ -402,15 +378,7 @@
                         "type": "object",
                         "properties": {
                             "id": {
-                                "type": "object",
-                                "properties": {
-                                    "mostSignificantBits": {
-                                        "type": "integer"
-                                    },
-                                    "leastSignificantBits": {
-                                        "type": "integer"
-                                    }
-                                }
+                                "type": "string"
                             },
                             "name": {
                                 "type": "string"
@@ -432,26 +400,10 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "materialId": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "identifier": {
                         "type": "string"
@@ -471,15 +423,7 @@
                         "type": "object",
                         "properties": {
                             "id": {
-                                "type": "object",
-                                "properties": {
-                                    "mostSignificantBits": {
-                                        "type": "integer"
-                                    },
-                                    "leastSignificantBits": {
-                                        "type": "integer"
-                                    }
-                                }
+                                "type": "string"
                             },
                             "name": {
                                 "type": "string"
@@ -504,15 +448,7 @@
                         "type": "string"
                     },
                     "storageLocationId": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "category": {
                         "type": "string"
@@ -538,15 +474,7 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "name": {
                         "type": "string"
@@ -572,15 +500,7 @@
                         "type": "object",
                         "properties": {
                             "id": {
-                                "type": "object",
-                                "properties": {
-                                    "mostSignificantBits": {
-                                        "type": "integer"
-                                    },
-                                    "leastSignificantBits": {
-                                        "type": "integer"
-                                    }
-                                }
+                                "type": "string"
                             },
                             "name": {
                                 "type": "string"
@@ -633,15 +553,7 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "name": {
                         "type": "string"
@@ -667,15 +579,7 @@
                         "type": "object",
                         "properties": {
                             "id": {
-                                "type": "object",
-                                "properties": {
-                                    "mostSignificantBits": {
-                                        "type": "integer"
-                                    },
-                                    "leastSignificantBits": {
-                                        "type": "integer"
-                                    }
-                                }
+                                "type": "string"
                             },
                             "name": {
                                 "type": "string"
@@ -697,15 +601,7 @@
                 "type": "object",
                 "properties": {
                     "materialId": {
-                        "type": "object",
-                        "properties": {
-                            "mostSignificantBits": {
-                                "type": "integer"
-                            },
-                            "leastSignificantBits": {
-                                "type": "integer"
-                            }
-                        }
+                        "type": "string"
                     },
                     "identifier": {
                         "type": "string"
@@ -725,15 +621,7 @@
                         "type": "object",
                         "properties": {
                             "id": {
-                                "type": "object",
-                                "properties": {
-                                    "mostSignificantBits": {
-                                        "type": "integer"
-                                    },
-                                    "leastSignificantBits": {
-                                        "type": "integer"
-                                    }
-                                }
+                                "type": "string"
                             },
                             "name": {
                                 "type": "string"

@@ -8,9 +8,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import services.material.ItemService
 import services.material.MaterialService
-import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
 fun Route.materialRoutes(materialService: MaterialService, itemService: ItemService) {
     route("/materials") {
         /**
