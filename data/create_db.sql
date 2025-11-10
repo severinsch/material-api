@@ -24,7 +24,7 @@ CREATE TYPE item_condition AS ENUM ('NEW', 'GOOD', 'FAIR', 'POOR', 'DECOMMISSION
 
 -- Table to store physical storage locations like "Garage" or "Keller"
 CREATE TABLE storage_locations (
-                                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                   id UUID PRIMARY KEY DEFAULT uuidv7(),
                                    name VARCHAR(100) NOT NULL UNIQUE,
                                    description TEXT
 );
@@ -32,7 +32,7 @@ CREATE TABLE storage_locations (
 -- The master catalog of all equipment DEFINITIONS (The Abstract "Base Class").
 -- Contains only shared information.
 CREATE TABLE materials (
-                           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                           id UUID PRIMARY KEY DEFAULT uuidv7(),
                            name VARCHAR(255) NOT NULL UNIQUE,
                            tracking_type material_tracking_type NOT NULL,
                            description TEXT,
@@ -41,7 +41,7 @@ CREATE TABLE materials (
 
 -- Concrete table for 'INDIVIDUAL' tracked items.
 CREATE TABLE individual_items (
-                                  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                  id UUID PRIMARY KEY DEFAULT uuidv7(),
     -- A one-to-many relationship with the materials table.
                                   material_id UUID NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
                                   identifier VARCHAR(100) NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE individual_items (
 
 -- Concrete table for 'BULK' tracked items.
 CREATE TABLE bulk_stock (
-                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            id UUID PRIMARY KEY DEFAULT uuidv7(),
     -- A one-to-one relationship with the materials table.
                             material_id UUID NOT NULL UNIQUE REFERENCES materials(id) ON DELETE CASCADE,
                             quantity_available INTEGER NOT NULL DEFAULT 0 CHECK (quantity_available >= 0),
@@ -71,7 +71,7 @@ CREATE TABLE bulk_stock (
 -- A log of specific damages for INDIVIDUAL items.
 -- NOTE: Foreign key now correctly points to 'individual_items'.
 CREATE TABLE damage_reports (
-                                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                id UUID PRIMARY KEY DEFAULT uuidv7(),
                                 individual_item_id UUID NOT NULL REFERENCES individual_items(id) ON DELETE CASCADE,
                                 description TEXT NOT NULL,
                                 reported_by VARCHAR(255), -- Will become a user_id later.
@@ -84,7 +84,7 @@ CREATE TABLE damage_reports (
 
 -- Defines a "packing list" or a "recipe" for an activity.
 CREATE TABLE kits (
-                      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                      id UUID PRIMARY KEY DEFAULT uuidv7(),
                       name VARCHAR(255) NOT NULL UNIQUE,
                       description TEXT
 );
