@@ -62,12 +62,13 @@ class ItemService {
             materialId = row[IndividualItems.materialId].toString(),
             identifier = row[IndividualItems.identifier],
             condition = row[IndividualItems.condition],
-            storageLocation = row.getOrNull(StorageLocations.id)?.let {
-                locationId -> StorageLocation(
+            storageLocation = row.getOrNull(StorageLocations.id)?.let { locationId ->
+                StorageLocation(
                     id = locationId.value.toString(),
                     name = row[StorageLocations.name],
                     description = row[StorageLocations.description],
-                )},
+                )
+            },
             purchasePrice = row[IndividualItems.purchasePrice]?.toDouble(),
             purchaseDate = row[IndividualItems.purchaseDate]?.toString(),
         )
