@@ -9,6 +9,7 @@ import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import parseUUID
 import routes.IndividualItemResponse
 import routes.NewIndividualItem
@@ -19,8 +20,8 @@ import java.util.*
 
 class ItemService {
 
-    private fun getWithCondition(predicate: () -> Op<Boolean>): List<IndividualItemResponse> {
-        return IndividualItems
+    private fun getWithCondition(predicate: () -> Op<Boolean>): List<IndividualItemResponse> = transaction {
+        return@transaction IndividualItems
             .leftJoin(StorageLocations, { IndividualItems.storageLocationId }, { StorageLocations.id })
             .selectAll()
             .where(predicate)
@@ -38,7 +39,7 @@ class ItemService {
     }
 
 
-    fun create(newIndividualItem: NewIndividualItem): IndividualItemResponse? {
+    fun create(newIndividualItem: NewIndividualItem): IndividualItemResponse? = transaction {
         val id = IndividualItems
             .insertAndGetId {
                 it[materialId] = parseUUID(newIndividualItem.materialId)
@@ -48,10 +49,10 @@ class ItemService {
                 it[purchasePrice] = newIndividualItem.purchasePrice?.toBigDecimal()
                 it[purchaseDate] = newIndividualItem.purchaseDate?.let { d -> LocalDate.parse(d) }
             }
-        return getById(id.value)
+        return@transaction getById(id.value)
     }
 
-    fun delete(id: UUID) {
+    fun delete(id: UUID) = transaction {
         IndividualItems.deleteWhere { IndividualItems.id eq id }
     }
 
@@ -61,11 +62,12 @@ class ItemService {
             materialId = row[IndividualItems.materialId].toString(),
             identifier = row[IndividualItems.identifier],
             condition = row[IndividualItems.condition],
-            storageLocation = StorageLocation(
-                id = row[StorageLocations.id].toString(),
-                name = row[StorageLocations.name],
-                description = row[StorageLocations.description],
-            ),
+            storageLocation = row.getOrNull(StorageLocations.id)?.let {
+                locationId -> StorageLocation(
+                    id = locationId.value.toString(),
+                    name = row[StorageLocations.name],
+                    description = row[StorageLocations.description],
+                )},
             purchasePrice = row[IndividualItems.purchasePrice]?.toDouble(),
             purchaseDate = row[IndividualItems.purchaseDate]?.toString(),
         )

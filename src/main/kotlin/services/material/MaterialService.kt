@@ -101,14 +101,12 @@ class MaterialService {
 
     private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {
 
-        val locationResponse = if (row.getOrNull(StorageLocations.id) != null) {
+        val locationResponse = row.getOrNull(StorageLocations.id)?.let { locationId ->
             StorageLocation(
-                id = row[StorageLocations.id].value.toString(),
+                id = locationId.value.toString(),
                 name = row[StorageLocations.name],
                 description = row[StorageLocations.description]
             )
-        } else {
-            null
         }
 
         if (row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {

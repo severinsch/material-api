@@ -8,6 +8,15 @@ RUN gradle clean build -i --stacktrace
 
 # Stage 2: Build Application
 FROM gradle:8.14-alpine AS builder
+
+# Install Kotlin compiler for the script execution
+ENV KOTLIN_VERSION=2.2.20
+RUN apk add --no-cache bash curl unzip
+RUN curl -L "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" -o /tmp/kotlin-compiler.zip && \
+    unzip /tmp/kotlin-compiler.zip -d /usr/local && \
+    rm /tmp/kotlin-compiler.zip
+ENV PATH="/usr/local/kotlinc/bin:${PATH}"
+
 COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
 COPY . /usr/src/app/
 WORKDIR /usr/src/app
