@@ -28,7 +28,7 @@ sealed interface MaterialResponse {
 data class BulkMaterialResponse(
     override val id: String,
     override val name: String,
-    override val trackingType: MaterialTrackingType,
+    override val trackingType: MaterialTrackingType = MaterialTrackingType.BULK,
     override val category: String?,
     override val description: String?,
     override val location: StorageLocation?,
@@ -43,7 +43,7 @@ data class BulkMaterialResponse(
 data class IndividualMaterialSummaryResponse(
     override val id: String,
     override val name: String,
-    override val trackingType: MaterialTrackingType,
+    override val trackingType: MaterialTrackingType = MaterialTrackingType.INDIVIDUAL,
     override val category: String?,
     override val description: String?,
     override val location: StorageLocation?,
