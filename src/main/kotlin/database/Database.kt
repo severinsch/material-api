@@ -1,6 +1,7 @@
 package database
 
 
+import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -23,3 +24,10 @@ object DatabaseFactory {
         }
     }
 }
+
+// TODO: enable logging based on env var and use this
+fun <T> loggedTransaction(block: () -> T): T =
+    transaction {
+        addLogger(StdOutSqlLogger)
+        block()
+    }
