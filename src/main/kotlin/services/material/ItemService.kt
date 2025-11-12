@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import parseUUID
 import routes.IndividualItemResponse
 import routes.NewIndividualItem
@@ -52,8 +53,22 @@ class ItemService {
         return@transaction getById(id.value)
     }
 
-    fun delete(id: UUID) = transaction {
-        IndividualItems.deleteWhere { IndividualItems.id eq id }
+    fun update(id: UUID, newIndividualItem: NewIndividualItem): IndividualItemResponse? = transaction {
+        IndividualItems.update({ IndividualItems.id eq id }) {
+            it[materialId] = parseUUID(newIndividualItem.materialId)
+            it[identifier] = newIndividualItem.identifier
+            it[condition] = newIndividualItem.condition
+            it[storageLocationId] = newIndividualItem.storageLocation?.id?.let { id -> parseUUID(id) }
+            it[purchasePrice] = newIndividualItem.purchasePrice?.toBigDecimal()
+            it[purchaseDate] = newIndividualItem.purchaseDate?.let { d -> LocalDate.parse(d) }
+        }
+
+        return@transaction getById(id)
+    }
+
+    fun delete(id: UUID): Boolean = transaction {
+        val noDeleted = IndividualItems.deleteWhere { IndividualItems.id eq id }
+        return@transaction noDeleted > 0
     }
 
     fun toIndividualItemResponseWithLocation(row: ResultRow): IndividualItemResponse {

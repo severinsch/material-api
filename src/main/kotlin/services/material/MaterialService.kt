@@ -96,7 +96,7 @@ class MaterialService {
         )) as IndividualMaterialSummaryResponse
     }
 
-    fun update(id: UUID, newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse =
+    fun update(id: UUID, newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse? =
         transaction {
             Materials.update({ Materials.id eq id }) {
                 it[name] = newIndividualMaterial.name
@@ -105,10 +105,10 @@ class MaterialService {
                 it[description] = newIndividualMaterial.description
             }
 
-            return@transaction getById(id) as IndividualMaterialSummaryResponse
+            return@transaction getById(id) as IndividualMaterialSummaryResponse?
         }
 
-    fun update(id: UUID, newBulkMaterial: NewBulkMaterial): BulkMaterialResponse = transaction {
+    fun update(id: UUID, newBulkMaterial: NewBulkMaterial): BulkMaterialResponse? = transaction {
         Materials.update({ Materials.id eq id }) {
             it[name] = newBulkMaterial.name
             it[category] = newBulkMaterial.category
@@ -123,7 +123,12 @@ class MaterialService {
             it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
         }
 
-        return@transaction getById(id) as BulkMaterialResponse
+        return@transaction getById(id) as BulkMaterialResponse?
+    }
+
+    fun delete(id: UUID): Boolean = transaction {
+        val noDeleted = Materials.deleteWhere { Materials.id eq id }
+        return@transaction noDeleted > 0
     }
 
     private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {

@@ -3,9 +3,11 @@ package services
 import database.DamageReports
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertReturning
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import parseUUID
 import routes.DamageReport
 import routes.NewDamageReport
@@ -40,6 +42,20 @@ class DamageService {
 
     fun getById(id: UUID): DamageReport? = transaction {
         DamageReports.selectAll().where { DamageReports.id eq id }.withDistinct().map(::toDamageReport).singleOrNull()
+    }
+
+    fun update(id: UUID, newDamageReport: NewDamageReport): DamageReport? = transaction {
+        DamageReports.update({ DamageReports.id eq id }) {
+            it[description] = newDamageReport.description
+            it[isResolved] = newDamageReport.isResolved
+        }
+
+        return@transaction getById(id)
+    }
+
+    fun delete(id: UUID): Boolean = transaction {
+        val noDeleted = DamageReports.deleteWhere { DamageReports.id eq id }
+        return@transaction noDeleted > 0
     }
 
     private fun toDamageReport(row: ResultRow): DamageReport = DamageReport(

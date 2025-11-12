@@ -84,6 +84,53 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
             val createdMaterial = materialService.create(newIndividualMaterial)
             call.respond(HttpStatusCode.Created, createdMaterial)
         }
+
+        /**
+         * Update Bulk Material
+         *
+         * @response 200 [BulkMaterialResponse] The updated bulk Material
+         * @path id The id of the material to update
+         *   format: uuid
+         */
+        put("/bulk/{id}") {
+            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val newBulkMaterial = call.receive<NewBulkMaterial>()
+            val updatedMaterial = materialService
+                .update(id, newBulkMaterial) ?: return@put call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.OK, updatedMaterial)
+        }
+
+        /**
+         * Update Individual Material
+         *
+         * @response 200 [IndividualMaterialSummaryResponse] The updated individual Material
+         * @path id The id of the material to update
+         *   format: uuid
+         */
+        put("/individual/{id}") {
+            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val newIndividualMaterial = call.receive<NewIndividualMaterial>()
+            val updatedMaterial = materialService
+                .update(id, newIndividualMaterial) ?: return@put call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.OK, updatedMaterial)
+        }
+
+        /**
+         * Delete Material
+         *
+         * @response 200
+         * @path id The id of the material to delete
+         *   format: uuid
+         */
+        delete("/{id}") {
+            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            val success = materialService.delete(id)
+            if (success) {
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
+        }
     }
     route("/items") {
 
@@ -112,6 +159,37 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
             val newItem = call.receive<NewIndividualItem>()
             val createdItem = itemService.create(newItem) ?: return@post call.respond(HttpStatusCode.BadRequest)
             call.respond(HttpStatusCode.Created, createdItem)
+        }
+
+        /**
+         * Update individual item
+         *
+         * @response 200 [IndividualItemResponse] The updated individual item
+         * @path id The id of the item to update
+         *   format: uuid
+         */
+        put("/{id}") {
+            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val newItem = call.receive<NewIndividualItem>()
+            val updatedItem = itemService.update(id, newItem) ?: return@put call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.OK, updatedItem)
+        }
+
+        /**
+         * Delete individual item
+         *
+         * @response 200
+         * @path id The id of the item do delete
+         *   format: uuid
+         */
+        delete("/{id}") {
+            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            val success = itemService.delete(id)
+            if (success) {
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
         }
     }
 }
