@@ -3,8 +3,18 @@ import java.io.File
 val openApiFile = File(args[0])
 val openApiJson = openApiFile.readText()
 
+// copied from main code, watch for divergence
+enum class MaterialTrackingType {
+    BULK, INDIVIDUAL
+}
+
+enum class ItemCondition {
+    NEW, GOOD, FAIR, POOR, DECOMMISSIONED
+}
+
 fun String.fixMaterialResponse() = this.replace(
-    Regex($$"""
+    Regex(
+        $$"""
         (?<padding>\h*)"\$ref": "#/components/schemas/MaterialResponse"
         """.trimIndent()
     ),
@@ -21,7 +31,8 @@ fun String.addUuidFormat(): String = uuidFields.fold(
     this
 ) { acc, field ->
     acc.replace(
-        Regex("""
+        Regex(
+            """
             (?<padding>\h*)"$field": \{\s*"type": "string"\s*\}
             """.trimIndent()
         ),
@@ -33,8 +44,61 @@ fun String.addUuidFormat(): String = uuidFields.fold(
     )
 }
 
+fun String.addEnums(): String {
+    fun String.insertEnum(name: String, values: List<String>): String {
+        return this.replace(
+            Regex(
+                """
+                (?<padding>\h*)"components": \{\s*"schemas": \{
+            """.trimIndent()
+            ),
+            $$"""
+            ${padding}"components": {
+                ${padding}"schemas": {
+                    ${padding}"$$name": {
+                        ${padding}"type": "string",
+                        ${padding}"enum": [$${values.joinToString(", ") { "\"$it\"" }}]
+                    ${padding}},
+            """.trimIndent()
+        )
+    }
+
+    fun String.insertRef(fieldName: String, ref: String): String {
+        return this.replace(
+            Regex(
+                """
+                (?<padding>\h*)"$fieldName": .+?\}\s*\}\s*\}""".trimIndent(),
+                RegexOption.DOT_MATCHES_ALL
+            ),
+            $$"""
+                ${padding}"$$fieldName": {  
+                    ${padding}"\$ref": "$$ref"
+                ${padding}}
+             """.trimIndent()
+        )
+    }
+
+    val result = this
+        .insertEnum("Condition", ItemCondition.entries.map { it.name })
+        .insertEnum("TrackingType", MaterialTrackingType.entries.map { it.name })
+
+    val conditionRef = "#/components/schemas/Condition"
+    val trackingTypeRef = "#/components/schemas/TrackingType"
+
+    return result
+        .insertRef("condition", conditionRef)
+        .insertRef("trackingType", trackingTypeRef)
+}
+
+fun String.fixVersion(): String = this.replace(
+    Regex("\"openapi\": \"3.[0-9]+.[0-9]+\""),
+    "\"openapi\": \"3.0.3\""
+)
+
 val newJson = openApiJson
     .fixMaterialResponse()
     .addUuidFormat()
+    .addEnums()
+    .fixVersion()
 
 openApiFile.writeText(newJson)

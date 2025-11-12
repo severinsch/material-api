@@ -1,7 +1,7 @@
 {
-    "openapi": "3.1.1",
+    "openapi": "3.0.3",
     "info": {
-        "title": "OpenAPI example",
+        "title": "Material API",
         "version": "2.1",
         "summary": "Material management api",
         "description": "This is a longer description",
@@ -314,6 +314,14 @@
     },
     "components": {
         "schemas": {
+            "TrackingType": {
+                "type": "string",
+                "enum": ["BULK", "INDIVIDUAL"]
+            },
+            "Condition": {
+                "type": "string",
+                "enum": ["NEW", "GOOD", "FAIR", "POOR", "DECOMMISSIONED"]
+            },
             "DamageReport": {
                 "type": "object",
                 "properties": {
@@ -361,16 +369,8 @@
                     "name": {
                         "type": "string"
                     },
-                    "trackingType": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "trackingType": {  
+                        "$ref": "#/components/schemas/TrackingType"
                     },
                     "category": {
                         "type": "string"
@@ -415,16 +415,8 @@
                     "identifier": {
                         "type": "string"
                     },
-                    "condition": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "condition": {  
+                        "$ref": "#/components/schemas/Condition"
                     },
                     "storageLocation": {
                         "type": "object",
@@ -489,16 +481,8 @@
                     "name": {
                         "type": "string"
                     },
-                    "trackingType": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "trackingType": {  
+                        "$ref": "#/components/schemas/TrackingType"
                     },
                     "category": {
                         "type": "string"
@@ -541,16 +525,8 @@
                     "name": {
                         "type": "string"
                     },
-                    "trackingType": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "trackingType": {  
+                        "$ref": "#/components/schemas/TrackingType"
                     },
                     "category": {
                         "type": "string"
@@ -570,16 +546,8 @@
                     "name": {
                         "type": "string"
                     },
-                    "trackingType": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "trackingType": {  
+                        "$ref": "#/components/schemas/TrackingType"
                     },
                     "category": {
                         "type": "string"
@@ -620,16 +588,8 @@
                     "identifier": {
                         "type": "string"
                     },
-                    "condition": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "ordinal": {
-                                "type": "integer"
-                            }
-                        }
+                    "condition": {  
+                        "$ref": "#/components/schemas/Condition"
                     },
                     "storageLocation": {
                         "type": "object",
