@@ -85,6 +85,75 @@
                 }
             }
         },
+        "/damages/{id}": {
+            "put": {
+                "summary": "Update damage",
+                "responses": {
+                    "200": {
+                        "description": "the updated damage report",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the damage to update",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewDamageReport"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete damage",
+                "responses": {
+                    "200": {
+                        "description": ""
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the damage to delete",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
         "/materials": {
             "get": {
                 "summary": "Get all Materials",
@@ -157,6 +226,31 @@
                         "description": "If no Material was found for the specified ID"
                     }
                 }
+            },
+            "delete": {
+                "summary": "Delete Material",
+                "responses": {
+                    "200": {
+                        "description": ""
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the material to delete",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
             }
         },
         "/materials/{id}/items": {
@@ -247,6 +341,94 @@
                 }
             }
         },
+        "/materials/bulk/{id}": {
+            "put": {
+                "summary": "Update Bulk Material",
+                "responses": {
+                    "200": {
+                        "description": "The updated bulk Material",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BulkMaterialResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the material to update",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewBulkMaterial"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials/individual/{id}": {
+            "put": {
+                "summary": "Update Individual Material",
+                "responses": {
+                    "200": {
+                        "description": "The updated individual Material",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the material to update",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewIndividualMaterial"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/items/{id}": {
             "get": {
                 "summary": "Get individual item by id",
@@ -279,6 +461,73 @@
                         "description": "If no Item was found for the specified ID"
                     }
                 }
+            },
+            "put": {
+                "summary": "Update individual item",
+                "responses": {
+                    "200": {
+                        "description": "The updated individual item",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the item to update",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewIndividualItem"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete individual item",
+                "responses": {
+                    "200": {
+                        "description": ""
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the item do delete",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
             }
         },
         "/items": {
