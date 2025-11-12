@@ -2,10 +2,7 @@ package services.material
 
 import database.*
 import org.jetbrains.exposed.v1.core.*
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.insertAndGetId
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import parseUUID
 import routes.*
@@ -86,17 +83,47 @@ class MaterialService {
         )) as BulkMaterialResponse
     }
 
-    fun create(newMaterial: NewMaterial): IndividualMaterialSummaryResponse = transaction {
+    fun create(newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse = transaction {
         val newId = Materials.insertAndGetId {
-            it[name] = newMaterial.name
-            it[trackingType] = newMaterial.trackingType
-            it[category] = newMaterial.category
-            it[description] = newMaterial.description
+            it[name] = newIndividualMaterial.name
+            it[trackingType] = newIndividualMaterial.trackingType
+            it[category] = newIndividualMaterial.category
+            it[description] = newIndividualMaterial.description
         }
 
         return@transaction (getById(newId.value) ?: throw Exception(
-            "Failed to create material with name '${newMaterial.name}'"
+            "Failed to create material with name '${newIndividualMaterial.name}'"
         )) as IndividualMaterialSummaryResponse
+    }
+
+    fun update(id: UUID, newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse =
+        transaction {
+            Materials.update({ Materials.id eq id }) {
+                it[name] = newIndividualMaterial.name
+                it[trackingType] = newIndividualMaterial.trackingType
+                it[category] = newIndividualMaterial.category
+                it[description] = newIndividualMaterial.description
+            }
+
+            return@transaction getById(id) as IndividualMaterialSummaryResponse
+        }
+
+    fun update(id: UUID, newBulkMaterial: NewBulkMaterial): BulkMaterialResponse = transaction {
+        Materials.update({ Materials.id eq id }) {
+            it[name] = newBulkMaterial.name
+            it[category] = newBulkMaterial.category
+            it[description] = newBulkMaterial.description
+        }
+
+        BulkStock.update({ BulkStock.materialId eq id }) {
+            it[quantityAvailable] = newBulkMaterial.availableCount
+            it[quantityDamaged] = newBulkMaterial.damagedCount
+            it[purchasePrice] = newBulkMaterial.purchasePrice?.toBigDecimal()
+            it[purchaseDate] = newBulkMaterial.purchaseDate?.let { d -> LocalDate.parse(d) }
+            it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
+        }
+
+        return@transaction getById(id) as BulkMaterialResponse
     }
 
     private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {

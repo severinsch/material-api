@@ -80,8 +80,8 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * @response 201 [IndividualMaterialSummaryResponse] The newly created individual Material
          */
         post("/individual") {
-            val newMaterial = call.receive<NewMaterial>()
-            val createdMaterial = materialService.create(newMaterial)
+            val newIndividualMaterial = call.receive<NewIndividualMaterial>()
+            val createdMaterial = materialService.create(newIndividualMaterial)
             call.respond(HttpStatusCode.Created, createdMaterial)
         }
     }

@@ -20,7 +20,7 @@ application {
 ktor {
     @OptIn(OpenApiPreview::class)
     openApi {
-        title = "OpenAPI example"
+        title = "Material API"
         version = "2.1"
         summary = "Material management api"
         description = "This is a longer description"
@@ -28,7 +28,6 @@ ktor {
         contact = "severin@dpsg-langenbach.de"
         license = "Apache/1.0"
 
-        // Location of the generated specification (defaults to openapi/generated.json)\
         target = project.layout.projectDirectory.dir("src/main/resources/openapi").file("open-api.json")
     }
 }

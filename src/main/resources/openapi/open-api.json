@@ -240,7 +240,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/NewMaterial"
+                                "$ref": "#/components/schemas/NewIndividualMaterial"
                             }
                         }
                     }
@@ -535,7 +535,7 @@
                     }
                 }
             },
-            "NewMaterial": {
+            "NewIndividualMaterial": {
                 "type": "object",
                 "properties": {
                     "name": {
