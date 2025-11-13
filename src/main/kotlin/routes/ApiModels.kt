@@ -109,3 +109,11 @@ data class NewDamageReport(
     val description: String,
     val isResolved: Boolean = false
 )
+
+@Serializable
+data class Kit(
+    val id: String,
+    val name: String,
+    val description: String?,
+    val materials: List<Pair<MaterialResponse, Int>>
+)
