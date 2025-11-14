@@ -2,24 +2,25 @@ package services.kits
 
 
 import database.KitMaterials
+import database.KitMaterials.kitId
+import database.KitMaterials.quantityRequired
 import database.Kits
+import database.Materials
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.jdbc.*
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import parseUUID
 import routes.Kit
+import routes.KitMaterialItem
 import routes.NewKit
-import services.material.MaterialService
 import java.util.*
 
 
-class KitService(val materialService: MaterialService) {
+class KitService {
 
     private fun getWithCondition(predicate: () -> Op<Boolean>): List<Kit> = transaction {
         val kits = Kits
-            .leftJoin(KitMaterials, { Kits.id }, { KitMaterials.kitId })
             .selectAll()
             .where(predicate)
             .map {
@@ -33,11 +34,15 @@ class KitService(val materialService: MaterialService) {
 
         return@transaction kits.map {
             val requiredMaterials = KitMaterials
-                .selectAll()
-                .where(KitMaterials.kitId eq parseUUID(it.id))
+                .leftJoin(Materials)
+                .select(KitMaterials.materialId, quantityRequired, Materials.name)
+                .where(kitId eq parseUUID(it.id))
                 .map { mat ->
-                    materialService
-                        .getById(mat[KitMaterials.materialId].value)!! to mat[KitMaterials.quantityRequired]
+                    KitMaterialItem(
+                        materialId = mat[KitMaterials.materialId].toString(),
+                        materialName = mat[Materials.name],
+                        quantityRequired = mat[quantityRequired]
+                    )
                 }
             it.copy(materials = requiredMaterials)
         }
@@ -57,11 +62,11 @@ class KitService(val materialService: MaterialService) {
             it[description] = newKit.description
         }
 
-        newKit.materials.forEach { (materialId, quantity) ->
+        newKit.materials.forEach { matItem ->
             KitMaterials.insert {
                 it[kitId] = newId.value
-                it[KitMaterials.materialId] = parseUUID(materialId)
-                it[quantityRequired] = quantity
+                it[KitMaterials.materialId] = parseUUID(matItem.materialId)
+                it[quantityRequired] = matItem.quantityRequired
             }
         }
 
@@ -77,12 +82,11 @@ class KitService(val materialService: MaterialService) {
         }
 
         KitMaterials.deleteWhere { KitMaterials.kitId eq id }
-        newKit.materials.forEach { (materialId, quantity) ->
-            KitMaterials.insert {
-                it[kitId] = id
-                it[KitMaterials.materialId] = parseUUID(materialId)
-                it[quantityRequired] = quantity
-            }
+
+        KitMaterials.batchInsert(newKit.materials) { matItem ->
+            this[kitId] = id
+            this[KitMaterials.materialId] = parseUUID(matItem.materialId)
+            this[quantityRequired] = matItem.quantityRequired
         }
 
         return@transaction getById(id)

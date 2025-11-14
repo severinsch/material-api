@@ -14,7 +14,7 @@ fun Application.configureRouting() {
     val materialService = MaterialService()
     val itemService = ItemService()
     val damageService = DamageService()
-    val kitService = KitService(materialService)
+    val kitService = KitService()
     routing {
         materialRoutes(materialService, itemService)
         damageRoutes(damageService)

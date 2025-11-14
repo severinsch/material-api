@@ -111,16 +111,29 @@ data class NewDamageReport(
 )
 
 @Serializable
+data class KitMaterialItem(
+    val materialId: String,
+    val materialName: String,
+    val quantityRequired: Int
+)
+
+@Serializable
+data class NewKitMaterialItem(
+    val materialId: String,
+    val quantityRequired: Int
+)
+
+@Serializable
 data class Kit(
     val id: String,
     val name: String,
     val description: String?,
-    val materials: List<Pair<MaterialResponse, Int>>
+    val materials: List<KitMaterialItem>
 )
 
 @Serializable
 data class NewKit(
     val name: String,
     val description: String?,
-    val materials: List<Pair<String, Int>>
+    val materials: List<NewKitMaterialItem>
 )
