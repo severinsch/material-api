@@ -22,11 +22,7 @@ ktor {
     openApi {
         title = "Material API"
         version = "2.1"
-        summary = "Material management api"
-        description = "This is a longer description"
-        termsOfService = "https://example.com/terms/"
-        contact = "severin@dpsg-langenbach.de"
-        license = "Apache/1.0"
+        description = "API for managing scout material"
 
         target = project.layout.projectDirectory.dir("src/main/resources/openapi").file("open-api.json")
     }
