@@ -13,7 +13,7 @@ data class ItemCounts(val total: Int, val damaged: Int)
 
 class MaterialService {
 
-    private fun getWithCondition(predicate: () -> Op<Boolean>): List<MaterialResponse> = transaction {
+    private fun getWithCondition(predicate: () -> Op<Boolean>): List<Material> = transaction {
         val isDamagedCondition = (IndividualItems.condition eq ItemCondition.POOR) or
                 (IndividualItems.condition eq ItemCondition.DECOMMISSIONED)
 
@@ -54,14 +54,14 @@ class MaterialService {
         return@transaction allMaterials
     }
 
-    fun getAll(): List<MaterialResponse> = getWithCondition { Op.TRUE }
+    fun getAll(): List<Material> = getWithCondition { Op.TRUE }
 
-    fun getByType(type: MaterialTrackingType): List<MaterialResponse> =
+    fun getByType(type: MaterialTrackingType): List<Material> =
         getWithCondition { Materials.trackingType eq type }
 
-    fun getById(id: UUID): MaterialResponse? = getWithCondition { Materials.id eq id }.singleOrNull()
+    fun getById(id: UUID): Material? = getWithCondition { Materials.id eq id }.singleOrNull()
 
-    fun create(newBulkMaterial: NewBulkMaterial): BulkMaterialResponse = transaction {
+    fun create(newBulkMaterial: NewBulkMaterial): BulkMaterial = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newBulkMaterial.name
             it[trackingType] = MaterialTrackingType.BULK
@@ -80,10 +80,10 @@ class MaterialService {
 
         return@transaction (getById(newId.value) ?: throw Exception(
             "Failed to create material with name '${newBulkMaterial.name}'"
-        )) as BulkMaterialResponse
+        )) as BulkMaterial
     }
 
-    fun create(newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse = transaction {
+    fun create(newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummary = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newIndividualMaterial.name
             it[trackingType] = newIndividualMaterial.trackingType
@@ -93,10 +93,10 @@ class MaterialService {
 
         return@transaction (getById(newId.value) ?: throw Exception(
             "Failed to create material with name '${newIndividualMaterial.name}'"
-        )) as IndividualMaterialSummaryResponse
+        )) as IndividualMaterialSummary
     }
 
-    fun update(id: UUID, newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummaryResponse? =
+    fun update(id: UUID, newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummary? =
         transaction {
             Materials.update({ Materials.id eq id }) {
                 it[name] = newIndividualMaterial.name
@@ -105,10 +105,10 @@ class MaterialService {
                 it[description] = newIndividualMaterial.description
             }
 
-            return@transaction getById(id) as IndividualMaterialSummaryResponse?
+            return@transaction getById(id) as IndividualMaterialSummary?
         }
 
-    fun update(id: UUID, newBulkMaterial: NewBulkMaterial): BulkMaterialResponse? = transaction {
+    fun update(id: UUID, newBulkMaterial: NewBulkMaterial): BulkMaterial? = transaction {
         Materials.update({ Materials.id eq id }) {
             it[name] = newBulkMaterial.name
             it[category] = newBulkMaterial.category
@@ -123,7 +123,7 @@ class MaterialService {
             it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
         }
 
-        return@transaction getById(id) as BulkMaterialResponse?
+        return@transaction getById(id) as BulkMaterial?
     }
 
     fun delete(id: UUID): Boolean = transaction {
@@ -131,7 +131,7 @@ class MaterialService {
         return@transaction noDeleted > 0
     }
 
-    private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): MaterialResponse {
+    private fun toMaterialResponse(row: ResultRow, available: Int, damaged: Int): Material {
 
         val locationResponse = row.getOrNull(StorageLocations.id)?.let { locationId ->
             StorageLocation(
@@ -142,7 +142,7 @@ class MaterialService {
         }
 
         if (row[Materials.trackingType] == MaterialTrackingType.INDIVIDUAL) {
-            return IndividualMaterialSummaryResponse(
+            return IndividualMaterialSummary(
                 id = row[Materials.id].toString(),
                 name = row[Materials.name],
                 trackingType = row[Materials.trackingType],
@@ -153,7 +153,7 @@ class MaterialService {
                 damagedCount = damaged
             )
         } else {
-            return BulkMaterialResponse(
+            return BulkMaterial(
                 id = row[Materials.id].toString(),
                 name = row[Materials.name],
                 trackingType = row[Materials.trackingType],

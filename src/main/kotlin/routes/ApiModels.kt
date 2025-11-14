@@ -12,7 +12,7 @@ data class StorageLocation(
 )
 
 @Serializable
-sealed interface MaterialResponse {
+sealed interface Material {
     val id: String
     val name: String
     val trackingType: MaterialTrackingType
@@ -25,7 +25,7 @@ sealed interface MaterialResponse {
 
 
 @Serializable
-data class BulkMaterialResponse(
+data class BulkMaterial(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
@@ -37,10 +37,10 @@ data class BulkMaterialResponse(
     // additional fields for bulk items, for individual items these are in the individual items
     val purchaseDate: String?,
     val purchasePrice: Double?
-) : MaterialResponse
+) : Material
 
 @Serializable
-data class IndividualMaterialSummaryResponse(
+data class IndividualMaterialSummary(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
@@ -50,7 +50,7 @@ data class IndividualMaterialSummaryResponse(
     // These fields are calculated by counting rows in the `individual_items` table.
     override val availableCount: Int,
     override val damagedCount: Int
-) : MaterialResponse
+) : Material
 
 @Serializable
 data class NewIndividualMaterial(
@@ -72,9 +72,8 @@ data class NewBulkMaterial(
     val purchasePrice: Double?
 )
 
-
 @Serializable
-data class IndividualItemResponse(
+data class IndividualItem(
     val id: String,
     val materialId: String,
     val identifier: String,

@@ -12,7 +12,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import parseUUID
-import routes.IndividualItemResponse
+import routes.IndividualItem
 import routes.NewIndividualItem
 import routes.StorageLocation
 import java.time.LocalDate
@@ -21,7 +21,7 @@ import java.util.*
 
 class ItemService {
 
-    private fun getWithCondition(predicate: () -> Op<Boolean>): List<IndividualItemResponse> = transaction {
+    private fun getWithCondition(predicate: () -> Op<Boolean>): List<IndividualItem> = transaction {
         return@transaction IndividualItems
             .leftJoin(StorageLocations, { IndividualItems.storageLocationId }, { StorageLocations.id })
             .selectAll()
@@ -31,16 +31,16 @@ class ItemService {
             }
     }
 
-    fun getAllOfType(typeId: UUID): List<IndividualItemResponse> {
+    fun getAllOfType(typeId: UUID): List<IndividualItem> {
         return getWithCondition { IndividualItems.materialId eq typeId }
     }
 
-    fun getById(id: UUID): IndividualItemResponse? {
+    fun getById(id: UUID): IndividualItem? {
         return getWithCondition { IndividualItems.id eq id }.singleOrNull()
     }
 
 
-    fun create(newIndividualItem: NewIndividualItem): IndividualItemResponse? = transaction {
+    fun create(newIndividualItem: NewIndividualItem): IndividualItem? = transaction {
         val id = IndividualItems
             .insertAndGetId {
                 it[materialId] = parseUUID(newIndividualItem.materialId)
@@ -53,7 +53,7 @@ class ItemService {
         return@transaction getById(id.value)
     }
 
-    fun update(id: UUID, newIndividualItem: NewIndividualItem): IndividualItemResponse? = transaction {
+    fun update(id: UUID, newIndividualItem: NewIndividualItem): IndividualItem? = transaction {
         IndividualItems.update({ IndividualItems.id eq id }) {
             it[materialId] = parseUUID(newIndividualItem.materialId)
             it[identifier] = newIndividualItem.identifier
@@ -71,8 +71,8 @@ class ItemService {
         return@transaction noDeleted > 0
     }
 
-    fun toIndividualItemResponseWithLocation(row: ResultRow): IndividualItemResponse {
-        return IndividualItemResponse(
+    fun toIndividualItemResponseWithLocation(row: ResultRow): IndividualItem {
+        return IndividualItem(
             id = row[IndividualItems.id].toString(),
             materialId = row[IndividualItems.materialId].toString(),
             identifier = row[IndividualItems.identifier],

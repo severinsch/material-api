@@ -22,6 +22,8 @@ fun Route.kitRoutes(kitService: KitService) {
          * Get Kit by id
          *
          * @response 200 [Kit] The Kit
+         * @path id The id of the kit to get
+         *   format: uuid
          */
         get("/{id}") {
             val id = getUUIDfromPathParameter(call) ?: return@get call.respond(HttpStatusCode.BadRequest)
@@ -44,6 +46,8 @@ fun Route.kitRoutes(kitService: KitService) {
          * Update Kit
          *
          * @response 200 [Kit] the updated kit
+         * @path id The id of the kit to update
+         *   format: uuid
          */
         put("/{id}") {
             val updatedKit = call.receive<NewKit>()

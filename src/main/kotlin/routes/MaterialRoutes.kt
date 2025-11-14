@@ -15,7 +15,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          * Get all Materials
          *
          * @query type The [MaterialTrackingType] of the materials to get.
-         * @response 200 [MaterialResponse]+ A list of Materials
+         * @response 200 [Material]+ A list of Materials
          * @response 400 If the type parameter is malformed.
          */
         get {
@@ -36,7 +36,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          *
          * @path id The id of the material to get
          *   format: uuid
-         * @response 200 [MaterialResponse] The returned Material
+         * @response 200 [Material] The returned Material
          * @response 400 If the id parameter is malformed.
          * @response 404 If no Material was found for the specified ID
          */
@@ -51,7 +51,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          *
          * @path id The id of the material to get items for
          *   format: uuid
-         * @response 200 [IndividualItemResponse]+ A list of Items
+         * @response 200 [IndividualItem]+ A list of Items
          * @response 400 If the id parameter is malformed or missing.
          */
         get("/{id}/items") {
@@ -66,7 +66,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Create new Bulk Material
          *
-         * @response 201 [BulkMaterialResponse] The newly created bulk Material
+         * @response 201 [BulkMaterial] The newly created bulk Material
          */
         post("/bulk") {
             val newBulkMaterial = call.receive<NewBulkMaterial>()
@@ -77,7 +77,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Create new Individual Material
          *
-         * @response 201 [IndividualMaterialSummaryResponse] The newly created individual Material
+         * @response 201 [IndividualMaterialSummary] The newly created individual Material
          */
         post("/individual") {
             val newIndividualMaterial = call.receive<NewIndividualMaterial>()
@@ -88,7 +88,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Update Bulk Material
          *
-         * @response 200 [BulkMaterialResponse] The updated bulk Material
+         * @response 200 [BulkMaterial] The updated bulk Material
          * @path id The id of the material to update
          *   format: uuid
          */
@@ -103,7 +103,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Update Individual Material
          *
-         * @response 200 [IndividualMaterialSummaryResponse] The updated individual Material
+         * @response 200 [IndividualMaterialSummary] The updated individual Material
          * @path id The id of the material to update
          *   format: uuid
          */
@@ -139,7 +139,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
          *
          * @path id The id of the item to get
          *   format: uuid
-         * @response 200 [IndividualItemResponse] The returned Individual item
+         * @response 200 [IndividualItem] The returned Individual item
          * @response 400 If the id parameter is malformed.
          * @response 404 If no Item was found for the specified ID
          */
@@ -152,7 +152,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Create a new individual item
          *
-         * @response 201 [IndividualItemResponse] The newly created individual item
+         * @response 201 [IndividualItem] The newly created individual item
          * @response 400 If the item could not be created
          */
         post {
@@ -164,7 +164,7 @@ fun Route.materialRoutes(materialService: MaterialService, itemService: ItemServ
         /**
          * Update individual item
          *
-         * @response 200 [IndividualItemResponse] The updated individual item
+         * @response 200 [IndividualItem] The updated individual item
          * @path id The id of the item to update
          *   format: uuid
          */
