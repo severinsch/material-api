@@ -10,22 +10,6 @@
         "license": "Apache/1.0"
     },
     "paths": {
-        "/": {
-            "get": {
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "text/plain": {
-                                "schema": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/damages": {
             "get": {
                 "summary": "Get all Damages",
@@ -154,6 +138,137 @@
                 ]
             }
         },
+        "/kits": {
+            "get": {
+                "summary": "Get all Kits",
+                "responses": {
+                    "200": {
+                        "description": "A list of kits",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Kit"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Add new Kit",
+                "responses": {
+                    "201": {
+                        "description": "the newly created kit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewKit"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/kits/{id}": {
+            "get": {
+                "summary": "Get Kit by id",
+                "responses": {
+                    "200": {
+                        "description": "The Kit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the kit to get",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            },
+            "put": {
+                "summary": "Update Kit",
+                "responses": {
+                    "200": {
+                        "description": "the updated kit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the kit to update",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewKit"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/materials": {
             "get": {
                 "summary": "Get all Materials",
@@ -176,10 +291,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "anyOf": [ 
-                                            { "$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
-                                            { "$ref": "#/components/schemas/BulkMaterialResponse" }
-                                        ]
+                                        "$ref": "#/components/schemas/Material"
                                     }
                                 }
                             }
@@ -211,10 +323,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "anyOf": [ 
-                                        { "$ref": "#/components/schemas/IndividualMaterialSummaryResponse" }, 
-                                        { "$ref": "#/components/schemas/BulkMaterialResponse" }
-                                    ]
+                                    "$ref": "#/components/schemas/Material"
                                 }
                             }
                         }
@@ -275,7 +384,7 @@
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/IndividualItemResponse"
+                                        "$ref": "#/components/schemas/IndividualItem"
                                     }
                                 }
                             }
@@ -296,7 +405,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/BulkMaterialResponse"
+                                    "$ref": "#/components/schemas/BulkMaterial"
                                 }
                             }
                         }
@@ -323,7 +432,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
+                                    "$ref": "#/components/schemas/IndividualMaterialSummary"
                                 }
                             }
                         }
@@ -350,7 +459,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/BulkMaterialResponse"
+                                    "$ref": "#/components/schemas/BulkMaterial"
                                 }
                             }
                         }
@@ -394,7 +503,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualMaterialSummaryResponse"
+                                    "$ref": "#/components/schemas/IndividualMaterialSummary"
                                 }
                             }
                         }
@@ -449,7 +558,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                    "$ref": "#/components/schemas/IndividualItem"
                                 }
                             }
                         }
@@ -470,7 +579,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                    "$ref": "#/components/schemas/IndividualItem"
                                 }
                             }
                         }
@@ -539,7 +648,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/IndividualItemResponse"
+                                    "$ref": "#/components/schemas/IndividualItem"
                                 }
                             }
                         }
@@ -608,7 +717,66 @@
                     }
                 }
             },
-            "MaterialResponse": {
+            "Kit": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "materials": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "materialId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "materialName": {
+                                    "type": "string"
+                                },
+                                "quantityRequired": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "NewKit": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "materials": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "materialId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "quantityRequired": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Material": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -650,7 +818,7 @@
                     }
                 }
             },
-            "IndividualItemResponse": {
+            "IndividualItem": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -720,7 +888,7 @@
                     }
                 }
             },
-            "BulkMaterialResponse": {
+            "BulkMaterial": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -785,7 +953,7 @@
                     }
                 }
             },
-            "IndividualMaterialSummaryResponse": {
+            "IndividualMaterialSummary": {
                 "type": "object",
                 "properties": {
                     "id": {
