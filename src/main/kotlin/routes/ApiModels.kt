@@ -117,3 +117,10 @@ data class Kit(
     val description: String?,
     val materials: List<Pair<MaterialResponse, Int>>
 )
+
+@Serializable
+data class NewKit(
+    val name: String,
+    val description: String?,
+    val materials: List<Pair<String, Int>>
+)
