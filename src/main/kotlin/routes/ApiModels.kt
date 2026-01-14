@@ -5,10 +5,16 @@ import database.MaterialTrackingType
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class NewStorageLocation(
+    val name: String,
+    val description: String? = null
+)
+
+@Serializable
 data class StorageLocation(
     val id: String,
     val name: String,
-    val description: String?
+    val description: String? = null
 )
 
 @Serializable
@@ -29,14 +35,14 @@ data class BulkMaterial(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
-    override val category: String?,
-    override val description: String?,
-    override val location: StorageLocation?,
+    override val category: String? = null,
+    override val description: String? = null,
+    override val location: StorageLocation? = null,
     override val availableCount: Int,
     override val damagedCount: Int,
     // additional fields for bulk items, for individual items these are in the individual items
-    val purchaseDate: String?,
-    val purchasePrice: Double?
+    val purchaseDate: String? = null,
+    val purchasePrice: Double? = null
 ) : Material
 
 @Serializable
@@ -44,9 +50,9 @@ data class IndividualMaterialSummary(
     override val id: String,
     override val name: String,
     override val trackingType: MaterialTrackingType,
-    override val category: String?,
-    override val description: String?,
-    override val location: StorageLocation?,
+    override val category: String? = null,
+    override val description: String? = null,
+    override val location: StorageLocation? = null,
     // These fields are calculated by counting rows in the `individual_items` table.
     override val availableCount: Int,
     override val damagedCount: Int
@@ -55,21 +61,20 @@ data class IndividualMaterialSummary(
 @Serializable
 data class NewIndividualMaterial(
     val name: String,
-    val trackingType: MaterialTrackingType,
-    val category: String?,
-    val description: String?,
+    val category: String? = null,
+    val description: String? = null,
 )
 
 @Serializable
 data class NewBulkMaterial(
     val name: String,
-    val storageLocationId: String,
-    val category: String?,
-    val description: String?,
+    val storageLocationId: String? = null,
+    val category: String? = null,
+    val description: String? = null,
     val availableCount: Int,
     val damagedCount: Int,
-    val purchaseDate: String?,
-    val purchasePrice: Double?
+    val purchaseDate: String? = null,
+    val purchasePrice: Double? = null
 )
 
 @Serializable
@@ -78,9 +83,9 @@ data class IndividualItem(
     val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
-    val storageLocation: StorageLocation?,
-    val purchasePrice: Double?,
-    val purchaseDate: String?
+    val storageLocation: StorageLocation? = null,
+    val purchasePrice: Double? = null,
+    val purchaseDate: String? = null
 )
 
 @Serializable
@@ -88,9 +93,9 @@ data class NewIndividualItem(
     val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
-    val storageLocation: StorageLocation?,
-    val purchasePrice: Double?,
-    val purchaseDate: String?
+    val storageLocation: StorageLocation? = null,
+    val purchasePrice: Double? = null,
+    val purchaseDate: String? = null
 )
 
 @Serializable
@@ -126,13 +131,13 @@ data class NewKitMaterialItem(
 data class Kit(
     val id: String,
     val name: String,
-    val description: String?,
+    val description: String? = null,
     val materials: List<KitMaterialItem>
 )
 
 @Serializable
 data class NewKit(
     val name: String,
-    val description: String?,
+    val description: String? = null,
     val materials: List<NewKitMaterialItem>
 )

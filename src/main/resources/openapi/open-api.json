@@ -265,6 +265,81 @@
                 }
             }
         },
+        "/locations": {
+            "get": {
+                "summary": "Get all Locations",
+                "responses": {
+                    "200": {
+                        "description": "A list of damages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/StorageLocation"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Add new storage location",
+                "responses": {
+                    "201": {
+                        "description": "the newly created storage location",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StorageLocation"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": ""
+                    }
+                },
+                "requestBody": {
+                    "description": "",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewStorageLocation"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/{id}": {
+            "delete": {
+                "summary": "Delete storage location",
+                "responses": {
+                    "200": {
+                        "description": ""
+                    },
+                    "400": {
+                        "description": ""
+                    },
+                    "404": {
+                        "description": ""
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The id of the location to delete",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
+        },
         "/materials": {
             "get": {
                 "summary": "Get all Materials",
@@ -772,6 +847,32 @@
                     }
                 }
             },
+            "StorageLocation": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewStorageLocation": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
             "Material": {
                 "type": "object",
                 "properties": {
@@ -937,9 +1038,6 @@
                 "properties": {
                     "name": {
                         "type": "string"
-                    },
-                    "trackingType": {  
-                        "$ref": "#/components/schemas/TrackingType"
                     },
                     "category": {
                         "type": "string"

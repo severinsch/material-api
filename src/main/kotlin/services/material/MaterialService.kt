@@ -75,7 +75,7 @@ class MaterialService {
             it[quantityDamaged] = newBulkMaterial.damagedCount
             it[purchasePrice] = newBulkMaterial.purchasePrice?.toBigDecimal()
             it[purchaseDate] = newBulkMaterial.purchaseDate?.let { d -> LocalDate.parse(d) }
-            it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
+            it[storageLocationId] = newBulkMaterial.storageLocationId?.let { id -> parseUUID(id) }
         }
 
         return@transaction (getById(newId.value) ?: throw Exception(
@@ -86,7 +86,7 @@ class MaterialService {
     fun create(newIndividualMaterial: NewIndividualMaterial): IndividualMaterialSummary = transaction {
         val newId = Materials.insertAndGetId {
             it[name] = newIndividualMaterial.name
-            it[trackingType] = newIndividualMaterial.trackingType
+            it[trackingType] = MaterialTrackingType.INDIVIDUAL
             it[category] = newIndividualMaterial.category
             it[description] = newIndividualMaterial.description
         }
@@ -100,7 +100,6 @@ class MaterialService {
         transaction {
             Materials.update({ Materials.id eq id }) {
                 it[name] = newIndividualMaterial.name
-                it[trackingType] = newIndividualMaterial.trackingType
                 it[category] = newIndividualMaterial.category
                 it[description] = newIndividualMaterial.description
             }
@@ -120,7 +119,7 @@ class MaterialService {
             it[quantityDamaged] = newBulkMaterial.damagedCount
             it[purchasePrice] = newBulkMaterial.purchasePrice?.toBigDecimal()
             it[purchaseDate] = newBulkMaterial.purchaseDate?.let { d -> LocalDate.parse(d) }
-            it[storageLocationId] = parseUUID(newBulkMaterial.storageLocationId)
+            it[storageLocationId] = newBulkMaterial.storageLocationId?.let { id -> parseUUID(id) }
         }
 
         return@transaction getById(id) as BulkMaterial?
