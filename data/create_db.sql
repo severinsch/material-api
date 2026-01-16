@@ -89,14 +89,32 @@ CREATE TABLE kits (
                       description TEXT
 );
 
--- Join table defining the required materials and quantities for a Kit.
-CREATE TABLE kit_materials (
-                               kit_id UUID NOT NULL REFERENCES kits(id) ON DELETE CASCADE,
-                               material_id UUID NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-                               quantity_required INTEGER NOT NULL CHECK (quantity_required > 0),
-                               PRIMARY KEY (kit_id, material_id)
+-- 1. Items that are ALWAYS in the kit, regardless of variant.
+CREATE TABLE kit_fixed_materials (
+                                     kit_id UUID NOT NULL REFERENCES kits(id) ON DELETE CASCADE,
+                                     material_id UUID NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+                                     quantity_required INTEGER NOT NULL,
+                                     PRIMARY KEY (kit_id, material_id)
 );
 
+-- 2. Defines a "slot" in a kit that needs to be filled (e.g., "Roof", "Side Walls")
+CREATE TABLE kit_substitution_groups (
+                                         id UUID PRIMARY KEY DEFAULT uuidv7(),
+                                         kit_id UUID NOT NULL REFERENCES kits(id) ON DELETE CASCADE,
+                                         name VARCHAR(255) NOT NULL, -- e.g., "Dach", "Seitenwände"
+                                         required_units DECIMAL(10, 2) NOT NULL, -- The "Total Value" needed to complete this group
+                                         is_optional BOOLEAN DEFAULT FALSE,
+                                         min_required_units DECIMAL(10, 2) DEFAULT 0
+);
+
+-- 3. Defines how much each material contributes to the group
+CREATE TABLE kit_substitution_options (
+                                          group_id UUID NOT NULL REFERENCES kit_substitution_groups(id) ON DELETE CASCADE,
+                                          material_id UUID NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+                                          unit_value DECIMAL(10, 2) NOT NULL, -- How much "Requirement" 1 piece of this material fulfills
+                                          is_preferred BOOLEAN DEFAULT FALSE,
+                                          PRIMARY KEY (group_id, material_id)
+);
 
 -- ========= INDEXES: For faster query performance =========
 CREATE INDEX idx_materials_name ON materials(name);
