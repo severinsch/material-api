@@ -41,19 +41,5 @@ fun Route.kitRoutes(kitService: KitService) {
             val createdKit = kitService.create(newKit)
             call.respond(HttpStatusCode.OK, createdKit)
         }
-
-        /**
-         * Update Kit
-         *
-         * @response 200 [Kit] the updated kit
-         * @path id The id of the kit to update
-         *   format: uuid
-         */
-        put("/{id}") {
-            val updatedKit = call.receive<NewKit>()
-            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
-            val kit = kitService.update(id, updatedKit) ?: return@put call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, kit)
-        }
     }
 }

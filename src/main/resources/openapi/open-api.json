@@ -1,1130 +1,1174 @@
 {
-    "openapi": "3.0.3",
-    "info": {
-        "title": "Material API",
-        "version": "2.1",
-        "description": "API for managing scout material"
-    },
-    "paths": {
-        "/damages": {
-            "get": {
-                "summary": "Get all Damages",
-                "parameters": [
-                    {
-                        "name": "item_id",
-                        "in": "query",
-                        "description": "The id of the item to get damages for. Get all Damages if not provided.",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "A list of damages",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/DamageReport"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the item_id parameter is malformed."
-                    }
-                }
-            },
-            "post": {
-                "summary": "Register new damage",
-                "responses": {
-                    "201": {
-                        "description": "the newly created damage report",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DamageReport"
-                                }
-                            }
-                        }
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewDamageReport"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/damages/{id}": {
-            "put": {
-                "summary": "Update damage",
-                "responses": {
-                    "200": {
-                        "description": "the updated damage report",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DamageReport"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the damage to update",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewDamageReport"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "summary": "Delete damage",
-                "responses": {
-                    "200": {
-                        "description": ""
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the damage to delete",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/kits": {
-            "get": {
-                "summary": "Get all Kits",
-                "responses": {
-                    "200": {
-                        "description": "A list of kits",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Kit"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "summary": "Add new Kit",
-                "responses": {
-                    "201": {
-                        "description": "the newly created kit",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Kit"
-                                }
-                            }
-                        }
-                    },
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Kit"
-                                }
-                            }
-                        }
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewKit"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/kits/{id}": {
-            "get": {
-                "summary": "Get Kit by id",
-                "responses": {
-                    "200": {
-                        "description": "The Kit",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Kit"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the kit to get",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            },
-            "put": {
-                "summary": "Update Kit",
-                "responses": {
-                    "200": {
-                        "description": "the updated kit",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Kit"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the kit to update",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewKit"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/locations": {
-            "get": {
-                "summary": "Get all Locations",
-                "responses": {
-                    "200": {
-                        "description": "A list of damages",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/StorageLocation"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "summary": "Add new storage location",
-                "responses": {
-                    "201": {
-                        "description": "the newly created storage location",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/StorageLocation"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewStorageLocation"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/locations/{id}": {
-            "delete": {
-                "summary": "Delete storage location",
-                "responses": {
-                    "200": {
-                        "description": ""
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the location to delete",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/materials": {
-            "get": {
-                "summary": "Get all Materials",
-                "parameters": [
-                    {
-                        "name": "type",
-                        "in": "query",
-                        "description": "The [MaterialTrackingType] of the materials to get.",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "A list of Materials",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Material"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the type parameter is malformed."
-                    }
-                }
-            }
-        },
-        "/materials/{id}": {
-            "get": {
-                "summary": "Get Material by id",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the material to get",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The returned Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Material"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the id parameter is malformed."
-                    },
-                    "404": {
-                        "description": "If no Material was found for the specified ID"
-                    }
-                }
-            },
-            "delete": {
-                "summary": "Delete Material",
-                "responses": {
-                    "200": {
-                        "description": ""
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the material to delete",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/materials/{id}/items": {
-            "get": {
-                "summary": "Get Items for Material by id",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the material to get items for",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "A list of Items",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/IndividualItem"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the id parameter is malformed or missing."
-                    }
-                }
-            }
-        },
-        "/materials/bulk": {
-            "post": {
-                "summary": "Create new Bulk Material",
-                "responses": {
-                    "201": {
-                        "description": "The newly created bulk Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/BulkMaterial"
-                                }
-                            }
-                        }
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewBulkMaterial"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/materials/individual": {
-            "post": {
-                "summary": "Create new Individual Material",
-                "responses": {
-                    "201": {
-                        "description": "The newly created individual Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualMaterialSummary"
-                                }
-                            }
-                        }
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewIndividualMaterial"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/materials/bulk/{id}": {
-            "put": {
-                "summary": "Update Bulk Material",
-                "responses": {
-                    "200": {
-                        "description": "The updated bulk Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/BulkMaterial"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the material to update",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewBulkMaterial"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/materials/individual/{id}": {
-            "put": {
-                "summary": "Update Individual Material",
-                "responses": {
-                    "200": {
-                        "description": "The updated individual Material",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualMaterialSummary"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the material to update",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewIndividualMaterial"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/items/{id}": {
-            "get": {
-                "summary": "Get individual item by id",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the item to get",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The returned Individual item",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualItem"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the id parameter is malformed."
-                    },
-                    "404": {
-                        "description": "If no Item was found for the specified ID"
-                    }
-                }
-            },
-            "put": {
-                "summary": "Update individual item",
-                "responses": {
-                    "200": {
-                        "description": "The updated individual item",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualItem"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the item to update",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewIndividualItem"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "summary": "Delete individual item",
-                "responses": {
-                    "200": {
-                        "description": ""
-                    },
-                    "400": {
-                        "description": ""
-                    },
-                    "404": {
-                        "description": ""
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "The id of the item do delete",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ]
-            }
-        },
-        "/items": {
-            "post": {
-                "summary": "Create a new individual item",
-                "responses": {
-                    "201": {
-                        "description": "The newly created individual item",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/IndividualItem"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "If the item could not be created"
-                    }
-                },
-                "requestBody": {
-                    "description": "",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/NewIndividualItem"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "components": {
-        "schemas": {
-            "TrackingType": {
-                "type": "string",
-                "enum": ["BULK", "INDIVIDUAL"]
-            },
-            "Condition": {
-                "type": "string",
-                "enum": ["NEW", "GOOD", "FAIR", "POOR", "DECOMMISSIONED"]
-            },
-            "DamageReport": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "inventoryItemId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "isResolved": {
-                        "type": "boolean"
-                    },
-                    "reportedAt": {
-                        "type": "string"
-                    }
-                }
-            },
-            "NewDamageReport": {
-                "type": "object",
-                "properties": {
-                    "inventoryItemId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "isResolved": {
-                        "type": "boolean"
-                    }
-                }
-            },
-            "Kit": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "materials": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "materialId": {
-                                    "type": "string",
-                                    "format": "uuid"
-                                },
-                                "materialName": {
-                                    "type": "string"
-                                },
-                                "quantityRequired": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "NewKit": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "materials": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "materialId": {
-                                    "type": "string",
-                                    "format": "uuid"
-                                },
-                                "quantityRequired": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "StorageLocation": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    }
-                }
-            },
-            "NewStorageLocation": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    }
-                }
-            },
-            "Material": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "trackingType": {  
-                        "$ref": "#/components/schemas/TrackingType"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "location": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "format": "uuid"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "availableCount": {
-                        "type": "integer"
-                    },
-                    "damagedCount": {
-                        "type": "integer"
-                    }
-                }
-            },
-            "IndividualItem": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "materialId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "identifier": {
-                        "type": "string"
-                    },
-                    "condition": {  
-                        "$ref": "#/components/schemas/Condition"
-                    },
-                    "storageLocation": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "format": "uuid"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    }
-                }
-            },
-            "NewBulkMaterial": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "storageLocationId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "availableCount": {
-                        "type": "integer"
-                    },
-                    "damagedCount": {
-                        "type": "integer"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    }
-                }
-            },
-            "BulkMaterial": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "trackingType": {  
-                        "$ref": "#/components/schemas/TrackingType"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "location": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "format": "uuid"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "availableCount": {
-                        "type": "integer"
-                    },
-                    "damagedCount": {
-                        "type": "integer"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    }
-                }
-            },
-            "NewIndividualMaterial": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    }
-                }
-            },
-            "IndividualMaterialSummary": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "trackingType": {  
-                        "$ref": "#/components/schemas/TrackingType"
-                    },
-                    "category": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "location": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "format": "uuid"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "availableCount": {
-                        "type": "integer"
-                    },
-                    "damagedCount": {
-                        "type": "integer"
-                    }
-                }
-            },
-            "NewIndividualItem": {
-                "type": "object",
-                "properties": {
-                    "materialId": {
-                        "type": "string",
-                        "format": "uuid"
-                    },
-                    "identifier": {
-                        "type": "string"
-                    },
-                    "condition": {  
-                        "$ref": "#/components/schemas/Condition"
-                    },
-                    "storageLocation": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "format": "uuid"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "purchasePrice": {
-                        "type": "number"
-                    },
-                    "purchaseDate": {
-                        "type": "string"
-                    }
-                }
-            }
-        }
-    }
+	"openapi": "3.0.3",
+	"info": {
+		"title": "Material API",
+		"version": "2.1",
+		"description": "API for managing scout material"
+	},
+	"paths": {
+		"/damages": {
+			"get": {
+				"summary": "Get all Damages",
+				"parameters": [
+					{
+						"name": "item_id",
+						"in": "query",
+						"description": "The id of the item to get damages for. Get all Damages if not provided.",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A list of damages",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/DamageReport"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the item_id parameter is malformed."
+					}
+				}
+			},
+			"post": {
+				"summary": "Register new damage",
+				"responses": {
+					"201": {
+						"description": "the newly created damage report",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DamageReport"
+								}
+							}
+						}
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewDamageReport"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/damages/{id}": {
+			"put": {
+				"summary": "Update damage",
+				"responses": {
+					"200": {
+						"description": "the updated damage report",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DamageReport"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the damage to update",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewDamageReport"
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"summary": "Delete damage",
+				"responses": {
+					"200": {
+						"description": ""
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the damage to delete",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/kits": {
+			"get": {
+				"summary": "Get all Kits",
+				"responses": {
+					"200": {
+						"description": "A list of kits",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Kit"
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"summary": "Add new Kit",
+				"responses": {
+					"201": {
+						"description": "the newly created kit",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Kit"
+								}
+							}
+						}
+					},
+					"200": {
+						"description": "",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Kit"
+								}
+							}
+						}
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewKit"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/kits/{id}": {
+			"get": {
+				"summary": "Get Kit by id",
+				"responses": {
+					"200": {
+						"description": "The Kit",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Kit"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the kit to get",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/locations": {
+			"get": {
+				"summary": "Get all Locations",
+				"responses": {
+					"200": {
+						"description": "A list of damages",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/StorageLocation"
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"summary": "Add new storage location",
+				"responses": {
+					"201": {
+						"description": "the newly created storage location",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/StorageLocation"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewStorageLocation"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/locations/{id}": {
+			"delete": {
+				"summary": "Delete storage location",
+				"responses": {
+					"200": {
+						"description": ""
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the location to delete",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/materials": {
+			"get": {
+				"summary": "Get all Materials",
+				"parameters": [
+					{
+						"name": "type",
+						"in": "query",
+						"description": "The [MaterialTrackingType] of the materials to get.",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A list of Materials",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Material"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the type parameter is malformed."
+					}
+				}
+			}
+		},
+		"/materials/{id}": {
+			"get": {
+				"summary": "Get Material by id",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the material to get",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The returned Material",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Material"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the id parameter is malformed."
+					},
+					"404": {
+						"description": "If no Material was found for the specified ID"
+					}
+				}
+			},
+			"delete": {
+				"summary": "Delete Material",
+				"responses": {
+					"200": {
+						"description": ""
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the material to delete",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/materials/{id}/items": {
+			"get": {
+				"summary": "Get Items for Material by id",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the material to get items for",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A list of Items",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/IndividualItem"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the id parameter is malformed or missing."
+					}
+				}
+			}
+		},
+		"/materials/bulk": {
+			"post": {
+				"summary": "Create new Bulk Material",
+				"responses": {
+					"201": {
+						"description": "The newly created bulk Material",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/BulkMaterial"
+								}
+							}
+						}
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewBulkMaterial"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/materials/individual": {
+			"post": {
+				"summary": "Create new Individual Material",
+				"responses": {
+					"201": {
+						"description": "The newly created individual Material",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndividualMaterialSummary"
+								}
+							}
+						}
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewIndividualMaterial"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/materials/bulk/{id}": {
+			"put": {
+				"summary": "Update Bulk Material",
+				"responses": {
+					"200": {
+						"description": "The updated bulk Material",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/BulkMaterial"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the material to update",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewBulkMaterial"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/materials/individual/{id}": {
+			"put": {
+				"summary": "Update Individual Material",
+				"responses": {
+					"200": {
+						"description": "The updated individual Material",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndividualMaterialSummary"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the material to update",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewIndividualMaterial"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/items/{id}": {
+			"get": {
+				"summary": "Get individual item by id",
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the item to get",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The returned Individual item",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndividualItem"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the id parameter is malformed."
+					},
+					"404": {
+						"description": "If no Item was found for the specified ID"
+					}
+				}
+			},
+			"put": {
+				"summary": "Update individual item",
+				"responses": {
+					"200": {
+						"description": "The updated individual item",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndividualItem"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the item to update",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewIndividualItem"
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"summary": "Delete individual item",
+				"responses": {
+					"200": {
+						"description": ""
+					},
+					"400": {
+						"description": ""
+					},
+					"404": {
+						"description": ""
+					}
+				},
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"description": "The id of the item do delete",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		},
+		"/items": {
+			"post": {
+				"summary": "Create a new individual item",
+				"responses": {
+					"201": {
+						"description": "The newly created individual item",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IndividualItem"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "If the item could not be created"
+					}
+				},
+				"requestBody": {
+					"description": "",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/NewIndividualItem"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"schemas": {
+			"TrackingType": {
+				"type": "string",
+				"enum": [
+					"BULK",
+					"INDIVIDUAL"
+				]
+			},
+			"Condition": {
+				"type": "string",
+				"enum": [
+					"NEW",
+					"GOOD",
+					"FAIR",
+					"POOR",
+					"DECOMMISSIONED"
+				]
+			},
+			"DamageReport": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"inventoryItemId": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"description": {
+						"type": "string"
+					},
+					"isResolved": {
+						"type": "boolean"
+					},
+					"reportedAt": {
+						"type": "string"
+					}
+				}
+			},
+			"NewDamageReport": {
+				"type": "object",
+				"properties": {
+					"inventoryItemId": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"description": {
+						"type": "string"
+					},
+					"isResolved": {
+						"type": "boolean"
+					}
+				}
+			},
+			"Kit": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"fixedMaterials": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"materialId": {
+									"type": "string",
+									"format": "uuid"
+								},
+								"quantity": {
+									"type": "integer"
+								}
+							}
+						}
+					},
+					"substitutionGroups": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "string",
+									"format": "uuid"
+								},
+								"name": {
+									"type": "string"
+								},
+								"isOptional": {
+									"type": "boolean"
+								},
+								"requiredUnits": {
+									"type": "number"
+								},
+								"minRequiredUnits": {
+									"type": "number"
+								},
+								"options": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"materialId": {
+												"type": "string",
+												"format": "uuid"
+											},
+											"unitValue": {
+												"type": "number"
+											},
+											"isPreferred": {
+												"type": "boolean"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"NewKit": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"fixedMaterials": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"materialId": {
+									"type": "string",
+									"format": "uuid"
+								},
+								"quantity": {
+									"type": "integer"
+								}
+							}
+						}
+					},
+					"substitutionGroups": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"isOptional": {
+									"type": "boolean"
+								},
+								"requiredUnits": {
+									"type": "number"
+								},
+								"minRequiredUnits": {
+									"type": "number"
+								},
+								"options": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"materialId": {
+												"type": "string",
+												"format": "uuid"
+											},
+											"unitValue": {
+												"type": "number"
+											},
+											"isPreferred": {
+												"type": "boolean"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"StorageLocation": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					}
+				}
+			},
+			"NewStorageLocation": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					}
+				}
+			},
+			"Material": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"trackingType": {
+						"$ref": "#/components/schemas/TrackingType"
+					},
+					"category": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"location": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"format": "uuid"
+							},
+							"name": {
+								"type": "string"
+							},
+							"description": {
+								"type": "string"
+							}
+						}
+					},
+					"availableCount": {
+						"type": "integer"
+					},
+					"damagedCount": {
+						"type": "integer"
+					}
+				}
+			},
+			"IndividualItem": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"materialId": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"identifier": {
+						"type": "string"
+					},
+					"condition": {
+						"$ref": "#/components/schemas/Condition"
+					},
+					"storageLocation": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"format": "uuid"
+							},
+							"name": {
+								"type": "string"
+							},
+							"description": {
+								"type": "string"
+							}
+						}
+					},
+					"purchasePrice": {
+						"type": "number"
+					},
+					"purchaseDate": {
+						"type": "string"
+					}
+				}
+			},
+			"NewBulkMaterial": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"storageLocationId": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"category": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"availableCount": {
+						"type": "integer"
+					},
+					"damagedCount": {
+						"type": "integer"
+					},
+					"purchaseDate": {
+						"type": "string"
+					},
+					"purchasePrice": {
+						"type": "number"
+					}
+				}
+			},
+			"BulkMaterial": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"trackingType": {
+						"$ref": "#/components/schemas/TrackingType"
+					},
+					"category": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"location": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"format": "uuid"
+							},
+							"name": {
+								"type": "string"
+							},
+							"description": {
+								"type": "string"
+							}
+						}
+					},
+					"availableCount": {
+						"type": "integer"
+					},
+					"damagedCount": {
+						"type": "integer"
+					},
+					"purchaseDate": {
+						"type": "string"
+					},
+					"purchasePrice": {
+						"type": "number"
+					}
+				}
+			},
+			"NewIndividualMaterial": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string"
+					},
+					"category": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					}
+				}
+			},
+			"IndividualMaterialSummary": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"name": {
+						"type": "string"
+					},
+					"trackingType": {
+						"$ref": "#/components/schemas/TrackingType"
+					},
+					"category": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"location": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"format": "uuid"
+							},
+							"name": {
+								"type": "string"
+							},
+							"description": {
+								"type": "string"
+							}
+						}
+					},
+					"availableCount": {
+						"type": "integer"
+					},
+					"damagedCount": {
+						"type": "integer"
+					}
+				}
+			},
+			"NewIndividualItem": {
+				"type": "object",
+				"properties": {
+					"materialId": {
+						"type": "string",
+						"format": "uuid"
+					},
+					"identifier": {
+						"type": "string"
+					},
+					"condition": {
+						"$ref": "#/components/schemas/Condition"
+					},
+					"storageLocation": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"format": "uuid"
+							},
+							"name": {
+								"type": "string"
+							},
+							"description": {
+								"type": "string"
+							}
+						}
+					},
+					"purchasePrice": {
+						"type": "number"
+					},
+					"purchaseDate": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	}
 }

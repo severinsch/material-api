@@ -115,29 +115,50 @@ data class NewDamageReport(
 )
 
 @Serializable
-data class KitMaterialItem(
-    val materialId: String,
-    val materialName: String,
-    val quantityRequired: Int
-)
-
-@Serializable
-data class NewKitMaterialItem(
-    val materialId: String,
-    val quantityRequired: Int
-)
-
-@Serializable
 data class Kit(
     val id: String,
     val name: String,
     val description: String? = null,
-    val materials: List<KitMaterialItem>
+    val fixedMaterials: List<FixedMaterial>,
+    val substitutionGroups: List<SubstitutionGroup>
 )
 
 @Serializable
 data class NewKit(
     val name: String,
     val description: String? = null,
-    val materials: List<NewKitMaterialItem>
+    val fixedMaterials: List<FixedMaterial>,
+    val substitutionGroups: List<NewSubstitutionGroup>
+)
+
+@Serializable
+data class FixedMaterial(
+    val materialId: String,
+    val quantity: Int
+)
+
+@Serializable
+data class SubstitutionGroup(
+    val id: String,
+    val name: String,
+    val isOptional: Boolean,
+    val requiredUnits: Double,
+    val minRequiredUnits: Double,
+    val options: List<SubstitutionOption>
+)
+
+@Serializable
+data class NewSubstitutionGroup(
+    val name: String,
+    val isOptional: Boolean,
+    val requiredUnits: Double,
+    val minRequiredUnits: Double,
+    val options: List<SubstitutionOption>
+)
+
+@Serializable
+data class SubstitutionOption(
+    val materialId: String,
+    val unitValue: Double,
+    val isPreferred: Boolean
 )

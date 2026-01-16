@@ -19,7 +19,7 @@ object DatabaseFactory {
             )
 
             transaction {
-                SchemaUtils.create(StorageLocations, Materials, IndividualItems, DamageReports, Kits, KitMaterials)
+                SchemaUtils.create(StorageLocations, Materials, IndividualItems, DamageReports, Kits, KitFixedMaterials, KitSubstitutionGroups, KitSubstitutionOptions)
             }
         }
     }
