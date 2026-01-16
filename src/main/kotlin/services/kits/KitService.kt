@@ -1,22 +1,15 @@
 package services.kits
 
 
-
-import database.KitFixedMaterials
-import database.KitSubstitutionGroups
-import database.KitSubstitutionOptions
-import database.Kits
-import database.Materials
+import database.*
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.*
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertAndGetId
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import parseUUID
-import routes.FixedMaterial
-import routes.Kit
-import routes.NewKit
-import routes.SubstitutionGroup
-import routes.SubstitutionOption
+import routes.*
 import java.util.*
 
 

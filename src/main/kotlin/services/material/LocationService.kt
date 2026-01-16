@@ -1,6 +1,5 @@
 package services.material
 
-import database.IndividualItems
 import database.StorageLocations
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.eq
@@ -8,7 +7,6 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import routes.IndividualItem
 import routes.NewStorageLocation
 import routes.StorageLocation
 import java.util.*

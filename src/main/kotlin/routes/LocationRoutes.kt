@@ -1,7 +1,6 @@
 package routes
 
 import getUUIDfromPathParameter
-import getUUIDfromQueryParameter
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -26,7 +25,8 @@ fun Route.locationRoutes(locationService: LocationService) {
          */
         post {
             val newStorageLocation = call.receive<NewStorageLocation>()
-            val createdStorageLocation = locationService.create(newStorageLocation) ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val createdStorageLocation =
+                locationService.create(newStorageLocation) ?: return@post call.respond(HttpStatusCode.BadRequest)
             call.respond(HttpStatusCode.Created, createdStorageLocation)
         }
 
