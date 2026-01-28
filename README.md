@@ -1,50 +1,54 @@
-# material-api
+# Scout Material Management - Backend API
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+A Kotlin-based REST API designed for Scout groups to manage inventory, track material conditions, and calculate packing lists for complex kits (like Jurten and Kohten).
 
-Here are some useful links to get you started:
+The frontend for this tool can be found [here](https://github.com/severinsch/material-frontend).
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need
-  to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
+## Key Features
 
-## Features
+* **Hybrid Inventory Tracking:**
+* **Advanced Kit Logic:**
+* **Damage Reporting:** Workflow for reporting and resolving equipment damages.
 
-Here's a list of features included in this project:
+## Roadmap
 
-| Name                                                                   | Description                                                                        |
-|------------------------------------------------------------------------|------------------------------------------------------------------------------------|
-| [HSTS](https://start.ktor.io/p/hsts)                                   | Enables HTTP Strict Transport Security (HSTS)                                      |
-| [HttpsRedirect](https://start.ktor.io/p/https-redirect)                | Redirects insecure HTTP requests to the respective HTTPS endpoint                  |
-| [Routing](https://start.ktor.io/p/routing)                             | Provides a structured routing DSL                                                  |
-| [OpenAPI](https://start.ktor.io/p/openapi)                             | Serves OpenAPI documentation                                                       |
-| [Swagger](https://start.ktor.io/p/swagger)                             | Serves Swagger UI for your project                                                 |
-| [Authentication](https://start.ktor.io/p/auth)                         | Provides extension point for handling the Authorization header                     |
-| [Authentication Basic](https://start.ktor.io/p/auth-basic)             | Handles 'Basic' username / password authentication scheme                          |
-| [Content Negotiation](https://start.ktor.io/p/content-negotiation)     | Provides automatic content conversion according to Content-Type and Accept headers |
-| [kotlinx.serialization](https://start.ktor.io/p/kotlinx-serialization) | Handles JSON serialization using kotlinx.serialization library                     |
-| [Sessions](https://start.ktor.io/p/ktor-sessions)                      | Adds support for persistent sessions through cookies or headers                    |
-| [Exposed](https://start.ktor.io/p/exposed)                             | Adds Exposed database to your application                                          |
+Currently missing but planned are:
+* Authentication
+* "Borrowing" functionality where people can request to borrow some material for a given time and are automatically reminded to return it.
 
-## Building & Running
+## Database Model Concepts
 
-To build or run the project, use one of the following tasks:
+This project uses an SQL model to handle the flexibility of Scout tents.
 
-| Task                                    | Description                                                          |
-|-----------------------------------------|----------------------------------------------------------------------|
-| `./gradlew test`                        | Run the tests                                                        |
-| `./gradlew build`                       | Build everything                                                     |
-| `./gradlew buildFatJar`                 | Build an executable JAR of the server with all dependencies included |
-| `./gradlew buildImage`                  | Build the docker image to use with the fat JAR                       |
-| `./gradlew publishImageToLocalRegistry` | Publish the docker image locally                                     |
-| `./gradlew run`                         | Run the server                                                       |
-| `./gradlew runDocker`                   | Run using the local docker image                                     |
+### Hybrid Tracking
 
-If the server starts successfully, you'll see the following output:
+Materials are separated into "Individual" and "Bulk" materials.
+For each individual material there is a list of items of this "kind".
 
+The API combines the separately tracked materials into one response type in some endpoints.
+
+### The "Kit" Architecture
+
+Unlike a simple Bill of Materials, a Kit (e.g., a Jurte) is composed of:
+1.  **Fixed Materials:** Things needed for every variation (e.g., center pole cap).
+2.  **Substitution Groups:** Logical "slots" that need to be filled.
+* *Example:* A "Roof" group requires `6.0` units.
+* A `Jurtenhalbdach` is worth `3.0` units.
+* A `Kohtenblatt` is worth `1.00` unit.
+* A Substitution group can be optional.
+* The frontend then calculates the best combination based on inventory.
+
+## API Documentation
+
+This API exposes an OpenAPI (Swagger) specification. Once running, access the docs at: http://0.0.0.0:8080/swagger
+
+Note that the API documentation is auto-generated using the built-in Ktor feature.
+It is then modified by a script [scripts/FixOpenApiSpec.main.kts] to compensate for missing functionality of the (still experimental) Ktor generation.
+
+## Deployment
+
+### Docker Compose
+Use the provided compose file to start both the database and the application.
+```bash
+docker-compose up -d
 ```
-2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
-2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
-```
-
