@@ -85,11 +85,15 @@ class MaterialService(private val db: Db) {
             }
     }
 
+    /** Individual items that count as available: active and not in POOR condition. */
+    private val isAvailableItem
+        get() = (IndividualItems.status eq ItemStatus.ACTIVE) and (IndividualItems.condition neq ItemCondition.POOR)
+
     /** Availability rules for individual items. LOST and DECOMMISSIONED items count as neither. */
     private fun individualItemCounts(): Map<Uuid, Counts> {
         val isActive = IndividualItems.status eq ItemStatus.ACTIVE
         val isPoor = IndividualItems.condition eq ItemCondition.POOR
-        val available = countWhere(isActive and not(isPoor))
+        val available = countWhere(isAvailableItem)
         val damaged = countWhere((isActive and isPoor) or (IndividualItems.status eq ItemStatus.IN_REPAIR))
         return IndividualItems
             .select(IndividualItems.materialId, available, damaged)
@@ -97,14 +101,17 @@ class MaterialService(private val db: Db) {
             .associate { it[IndividualItems.materialId].value to Counts(it[available] ?: 0, it[damaged] ?: 0) }
     }
 
-    /** Pieces per material that are part of a loan that hasn't been returned yet. */
+    /**
+     * Available pieces per material that are part of a loan that hasn't been returned yet. Lent items that don't count
+     * as available (e.g. in POOR condition) are left out, so `availableCount - loanedCount` is what's in storage.
+     */
     private fun loanedCounts(): Map<Uuid, Int> {
         val openLines = LoanLines.innerJoin(Loans).leftJoin(IndividualItems)
         val materialId = Coalesce(LoanLines.bulkMaterialId, IndividualItems.materialId)
         val pieces = Coalesce(LoanLines.quantity, intLiteral(1)).sum()
         return openLines
             .select(materialId, pieces)
-            .where { Loans.returnedAt.isNull() }
+            .where { Loans.returnedAt.isNull() and (LoanLines.bulkMaterialId.isNotNull() or isAvailableItem) }
             .groupBy(materialId)
             .associate { it[materialId].value to (it[pieces] ?: 0) }
     }

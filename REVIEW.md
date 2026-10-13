@@ -460,3 +460,20 @@ groups and loan lines wholesale.
 - **Backend follow-ups:** loan conflict messages name the item / material instead of its id; CORS removed.
 - Verified: `bun run check`, `lint`, `test`, `build`; clicked through all pages against the compose stack; Docker image
   built and run against the API container (pages, POST, DELETE).
+
+### 2026-10-13: Fixes from the frontend review
+
+An independent review of the frontend rework found no severe problems; fixed:
+
+- Packing list: whole pieces are allocated before rounding up (a large piece no longer causes false shortages, test
+  added); no iterator helpers (missing on iOS < 18.4).
+- `loanedCount` only counts lent pieces that are part of `availableCount` (e.g. not POOR items), so
+  `availableCount - loanedCount` is really what's in storage (backend test added).
+- Loan dialog: the loan's own items stay listed when unchecked or no longer active, so they can be removed.
+- Copying the packing list reports an error without HTTPS instead of failing silently.
+- Proxy: forwards the still-encoded path and rejects targets outside `API_URL`'s base path.
+- Dates use `de-DE` / `Europe/Berlin` on server and browser alike.
+
+Not done (deliberately): binding the compose ports to localhost and a frontend service in compose (the VPS setup in
+`vps-deployments` will cover deployment later), configuring the origin explicitly (adapter-node's `https` default fits
+nginx with TLS), proxy timeouts, a `materialId` filter for damage reports, CI.

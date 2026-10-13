@@ -51,8 +51,8 @@ data class NewStorageLocation(
 // ========= Materials =========
 
 /**
- * Shared properties of both material types. Loaned pieces are still included in [availableCount];
- * clients subtract [loanedCount] if they want what is currently in storage.
+ * Shared properties of both material types. Loaned pieces are still included in [availableCount]; [loanedCount] is
+ * the part of it that is currently lent out, so clients subtract it if they want what is currently in storage.
  */
 @Serializable
 @JsonClassDiscriminator("trackingType")

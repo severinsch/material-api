@@ -51,6 +51,19 @@ class LoanAndDamageApiTest {
     }
 
     @Test
+    fun `only available pieces count as loaned`() = apiTest {
+        val material = createIndividual()
+        val good = createItem(material, "1")
+        val poor = createItem(material, "2", ItemCondition.POOR)
+        post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(good.id, poor.id))) }
+            .expect<Loan>(HttpStatusCode.Created)
+
+        val counts = getMaterial(material.id)
+        assertEquals(1, counts.availableCount)
+        assertEquals(1, counts.loanedCount, "the POOR item isn't part of availableCount")
+    }
+
+    @Test
     fun `bulk loans are limited by the stock`() = apiTest {
         val hering = createBulk(available = 50)
         fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(hering.id, quantity)))
