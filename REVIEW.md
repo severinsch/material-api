@@ -176,22 +176,22 @@ The substitution-group idea (roof = 6 units, Jurtenhalbdach = 3 units, Kohtenbla
 **Good:** small and readable, Routes → Services split, sealed `Material` type, transactions around multi-table writes,
 Exposed DSL used consistently.
 
-### BE-1 Error-handling strategy — [ ]
+### BE-1 Error-handling strategy — [x]
 
 There's no `StatusPages`, so invalid UUIDs in bodies (`parseUUID`), unique-constraint and FK violations,
 `LocalDate.parse` failures and `as BulkMaterial` cast failures (e.g. `PUT /materials/bulk/{id}` on an individual
 material) all become 500s. Introduce a domain error type mapped to proper 400/404/409 responses in one place.
 
-### BE-2 Input validation — [ ]
+### BE-2 Input validation — [x]
 
 Negative quantities, `min > required`, empty names are all accepted.
 
-### BE-3 Strongly typed DTOs — [ ]
+### BE-3 Strongly typed DTOs — [x]
 
 IDs and dates are `String`, money is `Double`. Use UUID/LocalDate serializers and BigDecimal-as-string. This also
 removes most of what the OpenAPI fix-up script is patching.
 
-### BE-4 Consistent API shape — [ ]
+### BE-4 Consistent API shape — [x]
 
 - Creating and updating materials is split by type (`/materials/bulk`, `/materials/individual`), but reading and deleting
   aren't.
@@ -201,28 +201,28 @@ removes most of what the OpenAPI fix-up script is patching.
 - `Material.location` is always null because `StorageLocations` is never joined in `MaterialService`, and it's
   meaningless for individual materials anyway.
 
-### BE-5 OpenAPI pipeline — [ ]
+### BE-5 OpenAPI pipeline — [x]
 
 The experimental Ktor generator is post-processed by regexes in `scripts/FixOpenApiSpec.main.kts`, and the Docker build
 downloads `kotlinc` just to run it. Either use a code-first library that understands sealed types, or write the spec by
 hand and make it the contract. Ties into FE-4.
 
-### BE-6 Swagger path breaks in Docker — [ ]
+### BE-6 Swagger path breaks in Docker — [x]
 
 The (currently uncommitted) `HTTP.kt` change to `src/main/resources/openapi/open-api.json` doesn't work in the container,
 whose working directory is `/app`. Ktor's swagger plugin should find the file on the classpath if given
 `"openapi/open-api.json"`, which works both locally and in Docker. Then the Dockerfile no longer needs to copy resources
 separately.
 
-### BE-7 Operations — [ ]
+### BE-7 Operations — [x]
 
-- [ ] Blocking JDBC calls run on the request coroutines; use Exposed's `suspendTransaction` or `Dispatchers.IO`.
-- [ ] No connection pool (HikariCP).
-- [ ] Config comes from `System.getenv` with hardcoded default credentials; move into `application.yaml` with env overrides.
-- [ ] The app starts without a database and only fails on the first request. It should refuse to start instead.
-- [ ] Empty `Sessions` / `authentication` plugins are installed; CORS allows any host.
+- [x] Blocking JDBC calls run on the request coroutines; use Exposed's `suspendTransaction` or `Dispatchers.IO`.
+- [x] No connection pool (HikariCP).
+- [x] Config comes from `System.getenv` with hardcoded default credentials; move into `application.yaml` with env overrides.
+- [x] The app starts without a database and only fails on the first request. It should refuse to start instead.
+- [x] Empty `Sessions` / `authentication` plugins are installed; CORS allows any host.
 
-### BE-8 Tests — [ ]
+### BE-8 Tests — [x]
 
 The only test calls `GET /`, which doesn't exist, so it fails. Integration tests with Testcontainers Postgres around the
 services would add the most value, especially for the inheritance rules (DB-2) and kit logic.
@@ -283,9 +283,9 @@ check-in/check-out, which doesn't exist.
 
 ---
 
-## 4. Dependency updates — [ ]
+## 4. Dependency updates
 
-- [ ] **DEP-1 Backend:** Exposed `1.0.0-rc-1` → stable 1.x; Postgres driver pinned inline at `42.7.3` (move to
+- [x] **DEP-1 Backend:** Exposed `1.0.0-rc-1` → stable 1.x; Postgres driver pinned inline at `42.7.3` (move to
   `gradle.properties`); Gradle wrapper 8.14; runtime image `temurin:24` is not LTS → 25 LTS; remove the obsolete
   `version:` key from docker-compose.
 - [ ] **DEP-2 Frontend:** `bun update` plus shadcn-svelte component refresh. Do FE-4 first so the API client doesn't
@@ -299,7 +299,7 @@ check-in/check-out, which doesn't exist.
 2. ~~Single `schema.sql` as source of truth (DB-1), including DB-2, DB-4, DB-7a, DB-7b, DB-7d and the `purchases`
    table (DB-3).~~ Done.
 3. ~~Decide kit group semantics (DB-5b).~~ Done, including DB-5a and DB-5c.
-4. Backend: BE-1 + BE-2 + BE-3, then BE-5 and FE-4.
+4. ~~Backend: BE-1 … BE-8, DEP-1, missing endpoints.~~ Done. Next: FE-4 (client generation).
 5. Frontend: FE-1, FE-2a, FE-3.
 6. Then auth, then the loan book (DB-6).
 
@@ -325,13 +325,55 @@ check-in/check-out, which doesn't exist.
 
 **Follow-ups caused by this:**
 
-- [ ] Recreate the local dev database: `docker compose down -v && docker compose up -d` (the existing volume has
+- [x] Recreate the local dev database: `docker compose down -v && docker compose up -d` (the existing volume has
   the old schema and the init script only runs on an empty volume).
-- [ ] Regenerate `open-api.json` (needs `kotlinc` for the fix-up script, not installed locally) and the frontend
+- [x] Regenerate `open-api.json` (needs `kotlinc` for the fix-up script, not installed locally) and the frontend
   client (FE-4).
 - [ ] Frontend kits page: adapt to `groups`, implement the optional toggle, use `priority` (natural moment for FE-2a).
 - [ ] Frontend materials page: remove the DECOMMISSIONED condition option, add status and location detail.
-- [ ] DB constraint violations (e.g. deleting a material used in a kit) currently surface as 500s → BE-1.
-- [ ] `gradle/wrapper/gradle-wrapper.jar` is missing from the repo, so `./gradlew` doesn't work.
-- [ ] The untracked `docs/` folder is written by the swagger plugin at runtime; add it to `.gitignore`.
+- [x] DB constraint violations (e.g. deleting a material used in a kit) currently surface as 500s → BE-1.
+- [x] `gradle/wrapper/gradle-wrapper.jar` is missing from the repo, so `./gradlew` doesn't work.
+- [x] The untracked `docs/` folder is written by the swagger plugin at runtime; add it to `.gitignore`.
 - [ ] `AGENTS.md` (not in the repo) still describes the old schema; point it at `db/schema.sql` instead.
+
+### 2026-10-13: Backend rework (BE-1 … BE-8, DEP-1, new endpoints)
+
+- **Dependencies:** Kotlin 2.4.21, Ktor 3.6.0, Exposed 1.5.1 (+ kotlin-datetime module), Postgres driver 42.7.14,
+  HikariCP 7.1, Gradle 9.8.1 (wrapper jar committed), JVM toolchain 21, runtime image Temurin 25 JRE.
+- **OpenAPI (BE-5):** Since Ktor 3.4 the document is assembled at runtime from compiler-plugin metadata, with schemas
+  from the kotlinx-serialization descriptors. It now produces everything the old regex script patched in (sealed
+  `Material` → `oneOf` + `trackingType` discriminator, enums, `format: uuid` / `date`, nullability) and emits OpenAPI
+  3.1.1. Static spec, fix-up script and the `kotlinc` download in Docker are gone. Served at `/swagger` and
+  `/swagger/documentation.yaml` (JSON despite the name). Quirks found:
+  - Types in doc comments must be fully qualified (`[kotlin.uuid.Uuid]`); `[kotlin.Boolean]` drops the parameter,
+    `[Boolean]` works (typed as string).
+  - Documenting a success response in a comment replaces the inferred schema → only error responses are documented.
+  - The nullable `StorageLocation` property type becomes a second schema `StorageLocation2`; location routes are
+    registered first so the plain name is the non-null one.
+  - Does the improved spec help the frontend? Yes, mainly through the discriminated `Material` union, the enums and
+    `ErrorResponse`; `format: uuid`/`date` only matter for documentation (they stay strings in TS). Best consumed by
+    a 3.1-capable generator such as `openapi-typescript` (FE-4).
+- **API (BE-3/BE-4):** typed ids (`kotlin.uuid.Uuid`, UUIDv7 generated by the app, so ordering by id = insertion
+  order), `LocalDate` / `Instant`, validation in model `init` blocks, `IndividualMaterialSummary` → `IndividualMaterial`
+  (no location; only bulk materials have one), items take `storageLocationId`, damage reports use `itemId` and
+  `resolvedAt` instead of `isResolved`, deletes return 204, creates 201, services throw `NotFoundException` instead of
+  returning null. Kept type-specific write endpoints (`/materials/bulk`, `/materials/individual`) since they give
+  simple, non-polymorphic request bodies; updating through the wrong type's endpoint is a 404.
+- **New endpoints:** `/purchases`, `/loans` (incl. `?open=`), kit `PUT`/`DELETE`, location `PUT`, `GET /{id}` for
+  damages, purchases, locations. Materials have `loanedCount` (Q7), items `onLoan`. Loans reject lending an item that
+  is on another open loan and bulk quantities beyond the stock (409).
+- **Errors (BE-1):** `StatusPages` maps bad input to 400, `NotFoundException` to 404, `ConflictException` and
+  restrict / foreign key / unique violations to 409, check violations to 400, all with `{"message": …}`.
+- **Operations (BE-6/BE-7):** HikariCP, JDBC on `Dispatchers.IO`, config in `application.yaml` with env overrides,
+  fails at startup without database, CORS restricted to `CORS_ALLOWED_HOSTS`, empty auth/session plugins removed,
+  `SQL_LOG_LEVEL=DEBUG` for SQL logging. Verified with `docker compose up --build` on a fresh volume.
+- **Tests (BE-8):** 14 integration tests against Postgres 18 via Testcontainers (schema constraints, counts, kits,
+  loans, damage reports, validation, error mapping).
+
+**Breaking for the frontend** (to do with FE-4):
+- [ ] Regenerate the client from `/swagger/documentation.yaml`.
+- [ ] Kits: `groups` instead of `fixedMaterials` / `substitutionGroups` (FE-2a).
+- [ ] Materials: discriminated union, `IndividualMaterial`, no `location` on individual materials, `loanedCount`.
+- [ ] Items: `status`, `storageLocationId` instead of `storageLocation` in requests, no DECOMMISSIONED condition.
+- [ ] Deletes return 204; errors have an `ErrorResponse` body.
+- [ ] CORS: the frontend's origin must be listed in `CORS_ALLOWED_HOSTS` (FE-1 may make this unnecessary).

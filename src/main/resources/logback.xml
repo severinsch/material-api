@@ -7,6 +7,7 @@
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
-    <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
+    <!-- Set SQL_LOG_LEVEL=DEBUG to log all SQL statements. -->
+    <logger name="Exposed" level="${SQL_LOG_LEVEL:-INFO}"/>
 </configuration>

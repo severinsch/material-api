@@ -6,15 +6,15 @@ The frontend for this tool can be found [here](https://github.com/severinsch/mat
 
 ## Key Features
 
-* **Hybrid Inventory Tracking:**
-* **Advanced Kit Logic:**
-* **Damage Reporting:** Workflow for reporting and resolving equipment damages.
+* **Hybrid Inventory Tracking:** Bulk materials tracked by quantity, individual items with condition and status.
+* **Kits:** Packing lists made of groups of interchangeable materials.
+* **Damage Reporting:** Log and resolve damages of individual items.
+* **Loan Book:** Record what was lent to whom and when it came back.
+* **Purchase History:** Record purchase batches of bulk materials.
 
 ## Roadmap
 
-Currently missing but planned are:
-* Authentication
-* "Borrowing" functionality where people can request to borrow some material for a given time and are automatically reminded to return it.
+Currently missing but planned is authentication.
 
 ## Database Model Concepts
 
@@ -47,15 +47,52 @@ number of units, filled by one or more interchangeable materials.
 
 ## API Documentation
 
-This API exposes an OpenAPI (Swagger) specification. Once running, access the docs at: http://0.0.0.0:8080/swagger
+The OpenAPI document is generated at runtime from the routes (Ktor's OpenAPI support with code inference) and the
+kotlinx-serialization models in `src/main/kotlin/api/Models.kt`:
 
-Note that the API documentation is auto-generated using the built-in Ktor feature.
-It is then modified by a script [scripts/FixOpenApiSpec.main.kts] to compensate for missing functionality of the (still experimental) Ktor generation.
+* Swagger UI: http://localhost:8080/swagger
+* OpenAPI document (JSON): http://localhost:8080/swagger/documentation.yaml
+
+Routes are documented with KDoc comments. Request and response bodies are inferred from `call.receive`/`call.respond`;
+the comments add descriptions, typed parameters and error responses:
+
+```kotlin
+/**
+ * Get a material.
+ *
+ * Path: id [kotlin.uuid.Uuid] The material id.
+ * Response: 404 application/json [api.ErrorResponse] No material with this id.
+ */
+```
+
+Types in comments must be fully qualified. Documenting a success response in a comment replaces the inferred schema,
+so only error responses are documented there.
+
+Errors are returned as `{"message": "..."}` with status 400 (invalid input), 404 (not found) or 409 (conflicts, e.g.
+deleting something that is still referenced or lending an item twice).
+
+## Development
+
+```bash
+docker compose up -d postgres   # database with db/schema.sql
+./gradlew run                   # API on http://localhost:8080
+./gradlew test                  # integration tests, need Docker (Testcontainers)
+```
+
+### Configuration
+
+| Environment variable | Default | |
+|---|---|---|
+| `DATABASE_URL` | `jdbc:postgresql://localhost:5432/scout_material` | |
+| `DATABASE_USER` / `DATABASE_PASSWORD` | `scout` / `scoutpass` | Matches docker-compose.yml |
+| `CORS_ALLOWED_HOSTS` | `localhost:5173` | Comma-separated hosts allowed to call the API from a browser; empty disables CORS |
+| `PORT` | `8080` | |
+| `SQL_LOG_LEVEL` | `INFO` | `DEBUG` logs all SQL statements |
 
 ## Deployment
 
 ### Docker Compose
 Use the provided compose file to start both the database and the application.
 ```bash
-docker-compose up -d
+docker compose up -d --build
 ```

@@ -1,7 +1,4 @@
-# docker-compose.yml
 # Defines the multi-service development environment for the application.
-
-version: '3.8'
 
 services:
   # ------ PostgreSQL Database Service ------
@@ -33,7 +30,7 @@ services:
     # 'build: .' tells Docker Compose to look for a Dockerfile in the current directory and build it.
     build: .
     container_name: material_api
-    image: material_api:dev   # <— add this
+    image: material_api:dev
     restart: unless-stopped
     ports:
       - "8080:8080" # Expose Ktor API port to the host machine
@@ -42,6 +39,8 @@ services:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/scout_material"
       DATABASE_USER: "scout"
       DATABASE_PASSWORD: "scoutpass"
+      # Hosts allowed to call the API from a browser (the frontend dev server and container).
+      CORS_ALLOWED_HOSTS: "localhost:5173,localhost:3000"
     depends_on:
       postgres:
         condition: service_healthy # Critical: Ensures DB is ready before API starts.

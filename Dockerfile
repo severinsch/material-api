@@ -1,49 +1,14 @@
-# Stage 1: Cache Gradle dependencies
-FROM gradle:8.14-alpine AS cache
-RUN mkdir -p /home/gradle/cache_home
-ENV GRADLE_USER_HOME=/home/gradle/cache_home
-COPY build.gradle.* gradle.properties /home/gradle/app/
-WORKDIR /home/gradle/app
-RUN gradle clean build -i --stacktrace
-
-# Stage 2: Build Application
-FROM gradle:8.14-alpine AS builder
-
-# Install Kotlin compiler for the script execution
-ENV KOTLIN_VERSION=2.2.20
-RUN apk add --no-cache bash curl unzip
-RUN curl -L "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" -o /tmp/kotlin-compiler.zip && \
-    unzip /tmp/kotlin-compiler.zip -d /usr/local && \
-    rm /tmp/kotlin-compiler.zip
-ENV PATH="/usr/local/kotlinc/bin:${PATH}"
-
-COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
-COPY . /usr/src/app/
-WORKDIR /usr/src/app
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
-
-# Generate OpenAPI documentation
-RUN gradle buildOpenApi --no-daemon
-
-# Build the fat JAR, Gradle also supports shadow
+# Build stage: the dependency layer is cached as long as the build files don't change.
+FROM gradle:9.8.1-jdk21-alpine AS builder
+WORKDIR /app
+COPY settings.gradle.kts build.gradle.kts gradle.properties ./
+RUN gradle dependencies --no-daemon -q > /dev/null
+COPY src ./src
 RUN gradle buildFatJar --no-daemon
 
-# --- Stage 3: The Final Image ---
-# This stage uses a minimal JRE to run the application, resulting in a much smaller image.
-FROM eclipse-temurin:24-alpine
-
+# Runtime stage: only the JRE and the application jar.
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-
-ENV RESOURCES_BASE_PATH="/app/resources"
-
-# Copy the built JAR from the 'builder' stage into the final image.
-RUN mkdir -p $RESOURCES_BASE_PATH
-COPY --from=builder /home/gradle/src/build/libs/*.jar  /app/application.jar
-COPY --from=builder /home/gradle/src/src/main/resources/ $RESOURCES_BASE_PATH
-
-# Expose the port that the Ktor application will listen on.
+COPY --from=builder /app/build/libs/*-all.jar /app/application.jar
 EXPOSE 8080
-
-# The command to run when the container starts.
 ENTRYPOINT ["java", "-jar", "/app/application.jar"]

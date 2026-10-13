@@ -2,4 +2,5 @@
 .idea
 .gradle
 build
+docs
 **/.DS_Store
