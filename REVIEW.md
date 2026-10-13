@@ -477,3 +477,9 @@ An independent review of the frontend rework found no severe problems; fixed:
 Not done (deliberately): binding the compose ports to localhost and a frontend service in compose (the VPS setup in
 `vps-deployments` will cover deployment later), configuring the origin explicitly (adapter-node's `https` default fits
 nginx with TLS), proxy timeouts, a `materialId` filter for damage reports, CI.
+
+### 2026-10-13: Restored functionality
+
+Compared against the pre-rework frontend: the inline item view in the materials table, kit availability per line,
+pieces per alternative and the selected-kits list were lost in the rework and are back. New: location column
+(searchable) and sortable columns in the materials table.
