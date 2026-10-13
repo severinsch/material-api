@@ -301,7 +301,34 @@ check-in/check-out, which doesn't exist.
 3. ~~Decide kit group semantics (DB-5b).~~ Done, including DB-5a and DB-5c.
 4. ~~Backend: BE-1 … BE-8, DEP-1, missing endpoints.~~ Done.
 5. ~~Frontend: FE-1 … FE-6, DEP-2.~~ Done.
-6. Next: CI for both repositories, then auth.
+6. Next: CI for both repositories. Login and tenants wait for the identity provider (section 6).
+
+---
+
+## 6. Expected future: login and tenants (nothing built yet)
+
+Status: waiting for real information. Don't build anything for this until the identity provider exists.
+
+- **Identity provider:** the DPSG's new membership platform, expected to be an adapted
+  [hitobito](https://hitobito.com/de/). Upstream hitobito is an OAuth 2.0 / OpenID Connect provider
+  (`/.well-known/openid-configuration`, authorization code flow with client secret, refresh tokens). With the
+  `with_roles` scope, userinfo / profile contain `roles` with `group_id`, `group_name`, `role_name`, `role_class` and
+  permissions such as `layer_and_below_full`. Groups form a tree of typed layers. The concrete group and role types come
+  from an organisation-specific plugin, so the DPSG claims are unknown until the platform is ready.
+- **Frontend (FE-1 decision):** keep the SvelteKit server as backend-for-frontend. Deployment is Docker behind nginx on
+  a VPS either way. Hitobito's documented flow needs a client secret, which a pure browser app can't keep; the
+  SvelteKit server can do the code exchange, keep tokens server-side, give the browser an httpOnly session cookie and
+  attach the access token in the `/api` proxy. Revisit if the platform offers PKCE for public clients and the
+  server turns out to be unnecessary.
+- **Backend:** validates the access token itself (it must not trust the proxy blindly) and derives the user's Stamm
+  and role from the claims, e.g. Vorstand / Materialwart may edit, members may read.
+- **Tenants:** probably one inventory per Stamm, fully separated. That means a tenant column (Stamm / hitobito group
+  id) on the root tables (`materials`, `storage_locations`, `kits`, `loans`), tenant-scoped unique constraints (e.g.
+  material names per Stamm) and filtering in every service. Child tables inherit the tenant through their parent.
+  Keep new code free of assumptions that would block this, but don't add the column before the claims are known.
+- **Open questions for when the platform is ready:** OIDC details (PKCE, token lifetimes, claim format), how Stämme
+  appear as groups or layers, which roles map to edit rights, whether Bezirk / Diözese levels should see or share
+  inventories, and whether `reported_by` / `borrower` become user references (DB-6).
 
 ---
 
