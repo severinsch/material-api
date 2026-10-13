@@ -483,3 +483,5 @@ nginx with TLS), proxy timeouts, a `materialId` filter for damage reports, CI.
 Compared against the pre-rework frontend: the inline item view in the materials table, kit availability per line,
 pieces per alternative and the selected-kits list were lost in the rework and are back. New: location column
 (searchable) and sortable columns in the materials table.
+
+The next round of work (usability fixes, purchases updating the stock, new features) is planned in PLAN.md.
