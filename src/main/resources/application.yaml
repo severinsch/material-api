@@ -11,6 +11,3 @@ database:
     user: "$DATABASE_USER:scout"
     password: "$DATABASE_PASSWORD:scoutpass"
 
-cors:
-    # Comma-separated hosts (e.g. "localhost:5173") allowed to call the API from a browser. Empty disables CORS.
-    allowedHosts: "$CORS_ALLOWED_HOSTS:localhost:5173"

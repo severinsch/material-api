@@ -96,7 +96,6 @@ docker compose up -d postgres   # database with db/schema.sql
 |---|---|---|
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/scout_material` | |
 | `DATABASE_USER` / `DATABASE_PASSWORD` | `scout` / `scoutpass` | Matches docker-compose.yml |
-| `CORS_ALLOWED_HOSTS` | `localhost:5173` | Comma-separated hosts allowed to call the API from a browser; empty disables CORS |
 | `PORT` | `8080` | |
 | `SQL_LOG_LEVEL` | `INFO` | `DEBUG` logs all SQL statements |
 

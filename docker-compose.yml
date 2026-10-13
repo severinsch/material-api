@@ -39,8 +39,6 @@ services:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/scout_material"
       DATABASE_USER: "scout"
       DATABASE_PASSWORD: "scoutpass"
-      # Hosts allowed to call the API from a browser (the frontend dev server and container).
-      CORS_ALLOWED_HOSTS: "localhost:5173,localhost:3000"
     depends_on:
       postgres:
         condition: service_healthy # Critical: Ensures DB is ready before API starts.

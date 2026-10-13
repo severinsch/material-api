@@ -234,7 +234,7 @@ services would add the most value, especially for the inheritance rules (DB-2) a
 **Good:** modern stack (Svelte 5 runes, SvelteKit, shadcn-svelte, Tailwind 4), a generated typed client, a usable mobile
 view, and solid UX basics (toasts, loading states, confirmation dialogs).
 
-### FE-1 Decide the rendering / data-flow model — [ ]
+### FE-1 Decide the rendering / data-flow model — [x]
 
 Loads run server-side (`+page.server.ts`, `API_URL`), but every mutation goes from the browser straight to the API
 (`PUBLIC_API_URL`). That's why two URLs, public API exposure and `CORS anyHost` are needed. Pick one:
@@ -244,22 +244,22 @@ Loads run server-side (`+page.server.ts`, `API_URL`), but every mutation goes fr
 - **Pure SPA:** `adapter-static`, nginx serves the app and `/api` from the same origin, so no CORS. Simpler to run, but
   auth then lives entirely in the API.
 
-### FE-2 Move kit allocation out of the page component — [ ]
+### FE-2 Move kit allocation out of the page component — [x]
 
 The core domain logic lives in `src/routes/kits/+page.svelte`. It's greedy and runs kit by kit (the first kit grabs the
 preferred materials), so it's not the "best combination" the README promises. It ignores `is_optional` and isn't tested.
 
-- [ ] **FE-2a** Short term: move into a pure `lib/kits/allocate.ts` with unit tests.
+- [x] **FE-2a** Short term: move into a pure `lib/kits/allocate.ts` with unit tests.
 - [-] **FE-2b** ~~Long term (with borrowing): move into the backend.~~ Not needed, since borrowing stays a simple
   loan book (DB-6).
 
-### FE-3 Component structure — [ ]
+### FE-3 Component structure — [x]
 
 `src/routes/+page.svelte` is ~1,100 lines: four dialogs, desktop and mobile markup that are near-duplicates, and
 duplicated add/edit forms. Extract `MaterialRow`/`MaterialCard`, a shared material form, `ItemForm`, `ConditionSelect`
 and `LocationSelect`.
 
-### FE-4 API contract sync — [ ]
+### FE-4 API contract sync — [x]
 
 The two `open-api.json` copies have already drifted (the frontend has a `StorageLocation` schema the backend's doesn't).
 Names like `KitSubstitutionGroupsInner` show the spec lacks named schemas.
@@ -268,18 +268,18 @@ Names like `KitSubstitutionGroupsInner` show the spec lacks named schemas.
 - Consider `openapi-typescript` + `openapi-fetch` (much lighter, no Java toolchain).
 - Don't commit the generated `docs/*.md`.
 
-### FE-5 Missing features vs. backend and README — [ ]
+### FE-5 Missing features vs. backend and README — [x]
 
 No UI for damage reports, locations, kit creation, bulk location or purchase data. The README advertises
 check-in/check-out, which doesn't exist.
 
-### FE-6 Smaller items — [ ]
+### FE-6 Smaller items — [x]
 
-- [ ] Both `lucide-svelte` and `@lucide/svelte` are installed.
-- [ ] `$app/stores` is deprecated in favour of `$app/state`.
-- [ ] `$derived(() => …)` is called as a function many times per render; use `$derived.by`.
-- [ ] The Dockerfile runner stage runs `bun install --frozen-lockfile` without copying the lockfile.
-- [ ] No tests, no CI.
+- [x] Both `lucide-svelte` and `@lucide/svelte` are installed.
+- [x] `$app/stores` is deprecated in favour of `$app/state`.
+- [x] `$derived(() => …)` is called as a function many times per render; use `$derived.by`.
+- [x] The Dockerfile runner stage runs `bun install --frozen-lockfile` without copying the lockfile.
+- [x] No tests, no CI. (Unit tests for the kit allocation; CI is still missing in both repos.)
 
 ---
 
@@ -288,7 +288,7 @@ check-in/check-out, which doesn't exist.
 - [x] **DEP-1 Backend:** Exposed `1.0.0-rc-1` → stable 1.x; Postgres driver pinned inline at `42.7.3` (move to
   `gradle.properties`); Gradle wrapper 8.14; runtime image `temurin:24` is not LTS → 25 LTS; remove the obsolete
   `version:` key from docker-compose.
-- [ ] **DEP-2 Frontend:** `bun update` plus shadcn-svelte component refresh. Do FE-4 first so the API client doesn't
+- [x] **DEP-2 Frontend:** `bun update` plus shadcn-svelte component refresh. Do FE-4 first so the API client doesn't
   need updating twice.
 
 ---
@@ -299,9 +299,9 @@ check-in/check-out, which doesn't exist.
 2. ~~Single `schema.sql` as source of truth (DB-1), including DB-2, DB-4, DB-7a, DB-7b, DB-7d and the `purchases`
    table (DB-3).~~ Done.
 3. ~~Decide kit group semantics (DB-5b).~~ Done, including DB-5a and DB-5c.
-4. ~~Backend: BE-1 … BE-8, DEP-1, missing endpoints.~~ Done. Next: FE-4 (client generation).
-5. Frontend: FE-1, FE-2a, FE-3.
-6. Then auth, then the loan book (DB-6).
+4. ~~Backend: BE-1 … BE-8, DEP-1, missing endpoints.~~ Done.
+5. ~~Frontend: FE-1 … FE-6, DEP-2.~~ Done.
+6. Next: CI for both repositories, then auth.
 
 ---
 
@@ -329,12 +329,12 @@ check-in/check-out, which doesn't exist.
   the old schema and the init script only runs on an empty volume).
 - [x] Regenerate `open-api.json` (needs `kotlinc` for the fix-up script, not installed locally) and the frontend
   client (FE-4).
-- [ ] Frontend kits page: adapt to `groups`, implement the optional toggle, use `priority` (natural moment for FE-2a).
-- [ ] Frontend materials page: remove the DECOMMISSIONED condition option, add status and location detail.
+- [x] Frontend kits page: adapt to `groups`, implement the optional toggle, use `priority` (natural moment for FE-2a).
+- [x] Frontend materials page: remove the DECOMMISSIONED condition option, add status and location detail.
 - [x] DB constraint violations (e.g. deleting a material used in a kit) currently surface as 500s → BE-1.
 - [x] `gradle/wrapper/gradle-wrapper.jar` is missing from the repo, so `./gradlew` doesn't work.
 - [x] The untracked `docs/` folder is written by the swagger plugin at runtime; add it to `.gitignore`.
-- [ ] `AGENTS.md` (not in the repo) still describes the old schema; point it at `db/schema.sql` instead.
+- [-] `AGENTS.md` (not in the repo) still describes the old schema. Obsolete: the file was removed.
 
 ### 2026-10-13: Backend rework (BE-1 … BE-8, DEP-1, new endpoints)
 
@@ -371,12 +371,12 @@ check-in/check-out, which doesn't exist.
   loans, damage reports, validation, error mapping).
 
 **Breaking for the frontend** (to do with FE-4):
-- [ ] Regenerate the client from `/swagger/documentation.yaml`.
-- [ ] Kits: `groups` instead of `fixedMaterials` / `substitutionGroups` (FE-2a).
-- [ ] Materials: discriminated union, `IndividualMaterial`, no `location` on individual materials, `loanedCount`.
-- [ ] Items: `status`, `storageLocationId` instead of `storageLocation` in requests, no DECOMMISSIONED condition.
-- [ ] Deletes return 204; errors have an `ErrorResponse` body.
-- [ ] CORS: the frontend's origin must be listed in `CORS_ALLOWED_HOSTS` (FE-1 may make this unnecessary).
+- [x] Regenerate the client from `/swagger/documentation.yaml`.
+- [x] Kits: `groups` instead of `fixedMaterials` / `substitutionGroups` (FE-2a).
+- [x] Materials: discriminated union, `IndividualMaterial`, no `location` on individual materials, `loanedCount`.
+- [x] Items: `status`, `storageLocationId` instead of `storageLocation` in requests, no DECOMMISSIONED condition.
+- [x] Deletes return 204; errors have an `ErrorResponse` body.
+- [x] CORS: not needed anymore, the frontend proxies `/api` (FE-1); CORS was removed from the backend.
 
 ### 2026-10-13: Fixes from the independent review
 
@@ -408,3 +408,28 @@ description contained a colon. Inconsistent spec output between builds was cause
 
 Not changed (debatable, kept): validation in model `init` blocks, prices as `Double` (validated), PUT replacing kit
 groups and loan lines wholesale.
+
+### 2026-10-13: Frontend rework (FE-1 … FE-6, DEP-2)
+
+- **Dependencies (DEP-2):** SvelteKit 3.0 (config moved from `svelte.config.js` into the Vite plugin, `#lib` subpath
+  imports instead of `$lib`, `$app/state`, `refreshAll`, env vars declared in `src/env.ts`), Svelte 5.57, Vite 8,
+  TypeScript 6.0 (Kit 3 doesn't support 7 yet), ESLint 10, Tailwind 4.3, `@lucide/svelte` only, shadcn-svelte components
+  re-added from the current registry (their `data-checked:` style variants need `shadcn-svelte/tailwind.css`).
+- **Data flow (FE-1):** `src/routes/api/[...path]/+server.ts` forwards `/api/*` to `API_URL`; universal loads and
+  browser mutations use the same client against it. One URL, no CORS, API not public, and a single place for auth later.
+  The client always sends `Content-Type: application/json`, since SvelteKit treats bodyless DELETEs like form posts
+  and rejects them on plain-HTTP deployments (adapter-node assumes `https` by default).
+- **API client (FE-4):** `openapi-typescript` + `openapi-fetch` from the committed `openapi.json`
+  (`bun run api:generate`); the Java generator, its runtime, docs and the stale spec copy are gone. The discriminated
+  `Material` union narrows on `trackingType` in TypeScript as intended.
+- **Kits (FE-2a):** `lib/kits/allocate.ts` with 6 unit tests (vitest). Groups without alternatives are served first,
+  options in priority order, shortages counted on the preferred option, optional groups toggled per kit. Still greedy,
+  documented as such.
+- **Structure (FE-3/FE-5):** one dialog component per entity (`show(entity?)` opens it for create or edit) on a shared
+  `FormDialog`; pages: materials list, material detail (items + damage reports, or stock + purchases), kits
+  (packing list + kit editor), loans (loan book with "returned today"), locations. One responsive table instead of
+  separate desktop/mobile markup. The "count lent out pieces as unavailable" toggle (Q7) is shared by the materials list
+  and the packing list.
+- **Backend follow-ups:** loan conflict messages name the item / material instead of its id; CORS removed.
+- Verified: `bun run check`, `lint`, `test`, `build`; clicked through all pages against the compose stack; Docker image
+  built and run against the API container (pages, POST, DELETE).

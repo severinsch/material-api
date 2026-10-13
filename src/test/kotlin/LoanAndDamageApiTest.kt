@@ -18,7 +18,8 @@ class LoanAndDamageApiTest {
         val created: Loan = post("/loans") { setBody(loan) }.expect(HttpStatusCode.Created)
         assertEquals(1, getMaterial(material.id).loanedCount)
         assertTrue(get("/items/${item.id}").expect<IndividualItem>(HttpStatusCode.OK).onLoan)
-        post("/loans") { setBody(loan) }.expectError(HttpStatusCode.Conflict)
+        val message = post("/loans") { setBody(loan) }.expectError(HttpStatusCode.Conflict)
+        assertEquals("Kohtenblatt 1 is already on loan", message)
 
         // Editing the open loan itself doesn't conflict with its own lines.
         put("/loans/${created.id}") { setBody(loan.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
@@ -37,8 +38,9 @@ class LoanAndDamageApiTest {
         val material = createIndividual()
         val lost = createItem(material, "1", ItemCondition.POOR, ItemStatus.LOST)
 
-        post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(lost.id))) }
+        val message = post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(lost.id))) }
             .expectError(HttpStatusCode.Conflict)
+        assertEquals("Kohtenblatt 1 can't be lent because it is lost", message)
 
         val unknownItem = NewLoan("Stamm Nord", lentAt, itemIds = listOf(Uuid.random()))
         post("/loans") { setBody(unknownItem) }.expectError(HttpStatusCode.BadRequest)
@@ -54,7 +56,8 @@ class LoanAndDamageApiTest {
         fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(hering.id, quantity)))
 
         post("/loans") { setBody(loanOf(30)) }.expect<Loan>(HttpStatusCode.Created)
-        post("/loans") { setBody(loanOf(21)) }.expectError(HttpStatusCode.Conflict)
+        val message = post("/loans") { setBody(loanOf(21)) }.expectError(HttpStatusCode.Conflict)
+        assertEquals("Only 20 of Hering available, 21 requested", message)
         post("/loans") { setBody(loanOf(20)) }.expect<Loan>(HttpStatusCode.Created)
 
         assertEquals(50, getMaterial(hering.id).loanedCount)

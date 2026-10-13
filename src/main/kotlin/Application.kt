@@ -1,4 +1,3 @@
-import configure.configureCors
 import configure.configureErrorHandling
 import configure.configureRouting
 import configure.configureSerialization
@@ -23,6 +22,5 @@ fun Application.module() {
 
     configureSerialization()
     configureErrorHandling()
-    configureCors()
     configureRouting(db)
 }

@@ -68,7 +68,8 @@ class LoanService(private val db: Db) {
         if (loan.returnedAt != null) return
 
         statuses.filterValues { it != ItemStatus.ACTIVE }.keys.firstOrNull()?.let {
-            conflict("Item $it can't be lent because it is ${statuses.getValue(it)}")
+            val status = statuses.getValue(it).name.lowercase().replace('_', ' ')
+            conflict("${itemName(it)} can't be lent because it is $status")
         }
         val otherOpenLines = LoanLines.innerJoin(Loans)
         val isOtherOpenLoan = Loans.returnedAt.isNull() and (loanId?.let { Loans.id neq it } ?: Op.TRUE)
@@ -76,7 +77,7 @@ class LoanService(private val db: Db) {
             .select(LoanLines.individualItemId)
             .where { isOtherOpenLoan and (LoanLines.individualItemId inList loan.itemIds) }
             .firstOrNull()
-            ?.let { conflict("Item ${it[LoanLines.individualItemId]!!.value} is already on loan") }
+            ?.let { conflict("${itemName(it[LoanLines.individualItemId]!!.value)} is already on loan") }
 
         val lent = LoanLines.quantity.sum()
         val lentByMaterial = otherOpenLines
@@ -87,10 +88,21 @@ class LoanService(private val db: Db) {
         loan.bulkMaterials.forEach { line ->
             val free = stock.getValue(line.materialId) - (lentByMaterial[line.materialId] ?: 0)
             if (line.quantity > free) {
-                conflict("Only $free of material ${line.materialId} available, ${line.quantity} requested")
+                conflict("Only $free of ${materialName(line.materialId)} available, ${line.quantity} requested")
             }
         }
     }
+
+    // Names for conflict messages, which are shown to users.
+
+    private fun itemName(id: Uuid): String = IndividualItems.innerJoin(Materials)
+        .select(Materials.name, IndividualItems.identifier)
+        .where { IndividualItems.id eq id }
+        .single()
+        .let { "${it[Materials.name]} ${it[IndividualItems.identifier]}" }
+
+    private fun materialName(id: Uuid): String =
+        Materials.select(Materials.name).where { Materials.id eq id }.single()[Materials.name]
 
     private fun insertLines(loanId: EntityID<Uuid>, loan: NewLoan) {
         LoanLines.batchInsert(loan.itemIds) { itemId ->
