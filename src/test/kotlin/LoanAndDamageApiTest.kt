@@ -3,6 +3,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.datetime.LocalDate
 import kotlin.test.*
+import kotlin.uuid.Uuid
 
 class LoanAndDamageApiTest {
 
@@ -32,6 +33,22 @@ class LoanAndDamageApiTest {
     }
 
     @Test
+    fun `only active items can be lent and unknown references are rejected`() = apiTest {
+        val material = createIndividual()
+        val lost = createItem(material, "1", ItemCondition.POOR, ItemStatus.LOST)
+
+        post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(lost.id))) }
+            .expectError(HttpStatusCode.Conflict)
+
+        val unknownItem = NewLoan("Stamm Nord", lentAt, itemIds = listOf(Uuid.random()))
+        post("/loans") { setBody(unknownItem) }.expectError(HttpStatusCode.BadRequest)
+        put("/loans/${Uuid.random()}") { setBody(unknownItem) }.expectError(HttpStatusCode.NotFound)
+
+        val notBulk = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(material.id, 1)))
+        post("/loans") { setBody(notBulk) }.expectError(HttpStatusCode.BadRequest)
+    }
+
+    @Test
     fun `bulk loans are limited by the stock`() = apiTest {
         val hering = createBulk(available = 50)
         fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(hering.id, quantity)))
@@ -57,6 +74,10 @@ class LoanAndDamageApiTest {
         val edited: DamageReport = put("/damages/${report.id}") { setBody(resolve.copy(description = "Langer Riss")) }
             .expect(HttpStatusCode.OK)
         assertEquals(resolved.resolvedAt, edited.resolvedAt)
+
+        // The item of a report can't be changed.
+        val otherItem = createItem(createIndividual("Jurtenhalbdach"), "1")
+        put("/damages/${report.id}") { setBody(resolve.copy(itemId = otherItem.id)) }.expectError(HttpStatusCode.BadRequest)
 
         // Items with history can't be deleted, only retired via their status.
         delete("/items/${item.id}").expectError(HttpStatusCode.Conflict)

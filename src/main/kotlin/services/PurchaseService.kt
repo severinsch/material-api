@@ -1,5 +1,6 @@
 package services
 
+import api.MaterialTrackingType
 import api.NewPurchase
 import api.Purchase
 import database.Db
@@ -18,12 +19,14 @@ class PurchaseService(private val db: Db) {
     suspend fun get(id: Uuid): Purchase = db.query { find(id) }
 
     suspend fun create(purchase: NewPurchase): Purchase = db.query {
+        requireMaterial(purchase.materialId, MaterialTrackingType.BULK)
         val id = Purchases.insertAndGetId { it.fill(purchase) }
         find(id.value)
     }
 
     suspend fun update(id: Uuid, purchase: NewPurchase): Purchase = db.query {
-        if (Purchases.update({ Purchases.id eq id }) { it.fill(purchase) } == 0) notFound("Purchase", id)
+        requireUnchanged("materialId", find(id).materialId, purchase.materialId)
+        Purchases.update({ Purchases.id eq id }) { it.fill(purchase) }
         find(id)
     }
 

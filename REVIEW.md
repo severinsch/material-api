@@ -377,3 +377,34 @@ check-in/check-out, which doesn't exist.
 - [ ] Items: `status`, `storageLocationId` instead of `storageLocation` in requests, no DECOMMISSIONED condition.
 - [ ] Deletes return 204; errors have an `ErrorResponse` body.
 - [ ] CORS: the frontend's origin must be listed in `CORS_ALLOWED_HOSTS` (FE-1 may make this unnecessary).
+
+### 2026-10-13: Fixes from the independent review
+
+An adversarial review of the backend rework found the following; all fixed and covered by tests (16 in total):
+
+- **Errors:** SQL states are read from the whole exception chain (batch inserts wrap them), all database messages are
+  replaced by our own, and a catch-all handler returns a generic 500 (Ktor's own statuses like 415 are kept). Parser
+  messages are cut to their first line. Unknown or wrong-typed references in bodies are checked by the services
+  (`services/References.kt`) and answered with readable 400s; the constraints remain the safety net.
+- **Validation:** lengths match the column sizes, prices must be 0…99,999,999.99 with at most 2 decimals.
+- **Loans:** only ACTIVE items can be lent (409), existence is checked before availability (404 before 409), and the
+  checked item / stock rows are locked (`FOR UPDATE`) so concurrent loans can't overbook.
+- **API shape (decided with the owner):**
+  - Materials use one resource: `POST /materials`, `PUT /materials/{id}` with a polymorphic body (`trackingType`
+    discriminator, mirrors the response); changing the type is a 409.
+  - Items are listed via `GET /items?materialId=`; all query parameters are camelCase.
+  - Parents can't be changed on update (`itemId` of damage reports, `materialId` of items and purchases) → 400.
+  - Kit units are integers (`required_units`, `unit_value`); groups have an explicit `position` and no id in the API.
+  - Separate request/response classes where defaults differ (`NewKitGroupOption` / `KitGroupOption`).
+  - Enums moved from `database` to `api`.
+- **Ids:** one generator (the app, random UUIDs via Exposed's `UuidTable`); the `uuidv7()` defaults are removed and
+  nothing depends on id order anymore.
+- **OpenAPI contract:** committed as `openapi.json` and checked by `OpenApiTest`. The duplicated query parameters came
+  from inference following the parameter helpers; they now read via `request.queryParameters`.
+
+Corrections to the earlier log entry: `[kotlin.Boolean]` works in comments; the parameter was dropped because its
+description contained a colon. Inconsistent spec output between builds was caused by stale compile-time metadata
+(incremental compilation), hence "clean build" in the README.
+
+Not changed (debatable, kept): validation in model `init` blocks, prices as `Double` (validated), PUT replacing kit
+groups and loan lines wholesale.

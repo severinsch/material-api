@@ -1,25 +1,18 @@
 package database
 
+import api.ItemCondition
+import api.ItemStatus
+import api.MaterialTrackingType
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.core.dao.id.EntityID
-import org.jetbrains.exposed.v1.core.dao.id.IdTable
+import org.jetbrains.exposed.v1.core.dao.id.UuidTable
 import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.postgresql.util.PGobject
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 // Mappings of the schema defined in db/schema.sql, which is the source of truth and also holds all constraints.
 // Columns maintained purely by the database (created_at, updated_at) are not mapped.
-
-/** A table with time-ordered UUIDv7 ids (monotonic), so ordering by id gives insertion order. */
-@OptIn(ExperimentalUuidApi::class)
-abstract class UuidTable(name: String) : IdTable<Uuid>(name) {
-    final override val id: Column<EntityID<Uuid>> = uuid("id").clientDefault { Uuid.generateV7() }.entityId()
-    override val primaryKey = PrimaryKey(id)
-}
 
 private class PGEnum<T : Enum<T>>(enumTypeName: String, enumValue: T?) : PGobject() {
     init {
@@ -34,18 +27,6 @@ private inline fun <reified T : Enum<T>> Table.pgEnum(name: String, sqlType: Str
         sql = sqlType,
         fromDb = { value -> enumValueOf<T>(value as String) },
         toDb = { PGEnum(sqlType, it) })
-
-enum class MaterialTrackingType {
-    BULK, INDIVIDUAL
-}
-
-enum class ItemCondition {
-    NEW, GOOD, FAIR, POOR
-}
-
-enum class ItemStatus {
-    ACTIVE, IN_REPAIR, LOST, DECOMMISSIONED
-}
 
 object StorageLocations : UuidTable("storage_locations") {
     val name = varchar("name", 100)
@@ -108,15 +89,16 @@ object Kits : UuidTable("kits") {
 
 object KitGroups : UuidTable("kit_groups") {
     val kitId = reference("kit_id", Kits, onDelete = ReferenceOption.CASCADE)
+    val position = integer("position")
     val name = varchar("name", 255).nullable()
-    val requiredUnits = decimal("required_units", 10, 2)
+    val requiredUnits = integer("required_units")
     val isOptional = bool("is_optional")
 }
 
 object KitGroupOptions : Table("kit_group_options") {
     val groupId = reference("group_id", KitGroups, onDelete = ReferenceOption.CASCADE)
     val materialId = reference("material_id", Materials)
-    val unitValue = decimal("unit_value", 10, 2)
+    val unitValue = integer("unit_value")
     val priority = integer("priority")
     override val primaryKey = PrimaryKey(groupId, materialId)
 }

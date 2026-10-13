@@ -12,10 +12,10 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
         /**
          * Get the purchase history of bulk materials.
          *
-         * Query: material_id [kotlin.uuid.Uuid] Only return purchases of this material.
+         * Query: materialId [kotlin.uuid.Uuid] Only return purchases of this material.
          */
         get {
-            call.respond(purchaseService.getAll(call.uuidQueryParameter("material_id")))
+            call.respond(purchaseService.getAll(call.uuidQueryParameter("materialId")))
         }
 
         /**
@@ -31,14 +31,14 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
         /**
          * Record a purchase. This doesn't change the stock quantities.
          *
-         * Response: 409 application/json [api.ErrorResponse] The material doesn't exist or isn't a bulk material.
+         * Response: 400 application/json [api.ErrorResponse] Invalid purchase, or the material isn't a bulk material.
          */
         post {
             call.respond(HttpStatusCode.Created, purchaseService.create(call.receive<NewPurchase>()))
         }
 
         /**
-         * Replace a purchase.
+         * Replace a purchase. Its `materialId` can't be changed.
          *
          * Path: id [kotlin.uuid.Uuid] The purchase id.
          * Response: 404 application/json [api.ErrorResponse] No purchase with this id.

@@ -12,7 +12,7 @@ fun Route.loanRoutes(loanService: LoanService) {
         /**
          * Get all loans.
          *
-         * Query: open [Boolean] true: only loans that haven't been returned, false: only returned loans.
+         * Query: open [kotlin.Boolean] If set, only open (true) or only returned (false) loans.
          */
         get {
             call.respond(loanService.getAll(call.booleanQueryParameter("open")))
@@ -31,7 +31,8 @@ fun Route.loanRoutes(loanService: LoanService) {
         /**
          * Record a loan.
          *
-         * Response: 409 application/json [api.ErrorResponse] Items are already lent out or a reference doesn't exist.
+         * Response: 400 application/json [api.ErrorResponse] Invalid loan or unknown item or material.
+         * Response: 409 application/json [api.ErrorResponse] Something isn't available (inactive, lent out, out of stock).
          */
         post {
             call.respond(HttpStatusCode.Created, loanService.create(call.receive<NewLoan>()))

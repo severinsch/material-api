@@ -2,8 +2,6 @@
 
 package api
 
-import database.ItemCondition
-import database.ItemStatus
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -13,10 +11,23 @@ import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 // Request and response bodies. `New*` classes are used for both creating (POST) and replacing (PUT) a resource.
-// Validation happens in init blocks, so invalid bodies are rejected with 400 while being received.
+// Validation happens in init blocks, so invalid bodies are rejected with 400 while being received. The limits match
+// the column sizes in db/schema.sql.
 
 @Serializable
 data class ErrorResponse(val message: String)
+
+@Serializable
+@SerialName("MaterialTrackingType")
+enum class MaterialTrackingType { BULK, INDIVIDUAL }
+
+@Serializable
+@SerialName("ItemCondition")
+enum class ItemCondition { NEW, GOOD, FAIR, POOR }
+
+@Serializable
+@SerialName("ItemStatus")
+enum class ItemStatus { ACTIVE, IN_REPAIR, LOST, DECOMMISSIONED }
 
 // ========= Locations =========
 
@@ -33,14 +44,14 @@ data class NewStorageLocation(
     val description: String? = null
 ) {
     init {
-        requireNotBlank(name, "name")
+        requireText(name, "name", maxLength = 100)
     }
 }
 
 // ========= Materials =========
 
 /**
- * Shared properties of both material types. Loaned pieces are still included in [availableCount] / [damagedCount];
+ * Shared properties of both material types. Loaned pieces are still included in [availableCount];
  * clients subtract [loanedCount] if they want what is currently in storage.
  */
 @Serializable
@@ -82,32 +93,49 @@ data class IndividualMaterial(
     override val loanedCount: Int
 ) : Material
 
+/** The type of a material can't be changed after creation. */
 @Serializable
+@JsonClassDiscriminator("trackingType")
+sealed interface NewMaterial {
+    val name: String
+    val category: String?
+    val description: String?
+}
+
+@Serializable
+@SerialName("BULK")
 data class NewBulkMaterial(
-    val name: String,
-    val category: String? = null,
-    val description: String? = null,
+    override val name: String,
+    override val category: String? = null,
+    override val description: String? = null,
     val availableCount: Int,
     val damagedCount: Int = 0,
     val storageLocationId: Uuid? = null,
     val locationDetail: String? = null
-) {
+) : NewMaterial {
     init {
-        requireNotBlank(name, "name")
+        requireMaterialFields()
         requireNonNegative(availableCount, "availableCount")
         requireNonNegative(damagedCount, "damagedCount")
+        requireMaxLength(locationDetail, "locationDetail", 255)
     }
 }
 
 @Serializable
+@SerialName("INDIVIDUAL")
 data class NewIndividualMaterial(
-    val name: String,
-    val category: String? = null,
-    val description: String? = null
-) {
+    override val name: String,
+    override val category: String? = null,
+    override val description: String? = null
+) : NewMaterial {
     init {
-        requireNotBlank(name, "name")
+        requireMaterialFields()
     }
+}
+
+private fun NewMaterial.requireMaterialFields() {
+    requireText(name, "name", maxLength = 255)
+    requireMaxLength(category, "category", 100)
 }
 
 // ========= Individual items =========
@@ -127,6 +155,7 @@ data class IndividualItem(
     val onLoan: Boolean
 )
 
+/** [materialId] can't be changed after creation. */
 @Serializable
 data class NewIndividualItem(
     val materialId: Uuid,
@@ -139,8 +168,9 @@ data class NewIndividualItem(
     val purchaseDate: LocalDate? = null
 ) {
     init {
-        requireNotBlank(identifier, "identifier")
-        purchasePrice?.let { require(it >= 0) { "purchasePrice must not be negative" } }
+        requireText(identifier, "identifier", maxLength = 100)
+        requireMaxLength(locationDetail, "locationDetail", 255)
+        requirePrice(purchasePrice, "purchasePrice")
     }
 }
 
@@ -156,6 +186,7 @@ data class Purchase(
     val note: String?
 )
 
+/** [materialId] can't be changed after creation. */
 @Serializable
 data class NewPurchase(
     val materialId: Uuid,
@@ -166,7 +197,7 @@ data class NewPurchase(
 ) {
     init {
         require(quantity > 0) { "quantity must be positive" }
-        unitPrice?.let { require(it >= 0) { "unitPrice must not be negative" } }
+        requirePrice(unitPrice, "unitPrice")
     }
 }
 
@@ -184,7 +215,10 @@ data class DamageReport(
     val resolutionNotes: String?
 )
 
-/** Setting [isResolved] records the current time as resolution time; an existing resolution time is kept. */
+/**
+ * Setting [isResolved] records the current time as resolution time; an existing resolution time is kept.
+ * [itemId] can't be changed after creation.
+ */
 @Serializable
 data class NewDamageReport(
     val itemId: Uuid,
@@ -194,7 +228,8 @@ data class NewDamageReport(
     val resolutionNotes: String? = null
 ) {
     init {
-        requireNotBlank(description, "description")
+        requireText(description, "description")
+        requireMaxLength(reportedBy, "reportedBy", 255)
     }
 }
 
@@ -205,6 +240,7 @@ data class Kit(
     val id: Uuid,
     val name: String,
     val description: String?,
+    /** In display order. */
     val groups: List<KitGroup>
 )
 
@@ -215,7 +251,7 @@ data class NewKit(
     val groups: List<NewKitGroup>
 ) {
     init {
-        requireNotBlank(name, "name")
+        requireText(name, "name", maxLength = 255)
         val names = groups.mapNotNull { it.name }
         require(names.size == names.toSet().size) { "group names must be unique within a kit" }
     }
@@ -228,9 +264,8 @@ data class NewKit(
  */
 @Serializable
 data class KitGroup(
-    val id: Uuid,
     val name: String?,
-    val requiredUnits: Double,
+    val requiredUnits: Int,
     val isOptional: Boolean,
     val options: List<KitGroupOption>
 )
@@ -238,11 +273,12 @@ data class KitGroup(
 @Serializable
 data class NewKitGroup(
     val name: String? = null,
-    val requiredUnits: Double,
+    val requiredUnits: Int,
     val isOptional: Boolean = false,
-    val options: List<KitGroupOption>
+    val options: List<NewKitGroupOption>
 ) {
     init {
+        name?.let { requireText(it, "group name", maxLength = 255) }
         require(requiredUnits > 0) { "requiredUnits must be positive" }
         require(options.isNotEmpty()) { "a group needs at least one option" }
         require(options.distinctBy { it.materialId }.size == options.size) { "a material can only appear once per group" }
@@ -253,7 +289,14 @@ data class NewKitGroup(
 @Serializable
 data class KitGroupOption(
     val materialId: Uuid,
-    val unitValue: Double = 1.0,
+    val unitValue: Int,
+    val priority: Int
+)
+
+@Serializable
+data class NewKitGroupOption(
+    val materialId: Uuid,
+    val unitValue: Int = 1,
     val priority: Int = 0
 ) {
     init {
@@ -276,6 +319,7 @@ data class Loan(
     val bulkMaterials: List<BulkLoanLine>
 )
 
+/** Only active items can be lent, and an item can only be on one open loan at a time. */
 @Serializable
 data class NewLoan(
     val borrower: String,
@@ -287,7 +331,7 @@ data class NewLoan(
     val bulkMaterials: List<BulkLoanLine> = emptyList()
 ) {
     init {
-        requireNotBlank(borrower, "borrower")
+        requireText(borrower, "borrower", maxLength = 255)
         require(itemIds.isNotEmpty() || bulkMaterials.isNotEmpty()) { "a loan needs at least one item or material" }
         require(itemIds.toSet().size == itemIds.size) { "an item can only appear once per loan" }
         require(bulkMaterials.distinctBy { it.materialId }.size == bulkMaterials.size) {
@@ -308,6 +352,22 @@ data class BulkLoanLine(
     }
 }
 
-private fun requireNotBlank(value: String, field: String) = require(value.isNotBlank()) { "$field must not be blank" }
+// ========= Validation helpers =========
+
+private const val MAX_PRICE = 99_999_999.99 // DECIMAL(10, 2)
+
+private fun requireText(value: String, field: String, maxLength: Int? = null) {
+    require(value.isNotBlank()) { "$field must not be blank" }
+    maxLength?.let { requireMaxLength(value, field, it) }
+}
+
+private fun requireMaxLength(value: String?, field: String, maxLength: Int) =
+    require(value == null || value.length <= maxLength) { "$field must be at most $maxLength characters long" }
 
 private fun requireNonNegative(value: Int, field: String) = require(value >= 0) { "$field must not be negative" }
+
+private fun requirePrice(value: Double?, field: String) {
+    if (value == null) return
+    require(value in 0.0..MAX_PRICE) { "$field must be between 0 and 99999999.99" }
+    require(value.toBigDecimal().stripTrailingZeros().scale() <= 2) { "$field must not have more than 2 decimals" }
+}

@@ -20,6 +20,7 @@ class KitService(private val db: Db) {
     suspend fun get(id: Uuid): Kit = db.query { find(id) }
 
     suspend fun create(kit: NewKit): Kit = db.query {
+        requireOptionMaterials(kit)
         val id = Kits.insertAndGetId {
             it[name] = kit.name
             it[description] = kit.description
@@ -28,8 +29,9 @@ class KitService(private val db: Db) {
         find(id.value)
     }
 
-    /** Replaces the kit including all of its groups. */
+    /** Replaces the kit including all of its groups, which are recreated. */
     suspend fun update(id: Uuid, kit: NewKit): Kit = db.query {
+        requireOptionMaterials(kit)
         val updated = Kits.update({ Kits.id eq id }) {
             it[name] = kit.name
             it[description] = kit.description
@@ -44,17 +46,21 @@ class KitService(private val db: Db) {
         if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Kit", id)
     }
 
-    private fun insertGroups(kitId: EntityID<Uuid>, kit: NewKit) = kit.groups.forEach { group ->
+    private fun requireOptionMaterials(kit: NewKit) =
+        requireMaterials(kit.groups.flatMap { group -> group.options.map { it.materialId } }.toSet())
+
+    private fun insertGroups(kitId: EntityID<Uuid>, kit: NewKit) = kit.groups.forEachIndexed { index, group ->
         val groupId = KitGroups.insertAndGetId {
             it[KitGroups.kitId] = kitId
+            it[position] = index
             it[name] = group.name
-            it[requiredUnits] = group.requiredUnits.toBigDecimal()
+            it[requiredUnits] = group.requiredUnits
             it[isOptional] = group.isOptional
         }
         KitGroupOptions.batchInsert(group.options) { option ->
             this[KitGroupOptions.groupId] = groupId
             this[KitGroupOptions.materialId] = option.materialId
-            this[KitGroupOptions.unitValue] = option.unitValue.toBigDecimal()
+            this[KitGroupOptions.unitValue] = option.unitValue
             this[KitGroupOptions.priority] = option.priority
         }
     }
@@ -65,24 +71,23 @@ class KitService(private val db: Db) {
         val kitRows = Kits.selectAll().where(predicate).orderBy(Kits.name).toList()
         val groupRows = KitGroups.selectAll()
             .where { KitGroups.kitId inList kitRows.map { it[Kits.id] } }
-            .orderBy(KitGroups.id) // insertion order
+            .orderBy(KitGroups.position)
             .toList()
         val optionsByGroup = KitGroupOptions
             .selectAll()
             .where { KitGroupOptions.groupId inList groupRows.map { it[KitGroups.id] } }
-            .orderBy(KitGroupOptions.priority)
+            .orderBy(KitGroupOptions.priority to SortOrder.ASC, KitGroupOptions.materialId to SortOrder.ASC)
             .groupBy({ it[KitGroupOptions.groupId].value }) {
                 KitGroupOption(
                     materialId = it[KitGroupOptions.materialId].value,
-                    unitValue = it[KitGroupOptions.unitValue].toDouble(),
+                    unitValue = it[KitGroupOptions.unitValue],
                     priority = it[KitGroupOptions.priority]
                 )
             }
         val groupsByKit = groupRows.groupBy({ it[KitGroups.kitId].value }) {
             KitGroup(
-                id = it[KitGroups.id].value,
                 name = it[KitGroups.name],
-                requiredUnits = it[KitGroups.requiredUnits].toDouble(),
+                requiredUnits = it[KitGroups.requiredUnits],
                 isOptional = it[KitGroups.isOptional],
                 options = optionsByGroup[it[KitGroups.id].value].orEmpty()
             )

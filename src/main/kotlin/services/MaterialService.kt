@@ -17,47 +17,30 @@ class MaterialService(private val db: Db) {
 
     suspend fun get(id: Uuid): Material = db.query { find(id) }
 
-    suspend fun create(material: NewBulkMaterial): Material = db.query {
+    suspend fun create(material: NewMaterial): Material = db.query {
+        if (material is NewBulkMaterial) requireLocation(material.storageLocationId)
         val id = Materials.insertAndGetId {
-            it[trackingType] = MaterialTrackingType.BULK
-            it.fill(material.name, material.category, material.description)
+            it[trackingType] = material.trackingType
+            it.fillMaterial(material)
         }
-        BulkStock.insert {
+        if (material is NewBulkMaterial) BulkStock.insert {
             it[materialId] = id
-            it.fill(material)
+            it.fillStock(material)
         }
         find(id.value)
     }
 
-    suspend fun create(material: NewIndividualMaterial): Material = db.query {
-        val id = Materials.insertAndGetId {
-            it[trackingType] = MaterialTrackingType.INDIVIDUAL
-            it.fill(material.name, material.category, material.description)
-        }
-        find(id.value)
-    }
-
-    suspend fun update(id: Uuid, material: NewBulkMaterial): Material = db.query {
-        updateMaterial(id, MaterialTrackingType.BULK, material.name, material.category, material.description)
-        BulkStock.update({ BulkStock.materialId eq id }) { it.fill(material) }
-        find(id)
-    }
-
-    suspend fun update(id: Uuid, material: NewIndividualMaterial): Material = db.query {
-        updateMaterial(id, MaterialTrackingType.INDIVIDUAL, material.name, material.category, material.description)
+    /** Replaces a material. Its type can't be changed. */
+    suspend fun update(id: Uuid, material: NewMaterial): Material = db.query {
+        if (find(id).trackingType != material.trackingType) conflict("The type of a material can't be changed")
+        if (material is NewBulkMaterial) requireLocation(material.storageLocationId)
+        Materials.update({ Materials.id eq id }) { it.fillMaterial(material) }
+        if (material is NewBulkMaterial) BulkStock.update({ BulkStock.materialId eq id }) { it.fillStock(material) }
         find(id)
     }
 
     suspend fun delete(id: Uuid) = db.query {
         if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Material", id)
-    }
-
-    /** Updates the shared columns, but only if the material has the expected [type]. */
-    private fun updateMaterial(id: Uuid, type: MaterialTrackingType, name: String, category: String?, description: String?) {
-        val updated = Materials.update({ (Materials.id eq id) and (Materials.trackingType eq type) }) {
-            it.fill(name, category, description)
-        }
-        if (updated == 0) notFound("$type material", id)
     }
 
     private fun find(id: Uuid): Material = findWhere { Materials.id eq id }.singleOrNull() ?: notFound("Material", id)
@@ -128,13 +111,25 @@ class MaterialService(private val db: Db) {
 
     private fun countWhere(condition: Op<Boolean>) = Case().When(condition, intLiteral(1)).Else(intLiteral(0)).sum()
 
-    private fun UpdateBuilder<*>.fill(name: String, category: String?, description: String?) {
-        this[Materials.name] = name
-        this[Materials.category] = category
-        this[Materials.description] = description
+    private val Material.trackingType
+        get() = when (this) {
+            is BulkMaterial -> MaterialTrackingType.BULK
+            is IndividualMaterial -> MaterialTrackingType.INDIVIDUAL
+        }
+
+    private val NewMaterial.trackingType
+        get() = when (this) {
+            is NewBulkMaterial -> MaterialTrackingType.BULK
+            is NewIndividualMaterial -> MaterialTrackingType.INDIVIDUAL
+        }
+
+    private fun UpdateBuilder<*>.fillMaterial(material: NewMaterial) {
+        this[Materials.name] = material.name
+        this[Materials.category] = material.category
+        this[Materials.description] = material.description
     }
 
-    private fun UpdateBuilder<*>.fill(material: NewBulkMaterial) {
+    private fun UpdateBuilder<*>.fillStock(material: NewBulkMaterial) {
         this[BulkStock.quantityAvailable] = material.availableCount
         this[BulkStock.quantityDamaged] = material.damagedCount
         this[BulkStock.storageLocationId] = material.storageLocationId

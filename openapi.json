@@ -1,0 +1,2220 @@
+{
+    "openapi": "3.1.1",
+    "info": {
+        "title": "Material API",
+        "version": "1.0",
+        "description": "API for managing scout material"
+    },
+    "paths": {
+        "/locations": {
+            "post": {
+                "summary": "Create a storage location.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewStorageLocation"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "409": {
+                        "description": "The name is taken.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StorageLocation"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all storage locations.",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/StorageLocation"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/locations/{id}": {
+            "put": {
+                "summary": "Replace a storage location.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The location id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewStorageLocation"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "No location with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StorageLocation"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a storage location. Materials and items stored there keep existing without a location.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The location id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No location with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a storage location.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The location id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No location with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StorageLocation"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials": {
+            "post": {
+                "summary": "Create a material. `trackingType` decides whether it's a bulk or an individual material.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewMaterial"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid material or unknown location.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all materials.",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Only return materials of this type.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "BULK",
+                                "INDIVIDUAL"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Material"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/materials/{id}": {
+            "put": {
+                "summary": "Replace a material. Its `trackingType` can't be changed.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The material id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewMaterial"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid material or unknown location.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No material with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The tracking type differs or the name is taken.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a material. Only possible while nothing references it (items, purchases, kits, loans).",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The material id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No material with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The material is still in use.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a material.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The material id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No material with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/items": {
+            "post": {
+                "summary": "Create an individual item.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewIndividualItem"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid item, or the material isn't an individual one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The identifier is taken.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItem"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all individual items.",
+                "parameters": [
+                    {
+                        "name": "materialId",
+                        "in": "query",
+                        "description": "Only return items of this material.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/IndividualItem"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/items/{id}": {
+            "put": {
+                "summary": "Replace an individual item. Its `materialId` can't be changed.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The item id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewIndividualItem"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid item.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No item with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The identifier is taken.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItem"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete an individual item. Only possible while it has no damage reports or loans; retire it via its status\notherwise.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The item id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No item with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The item is still in use.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get an individual item.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The item id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No item with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IndividualItem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/purchases": {
+            "post": {
+                "summary": "Record a purchase. This doesn't change the stock quantities.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewPurchase"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid purchase, or the material isn't a bulk material.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Purchase"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get the purchase history of bulk materials.",
+                "parameters": [
+                    {
+                        "name": "materialId",
+                        "in": "query",
+                        "description": "Only return purchases of this material.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Purchase"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/purchases/{id}": {
+            "put": {
+                "summary": "Replace a purchase. Its `materialId` can't be changed.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The purchase id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewPurchase"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "No purchase with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Purchase"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a purchase.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The purchase id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No purchase with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a purchase.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The purchase id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No purchase with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Purchase"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/damages": {
+            "post": {
+                "summary": "Report a damage.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewDamageReport"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid report or unknown item.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all damage reports.",
+                "parameters": [
+                    {
+                        "name": "itemId",
+                        "in": "query",
+                        "description": "Only return reports for this individual item.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DamageReport"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/damages/{id}": {
+            "put": {
+                "summary": "Replace a damage report, e.g. to resolve it. Its `itemId` can't be changed.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The report id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewDamageReport"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "No report with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a damage report.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The report id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No report with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a damage report.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The report id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No report with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DamageReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/kits": {
+            "post": {
+                "summary": "Create a kit.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewKit"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid kit or unknown material.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all kits.",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Kit"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/kits/{id}": {
+            "put": {
+                "summary": "Replace a kit including all of its groups.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The kit id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewKit"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "No kit with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a kit.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The kit id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No kit with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a kit.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The kit id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No kit with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Kit"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/loans": {
+            "post": {
+                "summary": "Record a loan.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewLoan"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid loan or unknown item or material.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Something isn't available (inactive, lent out, out of stock).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Loan"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get all loans.",
+                "parameters": [
+                    {
+                        "name": "open",
+                        "in": "query",
+                        "description": "If set, only open (true) or only returned (false) loans.",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Loan"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/loans/{id}": {
+            "put": {
+                "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The loan id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewLoan"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "No loan with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Same as for creating a loan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Loan"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete a loan.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The loan id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No loan with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                }
+            },
+            "get": {
+                "summary": "Get a loan.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The loan id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "No loan with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Loan"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "webhooks": {},
+    "components": {
+        "schemas": {
+            "StorageLocation": {
+                "type": "object",
+                "title": "StorageLocation",
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "title": "ErrorResponse",
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "NewStorageLocation": {
+                "type": "object",
+                "title": "NewStorageLocation",
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "StorageLocation2": {
+                "type": [
+                    "object",
+                    "null"
+                ],
+                "title": "StorageLocation2",
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "BulkMaterial": {
+                "type": "object",
+                "title": "BulkMaterial",
+                "required": [
+                    "trackingType",
+                    "id",
+                    "name",
+                    "availableCount",
+                    "damagedCount",
+                    "loanedCount"
+                ],
+                "properties": {
+                    "trackingType": {
+                        "type": "string",
+                        "enum": [
+                            "BULK"
+                        ]
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "loanedCount": {
+                        "type": "integer"
+                    },
+                    "location": {
+                        "$ref": "#/components/schemas/StorageLocation2"
+                    },
+                    "locationDetail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "IndividualMaterial": {
+                "type": "object",
+                "title": "IndividualMaterial",
+                "required": [
+                    "trackingType",
+                    "id",
+                    "name",
+                    "availableCount",
+                    "damagedCount",
+                    "loanedCount"
+                ],
+                "properties": {
+                    "trackingType": {
+                        "type": "string",
+                        "enum": [
+                            "INDIVIDUAL"
+                        ]
+                    },
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "loanedCount": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Material": {
+                "type": "object",
+                "title": "Material",
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/BulkMaterial"
+                    },
+                    {
+                        "$ref": "#/components/schemas/IndividualMaterial"
+                    }
+                ],
+                "discriminator": {
+                    "propertyName": "trackingType",
+                    "mapping": {
+                        "BULK": "#/components/schemas/BulkMaterial",
+                        "INDIVIDUAL": "#/components/schemas/IndividualMaterial"
+                    }
+                }
+            },
+            "NewBulkMaterial": {
+                "type": "object",
+                "title": "NewBulkMaterial",
+                "required": [
+                    "trackingType",
+                    "name",
+                    "availableCount"
+                ],
+                "properties": {
+                    "trackingType": {
+                        "type": "string",
+                        "enum": [
+                            "BULK"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "storageLocationId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
+                    "locationDetail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "NewIndividualMaterial": {
+                "type": "object",
+                "title": "NewIndividualMaterial",
+                "required": [
+                    "trackingType",
+                    "name"
+                ],
+                "properties": {
+                    "trackingType": {
+                        "type": "string",
+                        "enum": [
+                            "INDIVIDUAL"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "NewMaterial": {
+                "type": "object",
+                "title": "NewMaterial",
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/NewBulkMaterial"
+                    },
+                    {
+                        "$ref": "#/components/schemas/NewIndividualMaterial"
+                    }
+                ],
+                "discriminator": {
+                    "propertyName": "trackingType",
+                    "mapping": {
+                        "BULK": "#/components/schemas/NewBulkMaterial",
+                        "INDIVIDUAL": "#/components/schemas/NewIndividualMaterial"
+                    }
+                }
+            },
+            "IndividualItem": {
+                "type": "object",
+                "title": "IndividualItem",
+                "required": [
+                    "id",
+                    "materialId",
+                    "identifier",
+                    "condition",
+                    "status",
+                    "onLoan"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "identifier": {
+                        "type": "string"
+                    },
+                    "condition": {
+                        "type": "string",
+                        "enum": [
+                            "NEW",
+                            "GOOD",
+                            "FAIR",
+                            "POOR"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "IN_REPAIR",
+                            "LOST",
+                            "DECOMMISSIONED"
+                        ]
+                    },
+                    "storageLocation": {
+                        "$ref": "#/components/schemas/StorageLocation2"
+                    },
+                    "locationDetail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "purchasePrice": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "purchaseDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "onLoan": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "NewIndividualItem": {
+                "type": "object",
+                "title": "NewIndividualItem",
+                "required": [
+                    "materialId",
+                    "identifier",
+                    "condition"
+                ],
+                "properties": {
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "identifier": {
+                        "type": "string"
+                    },
+                    "condition": {
+                        "type": "string",
+                        "enum": [
+                            "NEW",
+                            "GOOD",
+                            "FAIR",
+                            "POOR"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "IN_REPAIR",
+                            "LOST",
+                            "DECOMMISSIONED"
+                        ]
+                    },
+                    "storageLocationId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
+                    "locationDetail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "purchasePrice": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "purchaseDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    }
+                }
+            },
+            "Purchase": {
+                "type": "object",
+                "title": "Purchase",
+                "required": [
+                    "id",
+                    "materialId",
+                    "quantity"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "unitPrice": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "purchaseDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "NewPurchase": {
+                "type": "object",
+                "title": "NewPurchase",
+                "required": [
+                    "materialId",
+                    "quantity"
+                ],
+                "properties": {
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "unitPrice": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "purchaseDate": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "DamageReport": {
+                "type": "object",
+                "title": "DamageReport",
+                "required": [
+                    "id",
+                    "itemId",
+                    "description",
+                    "reportedAt"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "itemId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "reportedBy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "reportedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "resolvedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "resolutionNotes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "NewDamageReport": {
+                "type": "object",
+                "title": "NewDamageReport",
+                "required": [
+                    "itemId",
+                    "description"
+                ],
+                "properties": {
+                    "itemId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "reportedBy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "isResolved": {
+                        "type": "boolean"
+                    },
+                    "resolutionNotes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "KitGroupOption": {
+                "type": "object",
+                "title": "KitGroupOption",
+                "required": [
+                    "materialId",
+                    "unitValue",
+                    "priority"
+                ],
+                "properties": {
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "unitValue": {
+                        "type": "integer"
+                    },
+                    "priority": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "KitGroup": {
+                "type": "object",
+                "title": "KitGroup",
+                "required": [
+                    "requiredUnits",
+                    "isOptional",
+                    "options"
+                ],
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "requiredUnits": {
+                        "type": "integer"
+                    },
+                    "isOptional": {
+                        "type": "boolean"
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitGroupOption"
+                        }
+                    }
+                }
+            },
+            "Kit": {
+                "type": "object",
+                "title": "Kit",
+                "required": [
+                    "id",
+                    "name",
+                    "groups"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitGroup"
+                        }
+                    }
+                }
+            },
+            "NewKitGroupOption": {
+                "type": "object",
+                "title": "NewKitGroupOption",
+                "required": [
+                    "materialId"
+                ],
+                "properties": {
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "unitValue": {
+                        "type": "integer"
+                    },
+                    "priority": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "NewKitGroup": {
+                "type": "object",
+                "title": "NewKitGroup",
+                "required": [
+                    "requiredUnits",
+                    "options"
+                ],
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "requiredUnits": {
+                        "type": "integer"
+                    },
+                    "isOptional": {
+                        "type": "boolean"
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewKitGroupOption"
+                        }
+                    }
+                }
+            },
+            "NewKit": {
+                "type": "object",
+                "title": "NewKit",
+                "required": [
+                    "name",
+                    "groups"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewKitGroup"
+                        }
+                    }
+                }
+            },
+            "BulkLoanLine": {
+                "type": "object",
+                "title": "BulkLoanLine",
+                "required": [
+                    "materialId",
+                    "quantity"
+                ],
+                "properties": {
+                    "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Loan": {
+                "type": "object",
+                "title": "Loan",
+                "required": [
+                    "id",
+                    "borrower",
+                    "lentAt",
+                    "itemIds",
+                    "bulkMaterials"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "borrower": {
+                        "type": "string"
+                    },
+                    "lentAt": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "dueAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "returnedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "itemIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "bulkMaterials": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BulkLoanLine"
+                        }
+                    }
+                }
+            },
+            "NewLoan": {
+                "type": "object",
+                "title": "NewLoan",
+                "required": [
+                    "borrower",
+                    "lentAt"
+                ],
+                "properties": {
+                    "borrower": {
+                        "type": "string"
+                    },
+                    "lentAt": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "dueAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "returnedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date"
+                    },
+                    "note": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "itemIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "bulkMaterials": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BulkLoanLine"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

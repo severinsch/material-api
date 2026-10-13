@@ -1,7 +1,5 @@
 import api.*
 import configure.ApiJson
-import database.ItemCondition
-import database.ItemStatus
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -70,12 +68,12 @@ suspend fun HttpClient.createBulk(
     available: Int = 10,
     location: StorageLocation? = null
 ): BulkMaterial =
-    post("/materials/bulk") {
-        setBody(NewBulkMaterial(name, availableCount = available, storageLocationId = location?.id))
+    post("/materials") {
+        setBody<NewMaterial>(NewBulkMaterial(name, availableCount = available, storageLocationId = location?.id))
     }.expect<Material>(HttpStatusCode.Created) as BulkMaterial
 
 suspend fun HttpClient.createIndividual(name: String = "Kohtenblatt"): IndividualMaterial =
-    post("/materials/individual") { setBody(NewIndividualMaterial(name)) }
+    post("/materials") { setBody<NewMaterial>(NewIndividualMaterial(name)) }
         .expect<Material>(HttpStatusCode.Created) as IndividualMaterial
 
 suspend fun HttpClient.createItem(

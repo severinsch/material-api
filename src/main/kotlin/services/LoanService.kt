@@ -2,6 +2,7 @@ package services
 
 import api.BulkLoanLine
 import api.Loan
+import api.ItemStatus
 import api.NewLoan
 import database.*
 import org.jetbrains.exposed.v1.core.*
@@ -26,7 +27,7 @@ class LoanService(private val db: Db) {
     suspend fun get(id: Uuid): Loan = db.query { find(id) }
 
     suspend fun create(loan: NewLoan): Loan = db.query {
-        if (loan.returnedAt == null) checkAvailability(loan, excludeLoan = null)
+        checkLines(loan, loanId = null)
         val id = Loans.insertAndGetId { it.fill(loan) }
         insertLines(id, loan)
         find(id.value)
@@ -34,8 +35,9 @@ class LoanService(private val db: Db) {
 
     /** Replaces the loan including all of its lines. Returning a loan means setting `returnedAt`. */
     suspend fun update(id: Uuid, loan: NewLoan): Loan = db.query {
-        if (loan.returnedAt == null) checkAvailability(loan, excludeLoan = id)
-        if (Loans.update({ Loans.id eq id }) { it.fill(loan) } == 0) notFound("Loan", id)
+        find(id)
+        checkLines(loan, loanId = id)
+        Loans.update({ Loans.id eq id }) { it.fill(loan) }
         LoanLines.deleteWhere { loanId eq id }
         insertLines(EntityID(id, Loans), loan)
         find(id)
@@ -45,39 +47,47 @@ class LoanService(private val db: Db) {
         if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Loan", id)
     }
 
-    /** Ensures an open [loan] doesn't lend anything that other open loans already cover. */
-    private fun checkAvailability(loan: NewLoan, excludeLoan: Uuid?) {
-        val otherOpenLines = LoanLines.innerJoin(Loans)
-        val isOtherOpenLoan = Loans.returnedAt.isNull() and (excludeLoan?.let { Loans.id neq it } ?: Op.TRUE)
+    /**
+     * Checks that everything lent exists and, for an open loan, is available: items must be active and not on another
+     * open loan, bulk quantities must not exceed the stock minus other open loans. The checked rows are locked until
+     * the transaction ends, so concurrent loans can't both pass the check.
+     */
+    private fun checkLines(loan: NewLoan, loanId: Uuid?) {
+        val statuses = IndividualItems
+            .select(IndividualItems.id, IndividualItems.status)
+            .where { IndividualItems.id inList loan.itemIds }
+            .forUpdate()
+            .associate { it[IndividualItems.id].value to it[IndividualItems.status] }
+        val stock = BulkStock
+            .select(BulkStock.materialId, BulkStock.quantityAvailable)
+            .where { BulkStock.materialId inList loan.bulkMaterials.map(BulkLoanLine::materialId) }
+            .forUpdate()
+            .associate { it[BulkStock.materialId].value to it[BulkStock.quantityAvailable] }
+        loan.itemIds.forEach { if (it !in statuses) invalid("Item $it doesn't exist") }
+        loan.bulkMaterials.forEach { if (it.materialId !in stock) invalid("Material ${it.materialId} doesn't exist or isn't a bulk material") }
+        if (loan.returnedAt != null) return
 
-        if (loan.itemIds.isNotEmpty()) {
-            val alreadyLent = otherOpenLines
-                .select(LoanLines.individualItemId)
-                .where { isOtherOpenLoan and (LoanLines.individualItemId inList loan.itemIds) }
-                .map { it[LoanLines.individualItemId]!!.value }
-            if (alreadyLent.isNotEmpty()) throw ConflictException("Items already on loan: ${alreadyLent.joinToString()}")
+        statuses.filterValues { it != ItemStatus.ACTIVE }.keys.firstOrNull()?.let {
+            conflict("Item $it can't be lent because it is ${statuses.getValue(it)}")
         }
+        val otherOpenLines = LoanLines.innerJoin(Loans)
+        val isOtherOpenLoan = Loans.returnedAt.isNull() and (loanId?.let { Loans.id neq it } ?: Op.TRUE)
+        otherOpenLines
+            .select(LoanLines.individualItemId)
+            .where { isOtherOpenLoan and (LoanLines.individualItemId inList loan.itemIds) }
+            .firstOrNull()
+            ?.let { conflict("Item ${it[LoanLines.individualItemId]!!.value} is already on loan") }
 
-        if (loan.bulkMaterials.isNotEmpty()) {
-            val materialIds = loan.bulkMaterials.map(BulkLoanLine::materialId)
-            val lent = LoanLines.quantity.sum()
-            val lentByMaterial = otherOpenLines
-                .select(LoanLines.bulkMaterialId, lent)
-                .where { isOtherOpenLoan and (LoanLines.bulkMaterialId inList materialIds) }
-                .groupBy(LoanLines.bulkMaterialId)
-                .associate { it[LoanLines.bulkMaterialId]!!.value to (it[lent] ?: 0) }
-            val inStock = BulkStock
-                .select(BulkStock.materialId, BulkStock.quantityAvailable)
-                .where { BulkStock.materialId inList materialIds }
-                .associate { it[BulkStock.materialId].value to it[BulkStock.quantityAvailable] }
-
-            loan.bulkMaterials.forEach { line ->
-                // Unknown materials are rejected by the foreign key when inserting the line.
-                val stock = inStock[line.materialId] ?: return@forEach
-                val free = stock - (lentByMaterial[line.materialId] ?: 0)
-                if (line.quantity > free) {
-                    throw ConflictException("Only $free of material ${line.materialId} available, ${line.quantity} requested")
-                }
+        val lent = LoanLines.quantity.sum()
+        val lentByMaterial = otherOpenLines
+            .select(LoanLines.bulkMaterialId, lent)
+            .where { isOtherOpenLoan and (LoanLines.bulkMaterialId inList stock.keys) }
+            .groupBy(LoanLines.bulkMaterialId)
+            .associate { it[LoanLines.bulkMaterialId]!!.value to (it[lent] ?: 0) }
+        loan.bulkMaterials.forEach { line ->
+            val free = stock.getValue(line.materialId) - (lentByMaterial[line.materialId] ?: 0)
+            if (line.quantity > free) {
+                conflict("Only $free of material ${line.materialId} available, ${line.quantity} requested")
             }
         }
     }

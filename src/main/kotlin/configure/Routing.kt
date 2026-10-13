@@ -12,13 +12,12 @@ import routes.*
 import services.*
 
 fun Application.configureRouting(db: Db) {
-    val materialService = MaterialService(db)
-    val itemService = ItemService(db)
     routing {
         // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant used
         // as a property elsewhere gets a generated name.
         locationRoutes(LocationService(db))
-        materialRoutes(materialService, itemService)
+        materialRoutes(MaterialService(db))
+        itemRoutes(ItemService(db))
         purchaseRoutes(PurchaseService(db))
         damageRoutes(DamageService(db))
         kitRoutes(KitService(db))

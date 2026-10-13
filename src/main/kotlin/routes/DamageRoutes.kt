@@ -12,10 +12,10 @@ fun Route.damageRoutes(damageService: DamageService) {
         /**
          * Get all damage reports.
          *
-         * Query: item_id [kotlin.uuid.Uuid] Only return reports for this individual item.
+         * Query: itemId [kotlin.uuid.Uuid] Only return reports for this individual item.
          */
         get {
-            call.respond(damageService.getAll(call.uuidQueryParameter("item_id")))
+            call.respond(damageService.getAll(call.uuidQueryParameter("itemId")))
         }
 
         /**
@@ -31,14 +31,14 @@ fun Route.damageRoutes(damageService: DamageService) {
         /**
          * Report a damage.
          *
-         * Response: 409 application/json [api.ErrorResponse] The item doesn't exist.
+         * Response: 400 application/json [api.ErrorResponse] Invalid report or unknown item.
          */
         post {
             call.respond(HttpStatusCode.Created, damageService.create(call.receive<NewDamageReport>()))
         }
 
         /**
-         * Replace a damage report, e.g. to resolve it.
+         * Replace a damage report, e.g. to resolve it. Its `itemId` can't be changed.
          *
          * Path: id [kotlin.uuid.Uuid] The report id.
          * Response: 404 application/json [api.ErrorResponse] No report with this id.

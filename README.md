@@ -65,8 +65,19 @@ the comments add descriptions, typed parameters and error responses:
  */
 ```
 
-Types in comments must be fully qualified. Documenting a success response in a comment replaces the inferred schema,
-so only error responses are documented there.
+Quirks of the generator:
+* Types in comments must be fully qualified, and descriptions must not contain a colon (the line is dropped).
+* Documenting a success response in a comment replaces the inferred schema, so only error responses are documented.
+* Query parameters are read through the helpers in `routes/Parameters.kt`, which avoid the pattern the inference
+  recognizes; otherwise every documented query parameter would appear a second time without type.
+* The metadata is generated at compile time per route file, so after changing `Parameters.kt` run a clean build.
+
+The generated document is committed as [openapi.json](openapi.json) and checked by `OpenApiTest`, so contract
+changes are visible in reviews and the frontend can generate its client from it. After an intended API change:
+
+```bash
+UPDATE_OPENAPI=1 ./gradlew clean test
+```
 
 Errors are returned as `{"message": "..."}` with status 400 (invalid input), 404 (not found) or 409 (conflicts, e.g.
 deleting something that is still referenced or lending an item twice).

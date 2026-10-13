@@ -29,7 +29,8 @@ fun Route.kitRoutes(kitService: KitService) {
         /**
          * Create a kit.
          *
-         * Response: 409 application/json [api.ErrorResponse] The name is taken or a referenced material doesn't exist.
+         * Response: 400 application/json [api.ErrorResponse] Invalid kit or unknown material.
+         * Response: 409 application/json [api.ErrorResponse] The name is taken.
          */
         post {
             call.respond(HttpStatusCode.Created, kitService.create(call.receive<NewKit>()))

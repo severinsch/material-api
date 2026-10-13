@@ -18,6 +18,7 @@ class DamageService(private val db: Db) {
     suspend fun get(id: Uuid): DamageReport = db.query { find(id) }
 
     suspend fun create(report: NewDamageReport): DamageReport = db.query {
+        requireItem(report.itemId)
         val id = DamageReports.insertAndGetId {
             it[individualItemId] = report.itemId
             it[description] = report.description
@@ -30,8 +31,8 @@ class DamageService(private val db: Db) {
 
     suspend fun update(id: Uuid, report: NewDamageReport): DamageReport = db.query {
         val existing = find(id)
+        requireUnchanged("itemId", existing.itemId, report.itemId)
         DamageReports.update({ DamageReports.id eq id }) {
-            it[individualItemId] = report.itemId
             it[description] = report.description
             it[reportedBy] = report.reportedBy
             // Keep the original resolution time when an already resolved report is edited.

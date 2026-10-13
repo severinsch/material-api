@@ -1,6 +1,7 @@
 package services
 
 import api.IndividualItem
+import api.MaterialTrackingType
 import api.NewIndividualItem
 import database.*
 import org.jetbrains.exposed.v1.core.*
@@ -10,19 +11,23 @@ import kotlin.uuid.Uuid
 
 class ItemService(private val db: Db) {
 
-    suspend fun getByMaterial(materialId: Uuid): List<IndividualItem> = db.query {
-        findWhere { IndividualItems.materialId eq materialId }
+    suspend fun getAll(materialId: Uuid? = null): List<IndividualItem> = db.query {
+        findWhere { materialId?.let { IndividualItems.materialId eq it } ?: Op.TRUE }
     }
 
     suspend fun get(id: Uuid): IndividualItem = db.query { find(id) }
 
     suspend fun create(item: NewIndividualItem): IndividualItem = db.query {
+        requireMaterial(item.materialId, MaterialTrackingType.INDIVIDUAL)
+        requireLocation(item.storageLocationId)
         val id = IndividualItems.insertAndGetId { it.fill(item) }
         find(id.value)
     }
 
     suspend fun update(id: Uuid, item: NewIndividualItem): IndividualItem = db.query {
-        if (IndividualItems.update({ IndividualItems.id eq id }) { it.fill(item) } == 0) notFound("Item", id)
+        requireUnchanged("materialId", find(id).materialId, item.materialId)
+        requireLocation(item.storageLocationId)
+        IndividualItems.update({ IndividualItems.id eq id }) { it.fill(item) }
         find(id)
     }
 
@@ -43,7 +48,7 @@ class ItemService(private val db: Db) {
             .leftJoin(StorageLocations)
             .select(IndividualItems.columns + StorageLocations.columns + onLoan)
             .where(predicate)
-            .orderBy(IndividualItems.identifier)
+            .orderBy(IndividualItems.materialId to SortOrder.ASC, IndividualItems.identifier to SortOrder.ASC)
             .map { row ->
                 IndividualItem(
                     id = row[IndividualItems.id].value,
