@@ -1,12 +1,12 @@
 package services
 
 import database.DamageReports
+import database.dbTransaction
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertReturning
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import parseUUID
 import routes.DamageReport
@@ -16,53 +16,63 @@ import java.util.*
 
 class DamageService {
 
-    fun getAll(): List<DamageReport> = transaction {
+    fun getAll(): List<DamageReport> = dbTransaction {
         DamageReports.selectAll().map(::toDamageReport)
     }
 
     fun create(newDamageReport: NewDamageReport): DamageReport {
-        return transaction {
+        return dbTransaction {
             DamageReports.insertReturning {
-                it[inventoryItemId] = parseUUID(newDamageReport.inventoryItemId)
+                it[individualItemId] = parseUUID(newDamageReport.inventoryItemId)
                 it[description] = newDamageReport.description
-                it[isResolved] = newDamageReport.isResolved
-                it[reportedAt] = Instant.now()
+                it[reportedBy] = newDamageReport.reportedBy
+                it[resolvedAt] = if (newDamageReport.isResolved) Instant.now() else null
+                it[resolutionNotes] = newDamageReport.resolutionNotes
             }.single().let { toDamageReport(it) }
         }
     }
 
     fun getByItemId(itemId: UUID): List<DamageReport> {
-        return transaction {
+        return dbTransaction {
             DamageReports
                 .selectAll()
-                .where { DamageReports.inventoryItemId eq itemId }
+                .where { DamageReports.individualItemId eq itemId }
                 .map(::toDamageReport)
         }
     }
 
-    fun getById(id: UUID): DamageReport? = transaction {
+    fun getById(id: UUID): DamageReport? = dbTransaction {
         DamageReports.selectAll().where { DamageReports.id eq id }.withDistinct().map(::toDamageReport).singleOrNull()
     }
 
-    fun update(id: UUID, newDamageReport: NewDamageReport): DamageReport? = transaction {
+    fun update(id: UUID, newDamageReport: NewDamageReport): DamageReport? = dbTransaction {
+        val existing = getById(id) ?: return@dbTransaction null
         DamageReports.update({ DamageReports.id eq id }) {
             it[description] = newDamageReport.description
-            it[isResolved] = newDamageReport.isResolved
+            it[reportedBy] = newDamageReport.reportedBy
+            it[resolutionNotes] = newDamageReport.resolutionNotes
+            // Keep the original resolution time when an already resolved report is edited.
+            if (newDamageReport.isResolved != existing.isResolved) {
+                it[resolvedAt] = if (newDamageReport.isResolved) Instant.now() else null
+            }
         }
 
-        return@transaction getById(id)
+        return@dbTransaction getById(id)
     }
 
-    fun delete(id: UUID): Boolean = transaction {
+    fun delete(id: UUID): Boolean = dbTransaction {
         val noDeleted = DamageReports.deleteWhere { DamageReports.id eq id }
-        return@transaction noDeleted > 0
+        return@dbTransaction noDeleted > 0
     }
 
     private fun toDamageReport(row: ResultRow): DamageReport = DamageReport(
         id = row[DamageReports.id].value.toString(),
-        inventoryItemId = row[DamageReports.inventoryItemId].toString(),
+        inventoryItemId = row[DamageReports.individualItemId].toString(),
         description = row[DamageReports.description],
-        isResolved = row[DamageReports.isResolved],
-        reportedAt = row[DamageReports.reportedAt].toString()
+        isResolved = row[DamageReports.resolvedAt] != null,
+        reportedBy = row[DamageReports.reportedBy],
+        reportedAt = row[DamageReports.reportedAt].toString(),
+        resolvedAt = row[DamageReports.resolvedAt]?.toString(),
+        resolutionNotes = row[DamageReports.resolutionNotes]
     )
 }

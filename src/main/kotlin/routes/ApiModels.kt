@@ -1,6 +1,7 @@
 package routes
 
 import database.ItemCondition
+import database.ItemStatus
 import database.MaterialTrackingType
 import kotlinx.serialization.Serializable
 
@@ -40,9 +41,7 @@ data class BulkMaterial(
     override val location: StorageLocation? = null,
     override val availableCount: Int,
     override val damagedCount: Int,
-    // additional fields for bulk items, for individual items these are in the individual items
-    val purchaseDate: String? = null,
-    val purchasePrice: Double? = null
+    val locationDetail: String? = null
 ) : Material
 
 @Serializable
@@ -73,8 +72,7 @@ data class NewBulkMaterial(
     val description: String? = null,
     val availableCount: Int,
     val damagedCount: Int,
-    val purchaseDate: String? = null,
-    val purchasePrice: Double? = null
+    val locationDetail: String? = null
 )
 
 @Serializable
@@ -83,7 +81,9 @@ data class IndividualItem(
     val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
+    val status: ItemStatus,
     val storageLocation: StorageLocation? = null,
+    val locationDetail: String? = null,
     val purchasePrice: Double? = null,
     val purchaseDate: String? = null
 )
@@ -93,7 +93,9 @@ data class NewIndividualItem(
     val materialId: String,
     val identifier: String,
     val condition: ItemCondition,
+    val status: ItemStatus = ItemStatus.ACTIVE,
     val storageLocation: StorageLocation? = null,
+    val locationDetail: String? = null,
     val purchasePrice: Double? = null,
     val purchaseDate: String? = null
 )
@@ -104,14 +106,19 @@ data class DamageReport(
     val inventoryItemId: String,
     val description: String,
     val isResolved: Boolean,
-    val reportedAt: String
+    val reportedBy: String? = null,
+    val reportedAt: String,
+    val resolvedAt: String? = null,
+    val resolutionNotes: String? = null
 )
 
 @Serializable
 data class NewDamageReport(
     val inventoryItemId: String,
     val description: String,
-    val isResolved: Boolean = false
+    val isResolved: Boolean = false,
+    val reportedBy: String? = null,
+    val resolutionNotes: String? = null
 )
 
 @Serializable
@@ -119,46 +126,42 @@ data class Kit(
     val id: String,
     val name: String,
     val description: String? = null,
-    val fixedMaterials: List<FixedMaterial>,
-    val substitutionGroups: List<SubstitutionGroup>
+    val groups: List<KitGroup>
 )
 
 @Serializable
 data class NewKit(
     val name: String,
     val description: String? = null,
-    val fixedMaterials: List<FixedMaterial>,
-    val substitutionGroups: List<NewSubstitutionGroup>
+    val groups: List<NewKitGroup>
 )
 
+/**
+ * A slot in a kit that needs [requiredUnits] units, filled by one or more interchangeable materials.
+ * A fixed material ("8x Fenster") is a group with a single option of unit value 1 and no name.
+ * Optional groups are all-or-nothing: packed completely or not at all.
+ */
 @Serializable
-data class FixedMaterial(
-    val materialId: String,
-    val quantity: Int
-)
-
-@Serializable
-data class SubstitutionGroup(
+data class KitGroup(
     val id: String,
-    val name: String,
-    val isOptional: Boolean,
+    val name: String? = null,
     val requiredUnits: Double,
-    val minRequiredUnits: Double,
-    val options: List<SubstitutionOption>
+    val isOptional: Boolean,
+    val options: List<KitGroupOption>
 )
 
 @Serializable
-data class NewSubstitutionGroup(
-    val name: String,
-    val isOptional: Boolean,
+data class NewKitGroup(
+    val name: String? = null,
     val requiredUnits: Double,
-    val minRequiredUnits: Double,
-    val options: List<SubstitutionOption>
+    val isOptional: Boolean = false,
+    val options: List<KitGroupOption>
 )
 
+/** How much one piece of a material contributes to a group. Options with lower [priority] are used first. */
 @Serializable
-data class SubstitutionOption(
+data class KitGroupOption(
     val materialId: String,
-    val unitValue: Double,
-    val isPreferred: Boolean
+    val unitValue: Double = 1.0,
+    val priority: Int = 0
 )

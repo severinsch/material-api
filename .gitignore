@@ -36,3 +36,5 @@ out/
 
 ### VS Code ###
 .vscode/
+# Written by the swagger plugin at runtime
+docs/

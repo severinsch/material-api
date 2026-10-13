@@ -16,8 +16,11 @@ services:
     ports:
       - "5432:5432" # Expose DB port to the host machine for IDE access
     volumes:
-      # This correctly maps the named volume 'postgres_data' to the container's data directory.
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18+ stores data below a major-version-specific directory.
+      # Mount the parent directory so the image can manage /var/lib/postgresql/18/docker.
+      - postgres_data:/var/lib/postgresql
+      # Creates the schema on first start (empty volume only). After changing it: docker compose down -v
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       # This ensures the API service only starts after the DB is fully ready.
       test: ["CMD-SHELL", "pg_isready -U scout -d scout_material"]

@@ -17,9 +17,9 @@ fun Application.configureHTTP() {
     //    }
 
     routing {
-        swaggerUI(path = "swagger", swaggerFile = "resources/openapi/open-api.json")
+        swaggerUI(path = "swagger", swaggerFile = "src/main/resources/openapi/open-api.json")
     }
     routing {
-        openAPI(path = "openapi", swaggerFile = "resources/openapi/open-api.json")
+        openAPI(path = "openapi", swaggerFile = "src/main/resources/openapi/open-api.json")
     }
 }
