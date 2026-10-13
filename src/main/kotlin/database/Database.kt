@@ -1,43 +1,32 @@
 package database
 
-
-import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
-object DatabaseFactory {
-    private lateinit var database: Database
+data class DatabaseConfig(val url: String, val user: String, val password: String)
 
-    val db: Database
-        get() {
-            check(::database.isInitialized) {
-                "Database is not initialized. Set DATABASE_URL before using database-backed API routes."
-            }
-            return database
-        }
+/**
+ * Entry point for all database access. The schema itself is created from db/schema.sql, not by the application.
+ *
+ * Creating an instance fails immediately if the database is unreachable.
+ */
+class Db(config: DatabaseConfig) : AutoCloseable {
+    private val dataSource = HikariDataSource(HikariConfig().apply {
+        jdbcUrl = config.url
+        username = config.user
+        password = config.password
+        maximumPoolSize = 5
+    })
+    private val database = Database.connect(dataSource)
 
-    fun init() {
-        if (::database.isInitialized) return
-
-        val databaseUrl = System.getenv("DATABASE_URL") ?: return
-
-        // The schema itself is created from db/schema.sql, not by the application.
-        database = Database.connect(
-            databaseUrl,
-            driver = "org.postgresql.Driver",
-            user = System.getenv("DATABASE_USER") ?: "scout",
-            password = System.getenv("DATABASE_PASSWORD") ?: "scoutpass"
-        )
+    /** Runs [block] in a transaction. JDBC is blocking, so this happens on the IO dispatcher. */
+    suspend fun <T> query(block: () -> T): T = withContext(Dispatchers.IO) {
+        transaction(database) { block() }
     }
-}
 
-fun <T> dbTransaction(block: () -> T): T = transaction(DatabaseFactory.db) {
-    block()
+    override fun close() = dataSource.close()
 }
-
-// TODO: enable logging based on env var and use this
-fun <T> loggedTransaction(block: () -> T): T =
-    transaction(DatabaseFactory.db) {
-        addLogger(StdOutSqlLogger)
-        block()
-    }

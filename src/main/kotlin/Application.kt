@@ -1,8 +1,9 @@
-import configure.configureHTTP
+import configure.configureCors
+import configure.configureErrorHandling
 import configure.configureRouting
-import configure.configureSecurity
 import configure.configureSerialization
-import database.DatabaseFactory
+import database.DatabaseConfig
+import database.Db
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
 
@@ -11,9 +12,17 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    DatabaseFactory.init()
-    configureHTTP()
-    configureSecurity()
-    configureRouting()
+    val db = Db(
+        DatabaseConfig(
+            url = environment.config.property("database.url").getString(),
+            user = environment.config.property("database.user").getString(),
+            password = environment.config.property("database.password").getString()
+        )
+    )
+    monitor.subscribe(ApplicationStopped) { db.close() }
+
     configureSerialization()
+    configureErrorHandling()
+    configureCors()
+    configureRouting(db)
 }

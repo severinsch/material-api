@@ -1,45 +1,60 @@
 package routes
 
-import getUUIDfromPathParameter
+import api.NewKit
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import services.kits.KitService
+import services.KitService
 
 fun Route.kitRoutes(kitService: KitService) {
     route("/kits") {
         /**
-         * Get all Kits
-         *
-         * @response 200 [Kit]+ A list of kits
+         * Get all kits.
          */
         get {
             call.respond(kitService.getAll())
         }
 
         /**
-         * Get Kit by id
+         * Get a kit.
          *
-         * @response 200 [Kit] The Kit
-         * @path id The id of the kit to get
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The kit id.
+         * Response: 404 application/json [api.ErrorResponse] No kit with this id.
          */
         get("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@get call.respond(HttpStatusCode.BadRequest)
-            val kit = kitService.getById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, kit)
+            call.respond(kitService.get(call.uuidPathParameter()))
         }
 
         /**
-         * Add new Kit
+         * Create a kit.
          *
-         * @response 201 [Kit] the newly created kit
+         * Response: 409 application/json [api.ErrorResponse] The name is taken or a referenced material doesn't exist.
          */
         post {
-            val newKit = call.receive<NewKit>()
-            val createdKit = kitService.create(newKit)
-            call.respond(HttpStatusCode.OK, createdKit)
+            call.respond(HttpStatusCode.Created, kitService.create(call.receive<NewKit>()))
+        }
+
+        /**
+         * Replace a kit including all of its groups.
+         *
+         * Path: id [kotlin.uuid.Uuid] The kit id.
+         * Response: 404 application/json [api.ErrorResponse] No kit with this id.
+         */
+        put("/{id}") {
+            val id = call.uuidPathParameter()
+            call.respond(kitService.update(id, call.receive<NewKit>()))
+        }
+
+        /**
+         * Delete a kit.
+         *
+         * Path: id [kotlin.uuid.Uuid] The kit id.
+         * Response: 404 application/json [api.ErrorResponse] No kit with this id.
+         */
+        delete("/{id}") {
+            kitService.delete(call.uuidPathParameter())
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

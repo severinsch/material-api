@@ -1,195 +1,138 @@
 package routes
 
+import api.*
 import database.MaterialTrackingType
-import getUUIDfromPathParameter
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import services.material.ItemService
-import services.material.MaterialService
+import services.ItemService
+import services.MaterialService
 
 fun Route.materialRoutes(materialService: MaterialService, itemService: ItemService) {
     route("/materials") {
         /**
-         * Get all Materials
+         * Get all materials.
          *
-         * @query type The [MaterialTrackingType] of the materials to get.
-         * @response 200 [Material]+ A list of Materials
-         * @response 400 If the type parameter is malformed.
+         * Query: type [database.MaterialTrackingType] Only return materials of this type.
          */
         get {
-            val qParams = call.request.queryParameters
-            if (qParams.isEmpty()) {
-                call.respond(materialService.getAll())
-                return@get
-            }
-            when (qParams["type"]?.lowercase()) {
-                "bulk" -> call.respond(materialService.getByType(MaterialTrackingType.BULK))
-                "individual" -> call.respond(materialService.getByType(MaterialTrackingType.INDIVIDUAL))
-                else -> call.respond(HttpStatusCode.BadRequest)
-            }
+            call.respond(materialService.getAll(call.enumQueryParameter<MaterialTrackingType>("type")))
         }
 
         /**
-         * Get Material by id
+         * Get a material.
          *
-         * @path id The id of the material to get
-         *   format: uuid
-         * @response 200 [Material] The returned Material
-         * @response 400 If the id parameter is malformed.
-         * @response 404 If no Material was found for the specified ID
+         * Path: id [kotlin.uuid.Uuid] The material id.
+         * Response: 404 application/json [api.ErrorResponse] No material with this id.
          */
         get("/{id}") {
-            val uuid = getUUIDfromPathParameter(call) ?: return@get
-            val material = materialService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, material)
+            call.respond(materialService.get(call.uuidPathParameter()))
         }
 
         /**
-         * Get Items for Material by id
+         * Get the items of an individual material.
          *
-         * @path id The id of the material to get items for
-         *   format: uuid
-         * @response 200 [IndividualItem]+ A list of Items
-         * @response 400 If the id parameter is malformed or missing.
+         * Path: id [kotlin.uuid.Uuid] The material id.
          */
         get("/{id}/items") {
-            val uuid = getUUIDfromPathParameter(call) ?: return@get
-            val items = itemService.getAllOfType(uuid)
-            call.respond(
-                HttpStatusCode.OK,
-                items
-            )
+            call.respond(itemService.getByMaterial(call.uuidPathParameter()))
         }
 
         /**
-         * Create new Bulk Material
-         *
-         * @response 201 [BulkMaterial] The newly created bulk Material
+         * Create a bulk material.
          */
         post("/bulk") {
-            val newBulkMaterial = call.receive<NewBulkMaterial>()
-            val createdMaterial = materialService.create(newBulkMaterial)
-            call.respond(HttpStatusCode.Created, createdMaterial)
+            call.respond(HttpStatusCode.Created, materialService.create(call.receive<NewBulkMaterial>()))
         }
 
         /**
-         * Create new Individual Material
-         *
-         * @response 201 [IndividualMaterialSummary] The newly created individual Material
+         * Create an individual material.
          */
         post("/individual") {
-            val newIndividualMaterial = call.receive<NewIndividualMaterial>()
-            val createdMaterial = materialService.create(newIndividualMaterial)
-            call.respond(HttpStatusCode.Created, createdMaterial)
+            call.respond(HttpStatusCode.Created, materialService.create(call.receive<NewIndividualMaterial>()))
         }
 
         /**
-         * Update Bulk Material
+         * Replace a bulk material.
          *
-         * @response 200 [BulkMaterial] The updated bulk Material
-         * @path id The id of the material to update
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The material id.
+         * Response: 404 application/json [api.ErrorResponse] No bulk material with this id.
          */
         put("/bulk/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
-            val newBulkMaterial = call.receive<NewBulkMaterial>()
-            val updatedMaterial = materialService
-                .update(id, newBulkMaterial) ?: return@put call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, updatedMaterial)
+            val id = call.uuidPathParameter()
+            call.respond(materialService.update(id, call.receive<NewBulkMaterial>()))
         }
 
         /**
-         * Update Individual Material
+         * Replace an individual material.
          *
-         * @response 200 [IndividualMaterialSummary] The updated individual Material
-         * @path id The id of the material to update
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The material id.
+         * Response: 404 application/json [api.ErrorResponse] No individual material with this id.
          */
         put("/individual/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
-            val newIndividualMaterial = call.receive<NewIndividualMaterial>()
-            val updatedMaterial = materialService
-                .update(id, newIndividualMaterial) ?: return@put call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, updatedMaterial)
+            val id = call.uuidPathParameter()
+            call.respond(materialService.update(id, call.receive<NewIndividualMaterial>()))
         }
 
         /**
-         * Delete Material
+         * Delete a material.
          *
-         * @response 200
-         * @path id The id of the material to delete
-         *   format: uuid
+         * Only possible while nothing references it (items, purchases, kits, loans).
+         *
+         * Path: id [kotlin.uuid.Uuid] The material id.
+         * Response: 404 application/json [api.ErrorResponse] No material with this id.
+         * Response: 409 application/json [api.ErrorResponse] The material is still referenced.
          */
         delete("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val success = materialService.delete(id)
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound)
-            }
+            materialService.delete(call.uuidPathParameter())
+            call.respond(HttpStatusCode.NoContent)
         }
     }
-    route("/items") {
 
+    route("/items") {
         /**
-         * Get individual item by id
+         * Get an individual item.
          *
-         * @path id The id of the item to get
-         *   format: uuid
-         * @response 200 [IndividualItem] The returned Individual item
-         * @response 400 If the id parameter is malformed.
-         * @response 404 If no Item was found for the specified ID
+         * Path: id [kotlin.uuid.Uuid] The item id.
+         * Response: 404 application/json [api.ErrorResponse] No item with this id.
          */
         get("/{id}") {
-            val uuid = getUUIDfromPathParameter(call) ?: return@get
-            val item = itemService.getById(uuid) ?: return@get call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, item)
+            call.respond(itemService.get(call.uuidPathParameter()))
         }
 
         /**
-         * Create a new individual item
+         * Create an individual item.
          *
-         * @response 201 [IndividualItem] The newly created individual item
-         * @response 400 If the item could not be created
+         * Response: 409 application/json [api.ErrorResponse] The material doesn't exist or isn't an individual material, or the identifier is taken.
          */
         post {
-            val newItem = call.receive<NewIndividualItem>()
-            val createdItem = itemService.create(newItem) ?: return@post call.respond(HttpStatusCode.BadRequest)
-            call.respond(HttpStatusCode.Created, createdItem)
+            call.respond(HttpStatusCode.Created, itemService.create(call.receive<NewIndividualItem>()))
         }
 
         /**
-         * Update individual item
+         * Replace an individual item.
          *
-         * @response 200 [IndividualItem] The updated individual item
-         * @path id The id of the item to update
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The item id.
+         * Response: 404 application/json [api.ErrorResponse] No item with this id.
          */
         put("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
-            val newItem = call.receive<NewIndividualItem>()
-            val updatedItem = itemService.update(id, newItem) ?: return@put call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, updatedItem)
+            val id = call.uuidPathParameter()
+            call.respond(itemService.update(id, call.receive<NewIndividualItem>()))
         }
 
         /**
-         * Delete individual item
+         * Delete an individual item.
          *
-         * @response 200
-         * @path id The id of the item do delete
-         *   format: uuid
+         * Only possible while it has no damage reports or loans; retire it via its status otherwise.
+         *
+         * Path: id [kotlin.uuid.Uuid] The item id.
+         * Response: 404 application/json [api.ErrorResponse] No item with this id.
+         * Response: 409 application/json [api.ErrorResponse] The item is still referenced.
          */
         delete("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val success = itemService.delete(id)
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound)
-            }
+            itemService.delete(call.uuidPathParameter())
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

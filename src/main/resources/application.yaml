@@ -3,4 +3,14 @@ ktor:
         modules:
             - ApplicationKt.module
     deployment:
-        port: 8080
+        port: "$PORT:8080"
+
+# Defaults match docker-compose.yml for local development.
+database:
+    url: "$DATABASE_URL:jdbc:postgresql://localhost:5432/scout_material"
+    user: "$DATABASE_USER:scout"
+    password: "$DATABASE_PASSWORD:scoutpass"
+
+cors:
+    # Comma-separated hosts (e.g. "localhost:5173") allowed to call the API from a browser. Empty disables CORS.
+    allowedHosts: "$CORS_ALLOWED_HOSTS:localhost:5173"

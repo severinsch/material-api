@@ -1,13 +1,13 @@
-import io.ktor.plugin.OpenApiPreview
-
-val exposed_version: String by project
-val kotlin_version: String by project
-val logback_version: String by project
+val exposed_version = property("exposed_version")
+val logback_version = property("logback_version")
+val postgres_version = property("postgres_version")
+val hikari_version = property("hikari_version")
+val testcontainers_version = property("testcontainers_version")
 
 plugins {
-    kotlin("jvm") version "2.2.20"
-    id("io.ktor.plugin") version "3.3.0"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
+    kotlin("jvm") version "2.4.21"
+    id("io.ktor.plugin") version "3.6.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
 }
 
 group = "de.dpsg"
@@ -17,14 +17,14 @@ application {
     mainClass = "io.ktor.server.netty.EngineMain"
 }
 
-ktor {
-    @OptIn(OpenApiPreview::class)
-    openApi {
-        title = "Material API"
-        version = "2.1"
-        description = "API for managing scout material"
+kotlin {
+    jvmToolchain(21)
+}
 
-        target = project.layout.projectDirectory.dir("src/main/resources/openapi").file("open-api.json")
+ktor {
+    // Generates OpenAPI metadata for the routes at compile time; the document itself is assembled at runtime.
+    openApi {
+        enabled = true
     }
 }
 
@@ -33,37 +33,28 @@ repositories {
 }
 
 dependencies {
-    implementation("io.ktor:ktor-server-hsts")
-    implementation("io.ktor:ktor-server-http-redirect")
     implementation("io.ktor:ktor-server-core")
-    implementation("io.ktor:ktor-server-openapi")
-    implementation("io.ktor:ktor-server-swagger")
-    implementation("io.ktor:ktor-server-auth")
+    implementation("io.ktor:ktor-server-netty")
+    implementation("io.ktor:ktor-server-config-yaml")
     implementation("io.ktor:ktor-server-content-negotiation")
     implementation("io.ktor:ktor-serialization-kotlinx-json")
-    implementation("io.ktor:ktor-server-sessions")
+    implementation("io.ktor:ktor-server-status-pages")
     implementation("io.ktor:ktor-server-cors")
+    implementation("io.ktor:ktor-server-routing-openapi")
+    implementation("io.ktor:ktor-server-openapi")
+    implementation("io.ktor:ktor-server-swagger")
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
-    implementation("org.jetbrains.exposed:exposed-java-time:$exposed_version")
-    implementation("org.postgresql:postgresql:42.7.3")
-    implementation("io.ktor:ktor-server-netty")
+    implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposed_version")
+    implementation("org.postgresql:postgresql:$postgres_version")
+    implementation("com.zaxxer:HikariCP:$hikari_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-config-yaml")
+    testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    testImplementation("io.ktor:ktor-client-content-negotiation")
+    testImplementation("org.testcontainers:testcontainers-postgresql:$testcontainers_version")
 }
 
-tasks.register("fixOpenApiSpec", Exec::class) {
-    group = "openapi"
-    description = "Fixes the generated OpenAPI spec"
-    commandLine("kotlinc", "-script", file("scripts/FixOpenApiSpec.main.kts").absolutePath, file("src/main/resources/openapi/open-api.json").absolutePath)
-}
-
-tasks.named("buildOpenApi") {
-    doFirst { tasks.named("clean") }
-}
-
-tasks.named("buildOpenApi") {
-    finalizedBy(tasks.named("fixOpenApiSpec"))
+tasks.test {
+    useJUnitPlatform()
 }

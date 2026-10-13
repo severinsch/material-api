@@ -1,7 +1,6 @@
 package routes
 
-import getUUIDfromPathParameter
-import getUUIDfromQueryParameter
+import api.NewDamageReport
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -11,63 +10,53 @@ import services.DamageService
 fun Route.damageRoutes(damageService: DamageService) {
     route("/damages") {
         /**
-         * Get all Damages
+         * Get all damage reports.
          *
-         * @query item_id The id of the item to get damages for. Get all Damages if not provided.
-         *   format: uuid
-         * @response 200 [DamageReport]+ A list of damages
-         * @response 400 If the item_id parameter is malformed.
+         * Query: item_id [kotlin.uuid.Uuid] Only return reports for this individual item.
          */
         get {
-            val uuid = getUUIDfromQueryParameter(call, "item_id", required = false)
-            if (uuid != null) {
-                call.respond(damageService.getByItemId(uuid))
-                return@get
-            }
-            call.respond(damageService.getAll())
+            call.respond(damageService.getAll(call.uuidQueryParameter("item_id")))
         }
 
         /**
-         * Register new damage
+         * Get a damage report.
          *
-         * @response 201 [DamageReport] the newly created damage report
+         * Path: id [kotlin.uuid.Uuid] The report id.
+         * Response: 404 application/json [api.ErrorResponse] No report with this id.
+         */
+        get("/{id}") {
+            call.respond(damageService.get(call.uuidPathParameter()))
+        }
+
+        /**
+         * Report a damage.
+         *
+         * Response: 409 application/json [api.ErrorResponse] The item doesn't exist.
          */
         post {
-            val newDamageReport = call.receive<NewDamageReport>()
-            val createdDamageReport = damageService.create(newDamageReport)
-            call.respond(HttpStatusCode.Created, createdDamageReport)
+            call.respond(HttpStatusCode.Created, damageService.create(call.receive<NewDamageReport>()))
         }
 
         /**
-         * Update damage
+         * Replace a damage report, e.g. to resolve it.
          *
-         * @response 200 [DamageReport] the updated damage report
-         * @path id The id of the damage to update
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The report id.
+         * Response: 404 application/json [api.ErrorResponse] No report with this id.
          */
         put("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@put call.respond(HttpStatusCode.BadRequest)
-            val newDamageReport = call.receive<NewDamageReport>()
-            val updatedDamageReport =
-                damageService.update(id, newDamageReport) ?: return@put call.respond(HttpStatusCode.NotFound)
-            call.respond(HttpStatusCode.OK, updatedDamageReport)
+            val id = call.uuidPathParameter()
+            call.respond(damageService.update(id, call.receive<NewDamageReport>()))
         }
 
         /**
-         * Delete damage
+         * Delete a damage report.
          *
-         * @response 200
-         * @path id The id of the damage to delete
-         *   format: uuid
+         * Path: id [kotlin.uuid.Uuid] The report id.
+         * Response: 404 application/json [api.ErrorResponse] No report with this id.
          */
         delete("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val success = damageService.delete(id)
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound)
-            }
+            damageService.delete(call.uuidPathParameter())
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }

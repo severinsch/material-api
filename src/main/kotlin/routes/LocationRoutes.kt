@@ -1,50 +1,60 @@
 package routes
 
-import getUUIDfromPathParameter
+import api.NewStorageLocation
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import services.material.LocationService
+import services.LocationService
 
 fun Route.locationRoutes(locationService: LocationService) {
     route("/locations") {
         /**
-         * Get all Locations
-         *
-         * @response 200 [StorageLocation]+ A list of damages
+         * Get all storage locations.
          */
         get {
             call.respond(locationService.getAll())
         }
 
         /**
-         * Add new storage location
+         * Get a storage location.
          *
-         * @response 201 [StorageLocation] the newly created storage location
+         * Path: id [kotlin.uuid.Uuid] The location id.
+         * Response: 404 application/json [api.ErrorResponse] No location with this id.
          */
-        post {
-            val newStorageLocation = call.receive<NewStorageLocation>()
-            val createdStorageLocation =
-                locationService.create(newStorageLocation) ?: return@post call.respond(HttpStatusCode.BadRequest)
-            call.respond(HttpStatusCode.Created, createdStorageLocation)
+        get("/{id}") {
+            call.respond(locationService.get(call.uuidPathParameter()))
         }
 
         /**
-         * Delete storage location
+         * Create a storage location.
          *
-         * @response 200
-         * @path id The id of the location to delete
-         *   format: uuid
+         * Response: 409 application/json [api.ErrorResponse] The name is taken.
+         */
+        post {
+            call.respond(HttpStatusCode.Created, locationService.create(call.receive<NewStorageLocation>()))
+        }
+
+        /**
+         * Replace a storage location.
+         *
+         * Path: id [kotlin.uuid.Uuid] The location id.
+         * Response: 404 application/json [api.ErrorResponse] No location with this id.
+         */
+        put("/{id}") {
+            val id = call.uuidPathParameter()
+            call.respond(locationService.update(id, call.receive<NewStorageLocation>()))
+        }
+
+        /**
+         * Delete a storage location. Materials and items stored there keep existing without a location.
+         *
+         * Path: id [kotlin.uuid.Uuid] The location id.
+         * Response: 404 application/json [api.ErrorResponse] No location with this id.
          */
         delete("/{id}") {
-            val id = getUUIDfromPathParameter(call) ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            val success = locationService.delete(id)
-            if (success) {
-                call.respond(HttpStatusCode.OK)
-            } else {
-                call.respond(HttpStatusCode.NotFound)
-            }
+            locationService.delete(call.uuidPathParameter())
+            call.respond(HttpStatusCode.NoContent)
         }
     }
 }
