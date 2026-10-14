@@ -44,13 +44,14 @@ class LoanService(private val db: Db) {
     }
 
     suspend fun delete(id: Uuid) = db.query {
-        if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Loan", id)
+        if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Ausleihe", id)
     }
 
     /**
      * Checks that everything lent exists and, for an open loan, is available: items must be active and not on another
-     * open loan, bulk quantities must not exceed the stock minus other open loans. The checked rows are locked until
-     * the transaction ends, so concurrent loans can't both pass the check.
+     * open loan, bulk quantities must not exceed the stock minus other open loans. Items already on this loan may have
+     * another status, e.g. when one was damaged while lent out. The checked rows are locked until the transaction
+     * ends, so concurrent loans can't both pass the check.
      */
     private fun checkLines(loan: NewLoan, loanId: Uuid?) {
         val statuses = IndividualItems
@@ -63,13 +64,26 @@ class LoanService(private val db: Db) {
             .where { BulkStock.materialId inList loan.bulkMaterials.map(BulkLoanLine::materialId) }
             .forUpdate()
             .associate { it[BulkStock.materialId].value to it[BulkStock.quantityAvailable] }
-        loan.itemIds.forEach { if (it !in statuses) invalid("Item $it doesn't exist") }
-        loan.bulkMaterials.forEach { if (it.materialId !in stock) invalid("Material ${it.materialId} doesn't exist or isn't a bulk material") }
+        loan.itemIds.forEach { if (it !in statuses) invalid("Gegenstand $it gibt es nicht.") }
+        loan.bulkMaterials.forEach {
+            if (it.materialId !in stock) invalid("Material ${it.materialId} gibt es nicht oder wird nicht nach Menge erfasst.")
+        }
         if (loan.returnedAt != null) return
 
-        statuses.filterValues { it != ItemStatus.ACTIVE }.keys.firstOrNull()?.let {
-            val status = statuses.getValue(it).name.lowercase().replace('_', ' ')
-            conflict("${itemName(it)} can't be lent because it is $status")
+        val alreadyLent = loanId?.let { id ->
+            LoanLines.select(LoanLines.individualItemId)
+                .where { (LoanLines.loanId eq id) and LoanLines.individualItemId.isNotNull() }
+                .map { it[LoanLines.individualItemId]!!.value }
+                .toSet()
+        }.orEmpty()
+        statuses.filter { (id, status) -> status != ItemStatus.ACTIVE && id !in alreadyLent }.keys.firstOrNull()?.let {
+            val status = when (statuses.getValue(it)) {
+                ItemStatus.ACTIVE -> "aktiv"
+                ItemStatus.IN_REPAIR -> "in Reparatur"
+                ItemStatus.LOST -> "verloren"
+                ItemStatus.DECOMMISSIONED -> "ausgemustert"
+            }
+            conflict("${itemName(it)} ist $status und kann nicht ausgeliehen werden.")
         }
         val otherOpenLines = LoanLines.innerJoin(Loans)
         val isOtherOpenLoan = Loans.returnedAt.isNull() and (loanId?.let { Loans.id neq it } ?: Op.TRUE)
@@ -77,7 +91,7 @@ class LoanService(private val db: Db) {
             .select(LoanLines.individualItemId)
             .where { isOtherOpenLoan and (LoanLines.individualItemId inList loan.itemIds) }
             .firstOrNull()
-            ?.let { conflict("${itemName(it[LoanLines.individualItemId]!!.value)} is already on loan") }
+            ?.let { conflict("${itemName(it[LoanLines.individualItemId]!!.value)} ist schon ausgeliehen.") }
 
         val lent = LoanLines.quantity.sum()
         val lentByMaterial = otherOpenLines
@@ -88,7 +102,7 @@ class LoanService(private val db: Db) {
         loan.bulkMaterials.forEach { line ->
             val free = stock.getValue(line.materialId) - (lentByMaterial[line.materialId] ?: 0)
             if (line.quantity > free) {
-                conflict("Only $free of ${materialName(line.materialId)} available, ${line.quantity} requested")
+                conflict("Von ${materialName(line.materialId)} sind nur $free verfügbar, nicht ${line.quantity}.")
             }
         }
     }
@@ -100,9 +114,6 @@ class LoanService(private val db: Db) {
         .where { IndividualItems.id eq id }
         .single()
         .let { "${it[Materials.name]} ${it[IndividualItems.identifier]}" }
-
-    private fun materialName(id: Uuid): String =
-        Materials.select(Materials.name).where { Materials.id eq id }.single()[Materials.name]
 
     private fun insertLines(loanId: EntityID<Uuid>, loan: NewLoan) {
         LoanLines.batchInsert(loan.itemIds) { itemId ->
@@ -116,7 +127,7 @@ class LoanService(private val db: Db) {
         }
     }
 
-    private fun find(id: Uuid): Loan = findWhere { Loans.id eq id }.singleOrNull() ?: notFound("Loan", id)
+    private fun find(id: Uuid): Loan = findWhere { Loans.id eq id }.singleOrNull() ?: notFound("Ausleihe", id)
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Loan> {
         val loanRows = Loans.selectAll().where(predicate).orderBy(Loans.lentAt, SortOrder.DESC).toList()

@@ -32,8 +32,11 @@ class MaterialService(private val db: Db) {
 
     /** Replaces a material. Its type can't be changed. */
     suspend fun update(id: Uuid, material: NewMaterial): Material = db.query {
-        if (find(id).trackingType != material.trackingType) conflict("The type of a material can't be changed")
-        if (material is NewBulkMaterial) requireLocation(material.storageLocationId)
+        if (find(id).trackingType != material.trackingType) conflict("Die Erfassungsart eines Materials kann nicht geändert werden.")
+        if (material is NewBulkMaterial) {
+            requireLocation(material.storageLocationId)
+            requireStockUpdate(id, material)
+        }
         Materials.update({ Materials.id eq id }) { it.fillMaterial(material) }
         if (material is NewBulkMaterial) BulkStock.update({ BulkStock.materialId eq id }) { it.fillStock(material) }
         find(id)
@@ -41,6 +44,21 @@ class MaterialService(private val db: Db) {
 
     suspend fun delete(id: Uuid) = db.query {
         if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Material", id)
+    }
+
+    /** Rejects stock changes based on an outdated count, and stocks below what is lent out. */
+    private fun requireStockUpdate(id: Uuid, material: NewBulkMaterial) {
+        val current = lockStock(id)
+        if (material.expectedAvailableCount != null && material.expectedAvailableCount != current) {
+            conflict(
+                "Der Bestand von ${material.name} wurde inzwischen auf $current geändert, z. B. durch einen Einkauf. " +
+                    "Lade die Seite neu und bearbeite das Material erneut."
+            )
+        }
+        val lent = lentQuantity(id)
+        if (material.availableCount < lent) {
+            conflict("Von ${material.name} sind $lent ausgeliehen, der Bestand kann nicht kleiner sein.")
+        }
     }
 
     private fun find(id: Uuid): Material = findWhere { Materials.id eq id }.singleOrNull() ?: notFound("Material", id)

@@ -10,7 +10,7 @@ The frontend for this tool can be found [here](https://github.com/severinsch/mat
 * **Kits:** Packing lists made of groups of interchangeable materials.
 * **Damage Reporting:** Log and resolve damages of individual items.
 * **Loan Book:** Record what was lent to whom and when it came back.
-* **Purchase History:** Record purchase batches of bulk materials.
+* **Purchase History:** Record purchase batches of bulk materials; purchased quantities are added to the stock.
 
 ## Roadmap
 

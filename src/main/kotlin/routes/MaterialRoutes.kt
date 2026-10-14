@@ -46,7 +46,8 @@ fun Route.materialRoutes(materialService: MaterialService) {
          * Path: id [kotlin.uuid.Uuid] The material id.
          * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
          * Response: 404 application/json [api.ErrorResponse] No material with this id.
-         * Response: 409 application/json [api.ErrorResponse] The tracking type differs or the name is taken.
+         * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, or the stock
+         * differs from `expectedAvailableCount` or would drop below the pieces lent out.
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
@@ -96,6 +97,17 @@ fun Route.itemRoutes(itemService: ItemService) {
          */
         post {
             call.respond(HttpStatusCode.Created, itemService.create(call.receive<NewIndividualItem>()))
+        }
+
+        /**
+         * Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are
+         * created or none.
+         *
+         * Response: 400 application/json [api.ErrorResponse] Invalid or no items, or a material isn't an individual one.
+         * Response: 409 application/json [api.ErrorResponse] An identifier is taken or used twice.
+         */
+        post("/batch") {
+            call.respond(HttpStatusCode.Created, itemService.createAll(call.receive<List<NewIndividualItem>>()))
         }
 
         /**

@@ -19,7 +19,7 @@ class LoanAndDamageApiTest {
         assertEquals(1, getMaterial(material.id).loanedCount)
         assertTrue(get("/items/${item.id}").expect<IndividualItem>(HttpStatusCode.OK).onLoan)
         val message = post("/loans") { setBody(loan) }.expectError(HttpStatusCode.Conflict)
-        assertEquals("Kohtenblatt 1 is already on loan", message)
+        assertEquals("Kohtenblatt 1 ist schon ausgeliehen.", message)
 
         // Editing the open loan itself doesn't conflict with its own lines.
         put("/loans/${created.id}") { setBody(loan.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
@@ -34,13 +34,37 @@ class LoanAndDamageApiTest {
     }
 
     @Test
+    fun `a loan stays editable when one of its items is damaged`() = apiTest {
+        val material = createIndividual()
+        val item = createItem(material, "1")
+        val other = createItem(material, "2")
+        val loan = NewLoan("Stamm Nord", lentAt, itemIds = listOf(item.id))
+        val created: Loan = post("/loans") { setBody(loan) }.expect(HttpStatusCode.Created)
+        post("/damages") { setBody(NewDamageReport(item.id, "Riss", itemStatus = ItemStatus.IN_REPAIR)) }
+            .expect<DamageReport>(HttpStatusCode.Created)
+
+        put("/loans/${created.id}") { setBody(loan.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
+        // Undoing a return, too.
+        put("/loans/${created.id}") { setBody(loan.copy(returnedAt = LocalDate(2026, 10, 5))) }.expect<Loan>(HttpStatusCode.OK)
+        put("/loans/${created.id}") { setBody(loan) }.expect<Loan>(HttpStatusCode.OK)
+
+        // Adding a damaged item is still rejected.
+        put("/items/${other.id}") {
+            setBody(NewIndividualItem(material.id, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR))
+        }.expect<IndividualItem>(HttpStatusCode.OK)
+        val message = put("/loans/${created.id}") { setBody(loan.copy(itemIds = listOf(item.id, other.id))) }
+            .expectError(HttpStatusCode.Conflict)
+        assertEquals("Kohtenblatt 2 ist in Reparatur und kann nicht ausgeliehen werden.", message)
+    }
+
+    @Test
     fun `only active items can be lent and unknown references are rejected`() = apiTest {
         val material = createIndividual()
         val lost = createItem(material, "1", ItemCondition.POOR, ItemStatus.LOST)
 
         val message = post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(lost.id))) }
             .expectError(HttpStatusCode.Conflict)
-        assertEquals("Kohtenblatt 1 can't be lent because it is lost", message)
+        assertEquals("Kohtenblatt 1 ist verloren und kann nicht ausgeliehen werden.", message)
 
         val unknownItem = NewLoan("Stamm Nord", lentAt, itemIds = listOf(Uuid.random()))
         post("/loans") { setBody(unknownItem) }.expectError(HttpStatusCode.BadRequest)
@@ -70,7 +94,7 @@ class LoanAndDamageApiTest {
 
         post("/loans") { setBody(loanOf(30)) }.expect<Loan>(HttpStatusCode.Created)
         val message = post("/loans") { setBody(loanOf(21)) }.expectError(HttpStatusCode.Conflict)
-        assertEquals("Only 20 of Hering available, 21 requested", message)
+        assertEquals("Von Hering sind nur 20 verfügbar, nicht 21.", message)
         post("/loans") { setBody(loanOf(20)) }.expect<Loan>(HttpStatusCode.Created)
 
         assertEquals(50, getMaterial(hering.id).loanedCount)
@@ -96,6 +120,26 @@ class LoanAndDamageApiTest {
         put("/damages/${report.id}") { setBody(resolve.copy(itemId = otherItem.id)) }.expectError(HttpStatusCode.BadRequest)
 
         // Items with history can't be deleted, only retired via their status.
-        delete("/items/${item.id}").expectError(HttpStatusCode.Conflict)
+        assertTrue(get("/items/${item.id}").expect<IndividualItem>(HttpStatusCode.OK).hasHistory)
+        val message = delete("/items/${item.id}").expectError(HttpStatusCode.Conflict)
+        assertEquals("Der Gegenstand hat Schadensmeldungen. Setze stattdessen seinen Status auf „Ausgemustert“.", message)
+    }
+
+    @Test
+    fun `a damage report can set the item's status`() = apiTest {
+        val item = createItem(createIndividual(), "1")
+        suspend fun status() = get("/items/${item.id}").expect<IndividualItem>(HttpStatusCode.OK).status
+
+        val report: DamageReport = post("/damages") { setBody(NewDamageReport(item.id, "Riss")) }
+            .expect(HttpStatusCode.Created)
+        assertEquals(ItemStatus.ACTIVE, status(), "reports alone don't change the item")
+
+        post("/damages") { setBody(NewDamageReport(item.id, "Stange gebrochen", itemStatus = ItemStatus.IN_REPAIR)) }
+            .expect<DamageReport>(HttpStatusCode.Created)
+        assertEquals(ItemStatus.IN_REPAIR, status())
+
+        put("/damages/${report.id}") { setBody(NewDamageReport(item.id, "Riss", isResolved = true, itemStatus = ItemStatus.ACTIVE)) }
+            .expect<DamageReport>(HttpStatusCode.OK)
+        assertEquals(ItemStatus.ACTIVE, status())
     }
 }

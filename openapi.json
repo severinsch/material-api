@@ -289,7 +289,7 @@
                         }
                     },
                     "409": {
-                        "description": "The tracking type differs or the name is taken.",
+                        "description": "The tracking type differs, the name is taken, or the stock",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -608,9 +608,61 @@
                 }
             }
         },
+        "/items/batch": {
+            "post": {
+                "summary": "Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are\ncreated or none.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/NewIndividualItem"
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "Invalid or no items, or a material isn't an individual one.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "An identifier is taken or used twice.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/IndividualItem"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/purchases": {
             "post": {
-                "summary": "Record a purchase. This doesn't change the stock quantities.",
+                "summary": "Record a purchase. Its quantity is added to the material's available stock.",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -675,7 +727,7 @@
         },
         "/purchases/{id}": {
             "put": {
-                "summary": "Replace a purchase. Its `materialId` can't be changed.",
+                "summary": "Replace a purchase. Its `materialId` can't be changed. The stock changes by the difference of the quantities.",
                 "parameters": [
                     {
                         "name": "id",
@@ -708,6 +760,16 @@
                             }
                         }
                     },
+                    "409": {
+                        "description": "The stock would drop below the pieces lent out.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -721,7 +783,7 @@
                 }
             },
             "delete": {
-                "summary": "Delete a purchase.",
+                "summary": "Delete a purchase. Its quantity is subtracted from the stock again.",
                 "parameters": [
                     {
                         "name": "id",
@@ -737,6 +799,16 @@
                 "responses": {
                     "404": {
                         "description": "No purchase with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The stock would drop below the pieces lent out.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1601,6 +1673,12 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "expectedAvailableCount": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -1663,7 +1741,8 @@
                     "identifier",
                     "condition",
                     "status",
-                    "onLoan"
+                    "onLoan",
+                    "hasHistory"
                 ],
                 "properties": {
                     "id": {
@@ -1718,6 +1797,9 @@
                         "format": "date"
                     },
                     "onLoan": {
+                        "type": "boolean"
+                    },
+                    "hasHistory": {
                         "type": "boolean"
                     }
                 }
@@ -1935,6 +2017,18 @@
                         "type": [
                             "string",
                             "null"
+                        ]
+                    },
+                    "itemStatus": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "ACTIVE",
+                            "IN_REPAIR",
+                            "LOST",
+                            "DECOMMISSIONED"
                         ]
                     }
                 }

@@ -6,20 +6,20 @@ import kotlin.uuid.Uuid
 
 /** The UUID path parameter [name]. Responds with 400 if it's malformed. */
 fun RoutingCall.uuidPathParameter(name: String = "id"): Uuid =
-    parseUuid(name, parameters[name] ?: throw BadRequestException("Missing path parameter $name"))
+    parseUuid(name, parameters[name] ?: throw BadRequestException("Der Pfadparameter $name fehlt."))
 
 /** The optional UUID query parameter [name]. Responds with 400 if it's malformed. */
 fun RoutingCall.uuidQueryParameter(name: String): Uuid? = queryParameter(name)?.let { parseUuid(name, it) }
 
 /** The optional boolean query parameter [name]. Responds with 400 if it's malformed. */
 fun RoutingCall.booleanQueryParameter(name: String): Boolean? = queryParameter(name)?.let {
-    it.toBooleanStrictOrNull() ?: throw BadRequestException("Query parameter $name must be true or false")
+    it.toBooleanStrictOrNull() ?: throw BadRequestException("Der Parameter $name muss true oder false sein.")
 }
 
 /** The optional enum query parameter [name], case-insensitive. Responds with 400 if it's not a valid value. */
 inline fun <reified T : Enum<T>> RoutingCall.enumQueryParameter(name: String): T? = queryParameter(name)?.let { value ->
     enumValues<T>().find { it.name.equals(value, ignoreCase = true) }
-        ?: throw BadRequestException("Query parameter $name must be one of ${enumValues<T>().joinToString()}")
+        ?: throw BadRequestException("Der Parameter $name muss einer dieser Werte sein: ${enumValues<T>().joinToString()}.")
 }
 
 /**
@@ -30,4 +30,4 @@ inline fun <reified T : Enum<T>> RoutingCall.enumQueryParameter(name: String): T
 internal fun RoutingCall.queryParameter(name: String): String? = request.queryParameters[name]
 
 private fun parseUuid(name: String, value: String): Uuid =
-    Uuid.parseOrNull(value) ?: throw BadRequestException("Parameter $name is not a valid UUID")
+    Uuid.parseOrNull(value) ?: throw BadRequestException("Der Parameter $name ist keine gültige ID.")

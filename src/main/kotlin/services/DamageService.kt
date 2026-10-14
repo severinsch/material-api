@@ -4,6 +4,7 @@ import api.DamageReport
 import api.NewDamageReport
 import database.DamageReports
 import database.Db
+import database.IndividualItems
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
 import kotlin.time.Clock
@@ -26,12 +27,13 @@ class DamageService(private val db: Db) {
             it[resolvedAt] = if (report.isResolved) Clock.System.now() else null
             it[resolutionNotes] = report.resolutionNotes
         }
+        updateItemStatus(report)
         find(id.value)
     }
 
     suspend fun update(id: Uuid, report: NewDamageReport): DamageReport = db.query {
         val existing = find(id)
-        requireUnchanged("itemId", existing.itemId, report.itemId)
+        requireUnchanged("Der Gegenstand einer Schadensmeldung", existing.itemId, report.itemId)
         DamageReports.update({ DamageReports.id eq id }) {
             it[description] = report.description
             it[reportedBy] = report.reportedBy
@@ -39,15 +41,21 @@ class DamageService(private val db: Db) {
             it[resolvedAt] = if (report.isResolved) existing.resolvedAt ?: Clock.System.now() else null
             it[resolutionNotes] = report.resolutionNotes
         }
+        updateItemStatus(report)
         find(id)
     }
 
     suspend fun delete(id: Uuid) = db.query {
-        if (DamageReports.deleteWhere { DamageReports.id eq id } == 0) notFound("Damage report", id)
+        if (DamageReports.deleteWhere { DamageReports.id eq id } == 0) notFound("Schadensmeldung", id)
+    }
+
+    private fun updateItemStatus(report: NewDamageReport) {
+        val status = report.itemStatus ?: return
+        IndividualItems.update({ IndividualItems.id eq report.itemId }) { it[IndividualItems.status] = status }
     }
 
     private fun find(id: Uuid): DamageReport =
-        findWhere { DamageReports.id eq id }.singleOrNull() ?: notFound("Damage report", id)
+        findWhere { DamageReports.id eq id }.singleOrNull() ?: notFound("Schadensmeldung", id)
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<DamageReport> = DamageReports
         .selectAll()

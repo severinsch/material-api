@@ -11,32 +11,62 @@ import kotlin.uuid.Uuid
 
 class ItemService(private val db: Db) {
 
+    companion object {
+        /** Most items created by one batch request. */
+        const val MAX_BATCH = 100
+    }
+
     suspend fun getAll(materialId: Uuid? = null): List<IndividualItem> = db.query {
         findWhere { materialId?.let { IndividualItems.materialId eq it } ?: Op.TRUE }
     }
 
     suspend fun get(id: Uuid): IndividualItem = db.query { find(id) }
 
-    suspend fun create(item: NewIndividualItem): IndividualItem = db.query {
-        requireMaterial(item.materialId, MaterialTrackingType.INDIVIDUAL)
-        requireLocation(item.storageLocationId)
-        val id = IndividualItems.insertAndGetId { it.fill(item) }
-        find(id.value)
+    suspend fun create(item: NewIndividualItem): IndividualItem = createAll(listOf(item)).single()
+
+    /** Creates several items at once; either all of them or none. */
+    suspend fun createAll(items: List<NewIndividualItem>): List<IndividualItem> = db.query {
+        if (items.isEmpty()) invalid("Es wurden keine Gegenstände angegeben.")
+        if (items.size > MAX_BATCH) invalid("Es können höchstens $MAX_BATCH Gegenstände auf einmal angelegt werden.")
+        items.map { it.materialId }.distinct().forEach { requireMaterial(it, MaterialTrackingType.INDIVIDUAL) }
+        items.mapNotNull { it.storageLocationId }.distinct().forEach(::requireLocation)
+        items.groupBy({ it.materialId }, { it.identifier }).forEach { (materialId, identifiers) ->
+            requireFreeIdentifiers(materialId, identifiers)
+        }
+        val ids = IndividualItems.batchInsert(items) { fill(it) }.map { it[IndividualItems.id].value }
+        findWhere { IndividualItems.id inList ids }
     }
 
     suspend fun update(id: Uuid, item: NewIndividualItem): IndividualItem = db.query {
-        requireUnchanged("materialId", find(id).materialId, item.materialId)
+        requireUnchanged("Das Material eines Gegenstands", find(id).materialId, item.materialId)
         requireLocation(item.storageLocationId)
+        requireFreeIdentifiers(item.materialId, listOf(item.identifier), exceptItem = id)
         IndividualItems.update({ IndividualItems.id eq id }) { it.fill(item) }
         find(id)
     }
 
     suspend fun delete(id: Uuid) = db.query {
-        if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Item", id)
+        if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Gegenstand", id)
+    }
+
+    /** Rejects identifiers that are used twice or already taken by another item of the material. */
+    private fun requireFreeIdentifiers(materialId: Uuid, identifiers: List<String>, exceptItem: Uuid? = null) {
+        val taken = IndividualItems
+            .select(IndividualItems.identifier)
+            .where {
+                (IndividualItems.materialId eq materialId) and (IndividualItems.identifier inList identifiers) and
+                    (exceptItem?.let { IndividualItems.id neq it } ?: Op.TRUE)
+            }
+            .map { it[IndividualItems.identifier] }
+        val duplicates = identifiers.groupBy { it }.filterValues { it.size > 1 }.keys
+        val clashes = (taken + duplicates).distinct().sorted()
+        if (clashes.isEmpty()) return
+        val material = Materials.select(Materials.name).where { Materials.id eq materialId }.single()[Materials.name]
+        conflict("$material ${clashes.joinToString()} gibt es schon.")
     }
 
     private fun find(id: Uuid): IndividualItem =
-        findWhere { IndividualItems.id eq id }.singleOrNull() ?: notFound("Item", id)
+        findWhere { IndividualItems.id eq id }.singleOrNull() ?: notFound("Gegenstand", id)
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<IndividualItem> {
         val onLoan = exists(
@@ -44,9 +74,13 @@ class ItemService(private val db: Db) {
                 (LoanLines.individualItemId eq IndividualItems.id) and Loans.returnedAt.isNull()
             }
         )
+        // Rows that reference the item and keep it from being deleted.
+        val hasHistory = exists(
+            DamageReports.select(DamageReports.id).where { DamageReports.individualItemId eq IndividualItems.id }
+        ) or exists(LoanLines.select(LoanLines.id).where { LoanLines.individualItemId eq IndividualItems.id })
         return IndividualItems
             .leftJoin(StorageLocations)
-            .select(IndividualItems.columns + StorageLocations.columns + onLoan)
+            .select(IndividualItems.columns + StorageLocations.columns + onLoan + hasHistory)
             .where(predicate)
             .orderBy(IndividualItems.materialId to SortOrder.ASC, IndividualItems.identifier to SortOrder.ASC)
             .map { row ->
@@ -60,7 +94,8 @@ class ItemService(private val db: Db) {
                     locationDetail = row[IndividualItems.locationDetail],
                     purchasePrice = row[IndividualItems.purchasePrice]?.toDouble(),
                     purchaseDate = row[IndividualItems.purchaseDate],
-                    onLoan = row[onLoan]
+                    onLoan = row[onLoan],
+                    hasHistory = row[hasHistory]
                 )
             }
     }

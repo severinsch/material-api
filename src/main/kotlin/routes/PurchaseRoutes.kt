@@ -29,7 +29,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
         }
 
         /**
-         * Record a purchase. This doesn't change the stock quantities.
+         * Record a purchase. Its quantity is added to the material's available stock.
          *
          * Response: 400 application/json [api.ErrorResponse] Invalid purchase, or the material isn't a bulk material.
          */
@@ -38,10 +38,11 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
         }
 
         /**
-         * Replace a purchase. Its `materialId` can't be changed.
+         * Replace a purchase. Its `materialId` can't be changed. The stock changes by the difference of the quantities.
          *
          * Path: id [kotlin.uuid.Uuid] The purchase id.
          * Response: 404 application/json [api.ErrorResponse] No purchase with this id.
+         * Response: 409 application/json [api.ErrorResponse] The stock would drop below the pieces lent out.
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
@@ -49,10 +50,11 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
         }
 
         /**
-         * Delete a purchase.
+         * Delete a purchase. Its quantity is subtracted from the stock again.
          *
          * Path: id [kotlin.uuid.Uuid] The purchase id.
          * Response: 404 application/json [api.ErrorResponse] No purchase with this id.
+         * Response: 409 application/json [api.ErrorResponse] The stock would drop below the pieces lent out.
          */
         delete("/{id}") {
             purchaseService.delete(call.uuidPathParameter())

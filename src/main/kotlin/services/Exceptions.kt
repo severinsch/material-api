@@ -11,6 +11,7 @@ class ConflictException(message: String) : RuntimeException(message)
 
 internal fun invalid(message: String): Nothing = throw InvalidRequestException(message)
 
-internal fun notFound(resource: String, id: Any): Nothing = throw NotFoundException("$resource $id not found")
+/** [resource] in German, e.g. "Material" or "Gegenstand". */
+internal fun notFound(resource: String, id: Any): Nothing = throw NotFoundException("$resource $id wurde nicht gefunden.")
 
 internal fun conflict(message: String): Nothing = throw ConflictException(message)

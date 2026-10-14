@@ -36,14 +36,14 @@ class KitService(private val db: Db) {
             it[name] = kit.name
             it[description] = kit.description
         }
-        if (updated == 0) notFound("Kit", id)
+        if (updated == 0) notFound("Set", id)
         KitGroups.deleteWhere { kitId eq id }
         insertGroups(EntityID(id, Kits), kit)
         find(id)
     }
 
     suspend fun delete(id: Uuid) = db.query {
-        if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Kit", id)
+        if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Set", id)
     }
 
     private fun requireOptionMaterials(kit: NewKit) =
@@ -65,7 +65,7 @@ class KitService(private val db: Db) {
         }
     }
 
-    private fun find(id: Uuid): Kit = findWhere { Kits.id eq id }.singleOrNull() ?: notFound("Kit", id)
+    private fun find(id: Uuid): Kit = findWhere { Kits.id eq id }.singleOrNull() ?: notFound("Set", id)
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Kit> {
         val kitRows = Kits.selectAll().where(predicate).orderBy(Kits.name).toList()

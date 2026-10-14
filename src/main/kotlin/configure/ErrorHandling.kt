@@ -11,6 +11,7 @@ import io.ktor.server.response.*
 import services.ConflictException
 import services.InvalidRequestException
 import services.NotFoundException
+import org.postgresql.util.PSQLException
 import java.sql.SQLException
 
 /**
@@ -30,7 +31,7 @@ fun Application.configureErrorHandling() {
         exception<ConflictException> { call, e -> call.respondError(HttpStatusCode.Conflict, e.message) }
         // Services check the common cases themselves; the constraints in the schema are the last line of defense.
         exception<SQLException> { call, e ->
-            val (status, message) = constraintViolation(e.sqlState()) ?: return@exception call.respondInternalError(e)
+            val (status, message) = constraintViolation(e) ?: return@exception call.respondInternalError(e)
             call.respondError(status, message)
         }
         exception<Throwable> { call, e ->
@@ -40,25 +41,48 @@ fun Application.configureErrorHandling() {
     }
 }
 
+// Messages for violations of named constraints in db/schema.sql (Postgres' default names), so users learn what
+// clashed. Other violations of the same kind get the generic message below.
+private val constraintMessages = mapOf(
+    "materials_name_key" to "Es gibt schon ein Material mit diesem Namen.",
+    "storage_locations_name_key" to "Es gibt schon einen Lagerort mit diesem Namen.",
+    "kits_name_key" to "Es gibt schon ein Set mit diesem Namen.",
+    "individual_items_material_id_identifier_key" to "Diese Kennung ist bei diesem Material schon vergeben.",
+    "individual_items_material_id_tracking_type_fkey" to
+        "Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.",
+    "purchases_material_id_fkey" to "Das Material hat Einkäufe. Lösche zuerst die Einkäufe.",
+    "kit_group_options_material_id_fkey" to
+        "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
+    "loan_lines_bulk_material_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
+    "loan_lines_individual_item_id_fkey" to
+        "Der Gegenstand wurde schon ausgeliehen. Setze stattdessen seinen Status auf „Ausgemustert“.",
+    "damage_reports_individual_item_id_fkey" to
+        "Der Gegenstand hat Schadensmeldungen. Setze stattdessen seinen Status auf „Ausgemustert“.",
+)
+
 // https://www.postgresql.org/docs/current/errcodes-appendix.html
-private fun constraintViolation(sqlState: String?): Pair<HttpStatusCode, String>? = when (sqlState) {
-    // All foreign keys define ON DELETE, so violations on delete are always RESTRICT violations.
-    "23001" -> HttpStatusCode.Conflict to "This entry is still in use (e.g. by items, kits or loans) and can't be deleted."
-    "23503" -> HttpStatusCode.BadRequest to "A referenced entry doesn't exist."
-    "23505" -> HttpStatusCode.Conflict to "An entry with this name or identifier already exists."
-    "23514" -> HttpStatusCode.BadRequest to "A value is out of the allowed range."
-    else -> null
+private fun constraintViolation(e: SQLException): Pair<HttpStatusCode, String>? {
+    val causes = e.causes()
+    val sqlState = causes.filterIsInstance<SQLException>().firstNotNullOfOrNull { it.sqlState?.ifEmpty { null } }
+    val constraint = causes.filterIsInstance<PSQLException>().firstNotNullOfOrNull { it.serverErrorMessage?.constraint }
+    val specific = constraintMessages[constraint]
+    return when (sqlState) {
+        // All foreign keys define ON DELETE, so violations on delete are always RESTRICT violations.
+        "23001" -> HttpStatusCode.Conflict to (specific ?: "Der Eintrag wird noch verwendet und kann nicht gelöscht werden.")
+        "23503" -> HttpStatusCode.BadRequest to "Ein angegebener Eintrag existiert nicht."
+        "23505" -> HttpStatusCode.Conflict to (specific ?: "Es gibt schon einen Eintrag mit diesem Namen.")
+        "23514" -> HttpStatusCode.BadRequest to "Ein Wert liegt außerhalb des erlaubten Bereichs."
+        else -> null
+    }
 }
 
-/** The SQL state of the first SQL exception in the chain; batch statements report the cause as next exception. */
-private fun Throwable.sqlState(): String? =
+/** The exception and its causes; batch statements report the cause as next exception. */
+private fun Throwable.causes(): Sequence<Throwable> =
     generateSequence(this) { it.cause ?: (it as? SQLException)?.nextException }
-        .filterIsInstance<SQLException>()
-        .firstNotNullOfOrNull { it.sqlState }
 
 private suspend fun ApplicationCall.respondInternalError(e: Throwable) {
     application.log.error("Unhandled error for ${request.httpMethod.value} ${request.uri}", e)
-    respondError(HttpStatusCode.InternalServerError, null)
+    respondError(HttpStatusCode.InternalServerError, "Auf dem Server ist ein unerwarteter Fehler aufgetreten.")
 }
 
 private suspend fun ApplicationCall.respondError(status: HttpStatusCode, message: String?) =

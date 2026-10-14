@@ -27,17 +27,17 @@ class LocationService(private val db: Db) {
     }
 
     suspend fun update(id: Uuid, location: NewStorageLocation): StorageLocation = db.query {
-        if (StorageLocations.update({ StorageLocations.id eq id }) { it.fill(location) } == 0) notFound("Location", id)
+        if (StorageLocations.update({ StorageLocations.id eq id }) { it.fill(location) } == 0) notFound("Lagerort", id)
         find(id)
     }
 
     suspend fun delete(id: Uuid) = db.query {
-        if (StorageLocations.deleteWhere { StorageLocations.id eq id } == 0) notFound("Location", id)
+        if (StorageLocations.deleteWhere { StorageLocations.id eq id } == 0) notFound("Lagerort", id)
     }
 
     private fun find(id: Uuid): StorageLocation =
         StorageLocations.selectAll().where { StorageLocations.id eq id }.singleOrNull()?.let(::toStorageLocation)
-            ?: notFound("Location", id)
+            ?: notFound("Lagerort", id)
 
     private fun UpdateBuilder<*>.fill(location: NewStorageLocation) {
         this[StorageLocations.name] = location.name

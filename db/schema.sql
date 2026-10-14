@@ -98,8 +98,8 @@ CREATE TABLE bulk_stock
     FOREIGN KEY (material_id, tracking_type) REFERENCES materials (id, tracking_type) ON DELETE CASCADE
 );
 
--- Purchase history of BULK materials (several batches are possible). Purely informational: it does not change the
--- stock quantities. Individual items store their purchase data on the item itself.
+-- Purchase history of BULK materials (several batches are possible). The application adds purchased quantities to
+-- bulk_stock.quantity_available. Individual items store their purchase data on the item itself.
 CREATE TABLE purchases
 (
     id            UUID PRIMARY KEY,

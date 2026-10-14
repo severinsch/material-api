@@ -38,12 +38,15 @@ class KitApiTest {
     fun `invalid groups and unknown materials are rejected`() = apiTest {
         val message = post("/kits") { setBody("""{"name": "Jurte", "groups": [{"requiredUnits": 1, "options": []}]}""") }
             .expectError(HttpStatusCode.BadRequest)
-        assertEquals("a group needs at least one option", message)
+        assertEquals("Jedes Teil braucht mindestens ein Material.", message)
 
         val unknown = Uuid.random()
         val group = NewKitGroup(requiredUnits = 1, options = listOf(NewKitGroupOption(unknown)))
         val unknownMessage = post("/kits") { setBody(NewKit("Jurte", groups = listOf(group))) }
             .expectError(HttpStatusCode.BadRequest)
-        assertEquals("Material $unknown doesn't exist", unknownMessage)
+        assertEquals("Material $unknown gibt es nicht.", unknownMessage)
+
+        val empty = post("/kits") { setBody("""{"name": "Jurte", "groups": []}""") }.expectError(HttpStatusCode.BadRequest)
+        assertEquals("Ein Set braucht mindestens ein Teil.", empty)
     }
 }
