@@ -114,7 +114,6 @@ object Loans : UuidTable("loans") {
 object LoanLines : UuidTable("loan_lines") {
     val loanId = reference("loan_id", Loans, onDelete = ReferenceOption.CASCADE)
     val individualItemId = optReference("individual_item_id", IndividualItems)
-    // The schema references bulk_stock, see Purchases.
-    val bulkMaterialId = optReference("bulk_material_id", Materials)
+    val materialId = optReference("material_id", Materials)
     val quantity = integer("quantity").nullable()
 }

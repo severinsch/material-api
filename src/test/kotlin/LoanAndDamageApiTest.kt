@@ -44,9 +44,6 @@ class LoanAndDamageApiTest {
             .expect<DamageReport>(HttpStatusCode.Created)
 
         put("/loans/${created.id}") { setBody(loan.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
-        // Undoing a return, too.
-        put("/loans/${created.id}") { setBody(loan.copy(returnedAt = LocalDate(2026, 10, 5))) }.expect<Loan>(HttpStatusCode.OK)
-        put("/loans/${created.id}") { setBody(loan) }.expect<Loan>(HttpStatusCode.OK)
 
         // Adding a damaged item is still rejected.
         put("/items/${other.id}") {
@@ -70,8 +67,8 @@ class LoanAndDamageApiTest {
         post("/loans") { setBody(unknownItem) }.expectError(HttpStatusCode.BadRequest)
         put("/loans/${Uuid.random()}") { setBody(unknownItem) }.expectError(HttpStatusCode.NotFound)
 
-        val notBulk = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(material.id, 1)))
-        post("/loans") { setBody(notBulk) }.expectError(HttpStatusCode.BadRequest)
+        val unknownMaterial = NewLoan("Stamm Nord", lentAt, materials = listOf(LoanQuantity(Uuid.random(), 1)))
+        post("/loans") { setBody(unknownMaterial) }.expectError(HttpStatusCode.BadRequest)
     }
 
     @Test
@@ -90,7 +87,7 @@ class LoanAndDamageApiTest {
     @Test
     fun `bulk loans are limited by the stock`() = apiTest {
         val hering = createBulk(available = 50)
-        fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, bulkMaterials = listOf(BulkLoanLine(hering.id, quantity)))
+        fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, materials = listOf(LoanQuantity(hering.id, quantity)))
 
         post("/loans") { setBody(loanOf(30)) }.expect<Loan>(HttpStatusCode.Created)
         val message = post("/loans") { setBody(loanOf(21)) }.expectError(HttpStatusCode.Conflict)
@@ -98,6 +95,43 @@ class LoanAndDamageApiTest {
         post("/loans") { setBody(loanOf(20)) }.expect<Loan>(HttpStatusCode.Created)
 
         assertEquals(50, getMaterial(hering.id).loanedCount)
+    }
+
+    @Test
+    fun `individual materials can be lent by quantity`() = apiTest {
+        val material = createIndividual()
+        val (k1, k2) = listOf("1", "2", "3").map { createItem(material, it) }
+        createItem(material, "4", ItemCondition.POOR)
+        fun quantity(n: Int) = listOf(LoanQuantity(material.id, n))
+
+        post("/loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(k1.id))) }.expect<Loan>(HttpStatusCode.Created)
+        val tooMany = post("/loans") { setBody(NewLoan("Stamm Süd", lentAt, materials = quantity(3))) }
+            .expectError(HttpStatusCode.Conflict)
+        assertEquals("Von Kohtenblatt sind nur 2 verfügbar, nicht 3.", tooMany)
+        val anyTwo = NewLoan("Stamm Süd", lentAt, materials = quantity(2))
+        val created: Loan = post("/loans") { setBody(anyTwo) }.expect(HttpStatusCode.Created)
+        assertEquals(quantity(2), created.materials)
+        assertEquals(3, getMaterial(material.id).loanedCount)
+        assertFalse(get("/items/${k2.id}").expect<IndividualItem>(HttpStatusCode.OK).onLoan, "which pieces is unknown")
+
+        // All available pieces are out, so no specific item is left either.
+        val noneLeft = post("/loans") { setBody(NewLoan("Stamm West", lentAt, itemIds = listOf(k2.id))) }
+            .expectError(HttpStatusCode.Conflict)
+        assertEquals("Von Kohtenblatt sind nur 0 verfügbar, nicht 1.", noneLeft)
+
+        // A piece breaks while lent out: the loan stays editable, but can't grow.
+        put("/items/${k2.id}") { setBody(NewIndividualItem(material.id, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR)) }
+            .expect<IndividualItem>(HttpStatusCode.OK)
+        put("/loans/${created.id}") { setBody(anyTwo.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
+        put("/loans/${created.id}") { setBody(anyTwo.copy(materials = quantity(3))) }.expectError(HttpStatusCode.Conflict)
+
+        // Returned, the pieces count as available again.
+        put("/loans/${created.id}") { setBody(anyTwo.copy(returnedAt = lentAt)) }.expect<Loan>(HttpStatusCode.OK)
+        assertEquals(1, getMaterial(material.id).loanedCount)
+
+        val mixed = NewLoan("Stamm West", lentAt, itemIds = listOf(createItem(material, "5").id), materials = quantity(1))
+        val message = post("/loans") { setBody(mixed) }.expectError(HttpStatusCode.BadRequest)
+        assertEquals("Gib für Kohtenblatt entweder eine Anzahl oder bestimmte Gegenstände an.", message)
     }
 
     @Test

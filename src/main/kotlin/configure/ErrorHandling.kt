@@ -53,7 +53,7 @@ private val constraintMessages = mapOf(
     "purchases_material_id_fkey" to "Das Material hat Einkäufe. Lösche zuerst die Einkäufe.",
     "kit_group_options_material_id_fkey" to
         "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
-    "loan_lines_bulk_material_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
+    "loan_lines_material_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
     "loan_lines_individual_item_id_fkey" to
         "Der Gegenstand wurde schon ausgeliehen. Setze stattdessen seinen Status auf „Ausgemustert“.",
     "damage_reports_individual_item_id_fkey" to

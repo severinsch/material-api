@@ -1,8 +1,8 @@
 package services
 
-import api.BulkLoanLine
-import api.Loan
 import api.ItemStatus
+import api.Loan
+import api.LoanQuantity
 import api.NewLoan
 import database.*
 import org.jetbrains.exposed.v1.core.*
@@ -27,7 +27,7 @@ class LoanService(private val db: Db) {
     suspend fun get(id: Uuid): Loan = db.query { find(id) }
 
     suspend fun create(loan: NewLoan): Loan = db.query {
-        checkLines(loan, loanId = null)
+        checkLines(loan, existing = null)
         val id = Loans.insertAndGetId { it.fill(loan) }
         insertLines(id, loan)
         find(id.value)
@@ -35,8 +35,7 @@ class LoanService(private val db: Db) {
 
     /** Replaces the loan including all of its lines. Returning a loan means setting `returnedAt`. */
     suspend fun update(id: Uuid, loan: NewLoan): Loan = db.query {
-        find(id)
-        checkLines(loan, loanId = id)
+        checkLines(loan, existing = find(id))
         Loans.update({ Loans.id eq id }) { it.fill(loan) }
         LoanLines.deleteWhere { loanId eq id }
         insertLines(EntityID(id, Loans), loan)
@@ -48,36 +47,29 @@ class LoanService(private val db: Db) {
     }
 
     /**
-     * Checks that everything lent exists and, for an open loan, is available: items must be active and not on another
-     * open loan, bulk quantities must not exceed the stock minus other open loans. Items already on this loan may have
-     * another status, e.g. when one was damaged while lent out. The checked rows are locked until the transaction
-     * ends, so concurrent loans can't both pass the check.
+     * Checks that everything lent exists and, for an open loan, is available: specific items must be active and on no
+     * other open loan, and the pieces per material (quantities plus specific available items) must not exceed what
+     * other open loans leave. Parts of an open loan that don't change aren't checked again, so it stays editable when
+     * e.g. one of its items was damaged while lent out.
      */
-    private fun checkLines(loan: NewLoan, loanId: Uuid?) {
-        val statuses = IndividualItems
-            .select(IndividualItems.id, IndividualItems.status)
-            .where { IndividualItems.id inList loan.itemIds }
+    private fun checkLines(loan: NewLoan, existing: Loan?) {
+        val previous = existing?.takeIf { it.returnedAt == null }
+        val items = IndividualItems
+            .select(IndividualItems.id, IndividualItems.materialId, IndividualItems.status, isAvailableItem)
+            .where { IndividualItems.id inList (loan.itemIds + previous?.itemIds.orEmpty()) }
             .forUpdate()
-            .associate { it[IndividualItems.id].value to it[IndividualItems.status] }
-        val stock = BulkStock
-            .select(BulkStock.materialId, BulkStock.quantityAvailable)
-            .where { BulkStock.materialId inList loan.bulkMaterials.map(BulkLoanLine::materialId) }
-            .forUpdate()
-            .associate { it[BulkStock.materialId].value to it[BulkStock.quantityAvailable] }
-        loan.itemIds.forEach { if (it !in statuses) invalid("Gegenstand $it gibt es nicht.") }
-        loan.bulkMaterials.forEach {
-            if (it.materialId !in stock) invalid("Material ${it.materialId} gibt es nicht oder wird nicht nach Menge erfasst.")
+            .associateBy { it[IndividualItems.id].value }
+        loan.itemIds.forEach { if (it !in items) invalid("Gegenstand $it gibt es nicht.") }
+        requireMaterials(loan.materials.map(LoanQuantity::materialId))
+        val itemMaterials = loan.itemIds.map { items.getValue(it)[IndividualItems.materialId].value }.toSet()
+        loan.materials.firstOrNull { it.materialId in itemMaterials }?.let {
+            invalid("Gib für ${materialName(it.materialId)} entweder eine Anzahl oder bestimmte Gegenstände an.")
         }
         if (loan.returnedAt != null) return
 
-        val alreadyLent = loanId?.let { id ->
-            LoanLines.select(LoanLines.individualItemId)
-                .where { (LoanLines.loanId eq id) and LoanLines.individualItemId.isNotNull() }
-                .map { it[LoanLines.individualItemId]!!.value }
-                .toSet()
-        }.orEmpty()
-        statuses.filter { (id, status) -> status != ItemStatus.ACTIVE && id !in alreadyLent }.keys.firstOrNull()?.let {
-            val status = when (statuses.getValue(it)) {
+        val newItems = loan.itemIds - previous?.itemIds.orEmpty().toSet()
+        newItems.firstOrNull { items.getValue(it)[IndividualItems.status] != ItemStatus.ACTIVE }?.let {
+            val status = when (items.getValue(it)[IndividualItems.status]) {
                 ItemStatus.ACTIVE -> "aktiv"
                 ItemStatus.IN_REPAIR -> "in Reparatur"
                 ItemStatus.LOST -> "verloren"
@@ -85,26 +77,30 @@ class LoanService(private val db: Db) {
             }
             conflict("${itemName(it)} ist $status und kann nicht ausgeliehen werden.")
         }
-        val otherOpenLines = LoanLines.innerJoin(Loans)
-        val isOtherOpenLoan = Loans.returnedAt.isNull() and (loanId?.let { Loans.id neq it } ?: Op.TRUE)
-        otherOpenLines
+        LoanLines.innerJoin(Loans)
             .select(LoanLines.individualItemId)
-            .where { isOtherOpenLoan and (LoanLines.individualItemId inList loan.itemIds) }
+            .where { Loans.returnedAt.isNull() and (LoanLines.individualItemId inList newItems) }
             .firstOrNull()
             ?.let { conflict("${itemName(it[LoanLines.individualItemId]!!.value)} ist schon ausgeliehen.") }
 
-        val lent = LoanLines.quantity.sum()
-        val lentByMaterial = otherOpenLines
-            .select(LoanLines.bulkMaterialId, lent)
-            .where { isOtherOpenLoan and (LoanLines.bulkMaterialId inList stock.keys) }
-            .groupBy(LoanLines.bulkMaterialId)
-            .associate { it[LoanLines.bulkMaterialId]!!.value to (it[lent] ?: 0) }
-        loan.bulkMaterials.forEach { line ->
-            val free = stock.getValue(line.materialId) - (lentByMaterial[line.materialId] ?: 0)
-            if (line.quantity > free) {
-                conflict("Von ${materialName(line.materialId)} sind nur $free verfügbar, nicht ${line.quantity}.")
-            }
+        val before = previous?.let { pieces(it.itemIds, it.materials, items) }.orEmpty()
+        val increased = pieces(loan.itemIds, loan.materials, items).filter { (id, n) -> n > (before[id] ?: 0) }
+        lockMaterials(increased.keys)
+        val available = availableCounts(increased.keys)
+        val loaned = loanedCounts(increased.keys, exceptLoan = existing?.id)
+        increased.forEach { (materialId, wanted) ->
+            val free = maxOf(0, (available[materialId] ?: 0) - (loaned[materialId] ?: 0))
+            if (wanted > free) conflict("Von ${materialName(materialId)} sind nur $free verfügbar, nicht $wanted.")
         }
+    }
+
+    /** Pieces per material that count against availability: [quantities], and those of [itemIds] that are available. */
+    private fun pieces(itemIds: List<Uuid>, quantities: List<LoanQuantity>, items: Map<Uuid, ResultRow>): Map<Uuid, Int> {
+        val pieces = quantities.associate { it.materialId to it.quantity }.toMutableMap()
+        itemIds.map(items::getValue).filter { it[isAvailableItem] }.forEach {
+            pieces.merge(it[IndividualItems.materialId].value, 1, Int::plus)
+        }
+        return pieces
     }
 
     // Names for conflict messages, which are shown to users.
@@ -120,9 +116,9 @@ class LoanService(private val db: Db) {
             this[LoanLines.loanId] = loanId
             this[LoanLines.individualItemId] = itemId
         }
-        LoanLines.batchInsert(loan.bulkMaterials) { line ->
+        LoanLines.batchInsert(loan.materials) { line ->
             this[LoanLines.loanId] = loanId
-            this[LoanLines.bulkMaterialId] = line.materialId
+            this[LoanLines.materialId] = line.materialId
             this[LoanLines.quantity] = line.quantity
         }
     }
@@ -147,8 +143,8 @@ class LoanService(private val db: Db) {
                 returnedAt = row[Loans.returnedAt],
                 note = row[Loans.note],
                 itemIds = lines.mapNotNull { it[LoanLines.individualItemId]?.value },
-                bulkMaterials = lines.mapNotNull { line ->
-                    line[LoanLines.bulkMaterialId]?.let { BulkLoanLine(it.value, line[LoanLines.quantity]!!) }
+                materials = lines.mapNotNull { line ->
+                    line[LoanLines.materialId]?.let { LoanQuantity(it.value, line[LoanLines.quantity]!!) }
                 }
             )
         }

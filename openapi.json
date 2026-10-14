@@ -1221,7 +1221,7 @@
         },
         "/loans": {
             "post": {
-                "summary": "Record a loan.",
+                "summary": "",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -2185,9 +2185,9 @@
                     }
                 }
             },
-            "BulkLoanLine": {
+            "LoanQuantity": {
                 "type": "object",
-                "title": "BulkLoanLine",
+                "title": "LoanQuantity",
                 "required": [
                     "materialId",
                     "quantity"
@@ -2210,7 +2210,7 @@
                     "borrower",
                     "lentAt",
                     "itemIds",
-                    "bulkMaterials"
+                    "materials"
                 ],
                 "properties": {
                     "id": {
@@ -2251,10 +2251,10 @@
                             "format": "uuid"
                         }
                     },
-                    "bulkMaterials": {
+                    "materials": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/BulkLoanLine"
+                            "$ref": "#/components/schemas/LoanQuantity"
                         }
                     }
                 }
@@ -2301,10 +2301,10 @@
                             "format": "uuid"
                         }
                     },
-                    "bulkMaterials": {
+                    "materials": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/BulkLoanLine"
+                            "$ref": "#/components/schemas/LoanQuantity"
                         }
                     }
                 }

@@ -324,7 +324,11 @@ data class NewKitGroupOption(
 
 // ========= Loans =========
 
-/** A loan is open until [returnedAt] is set. */
+/**
+ * A loan is open until [returnedAt] is set. It lends quantities of materials without saying which pieces
+ * ([materials], e.g. "4 Kohtenblätter, 30 Heringe") and specific items ([itemIds], e.g. "Jurte 3"), but not both for
+ * the same material.
+ */
 @Serializable
 data class Loan(
     val id: Uuid,
@@ -334,10 +338,13 @@ data class Loan(
     val returnedAt: LocalDate?,
     val note: String?,
     val itemIds: List<Uuid>,
-    val bulkMaterials: List<BulkLoanLine>
+    val materials: List<LoanQuantity>
 )
 
-/** Only active items can be lent, and an item can only be on one open loan at a time. */
+/**
+ * Specific items must be active and on no other open loan; quantities must not exceed what is available, i.e. the
+ * stock or the available items minus what other open loans hold.
+ */
 @Serializable
 data class NewLoan(
     val borrower: String,
@@ -346,13 +353,13 @@ data class NewLoan(
     val returnedAt: LocalDate? = null,
     val note: String? = null,
     val itemIds: List<Uuid> = emptyList(),
-    val bulkMaterials: List<BulkLoanLine> = emptyList()
+    val materials: List<LoanQuantity> = emptyList()
 ) {
     init {
         requireText(borrower, "„Ausgeliehen an“", maxLength = 255)
-        require(itemIds.isNotEmpty() || bulkMaterials.isNotEmpty()) { "Wähle mindestens einen Gegenstand oder ein Material aus." }
+        require(itemIds.isNotEmpty() || materials.isNotEmpty()) { "Wähle mindestens einen Gegenstand oder ein Material aus." }
         require(itemIds.toSet().size == itemIds.size) { "Ein Gegenstand kann in einer Ausleihe nur einmal vorkommen." }
-        require(bulkMaterials.distinctBy { it.materialId }.size == bulkMaterials.size) {
+        require(materials.distinctBy { it.materialId }.size == materials.size) {
             "Ein Material kann in einer Ausleihe nur einmal vorkommen."
         }
         dueAt?.let { require(it >= lentAt) { "Das Rückgabedatum kann nicht vor dem Ausleihdatum liegen." } }
@@ -360,8 +367,9 @@ data class NewLoan(
     }
 }
 
+/** A quantity of a material, without saying which pieces. */
 @Serializable
-data class BulkLoanLine(
+data class LoanQuantity(
     val materialId: Uuid,
     val quantity: Int
 ) {

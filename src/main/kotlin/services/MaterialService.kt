@@ -55,7 +55,7 @@ class MaterialService(private val db: Db) {
                     "Lade die Seite neu und bearbeite das Material erneut."
             )
         }
-        val lent = lentQuantity(id)
+        val lent = loanedCount(id)
         if (material.availableCount < lent) {
             conflict("Von ${material.name} sind $lent ausgeliehen, der Bestand kann nicht kleiner sein.")
         }
@@ -103,10 +103,6 @@ class MaterialService(private val db: Db) {
             }
     }
 
-    /** Individual items that count as available: active and not in POOR condition. */
-    private val isAvailableItem
-        get() = (IndividualItems.status eq ItemStatus.ACTIVE) and (IndividualItems.condition neq ItemCondition.POOR)
-
     /** Availability rules for individual items. LOST and DECOMMISSIONED items count as neither. */
     private fun individualItemCounts(): Map<Uuid, Counts> {
         val isActive = IndividualItems.status eq ItemStatus.ACTIVE
@@ -117,21 +113,6 @@ class MaterialService(private val db: Db) {
             .select(IndividualItems.materialId, available, damaged)
             .groupBy(IndividualItems.materialId)
             .associate { it[IndividualItems.materialId].value to Counts(it[available] ?: 0, it[damaged] ?: 0) }
-    }
-
-    /**
-     * Available pieces per material that are part of a loan that hasn't been returned yet. Lent items that don't count
-     * as available (e.g. in POOR condition) are left out, so `availableCount - loanedCount` is what's in storage.
-     */
-    private fun loanedCounts(): Map<Uuid, Int> {
-        val openLines = LoanLines.innerJoin(Loans).leftJoin(IndividualItems)
-        val materialId = Coalesce(LoanLines.bulkMaterialId, IndividualItems.materialId)
-        val pieces = Coalesce(LoanLines.quantity, intLiteral(1)).sum()
-        return openLines
-            .select(materialId, pieces)
-            .where { Loans.returnedAt.isNull() and (LoanLines.bulkMaterialId.isNotNull() or isAvailableItem) }
-            .groupBy(materialId)
-            .associate { it[materialId].value to (it[pieces] ?: 0) }
     }
 
     private fun countWhere(condition: Op<Boolean>) = Case().When(condition, intLiteral(1)).Else(intLiteral(0)).sum()

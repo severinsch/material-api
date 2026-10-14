@@ -29,7 +29,7 @@ fun Route.loanRoutes(loanService: LoanService) {
         }
 
         /**
-         * Record a loan.
+         * Record a loan: quantities of materials (`materials`), specific items (`itemIds`), or both.
          *
          * Response: 400 application/json [api.ErrorResponse] Invalid loan or unknown item or material.
          * Response: 409 application/json [api.ErrorResponse] Something isn't available (inactive, lent out, out of stock).

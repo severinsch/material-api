@@ -183,7 +183,7 @@ class MaterialApiTest {
         val purchase: Purchase = post("/purchases") { setBody(NewPurchase(hering.id, quantity = 100)) }
             .expect(HttpStatusCode.Created)
         post("/loans") {
-            setBody(NewLoan("Stamm Nord", LocalDate(2026, 10, 1), bulkMaterials = listOf(BulkLoanLine(hering.id, 65))))
+            setBody(NewLoan("Stamm Nord", LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(hering.id, 65))))
         }.expect<Loan>(HttpStatusCode.Created)
 
         val message = delete("/purchases/${purchase.id}").expectError(HttpStatusCode.Conflict)

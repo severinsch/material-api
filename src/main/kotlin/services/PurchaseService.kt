@@ -49,7 +49,7 @@ class PurchaseService(private val db: Db) {
         if (delta == 0) return
         val available = lockStock(materialId)
         if (delta < 0) {
-            val lent = lentQuantity(materialId)
+            val lent = loanedCount(materialId)
             if (available + delta < lent) {
                 val lentNote = if (lent > 0) ", davon $lent ausgeliehen" else ""
                 conflict(

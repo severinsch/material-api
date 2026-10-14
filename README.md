@@ -9,7 +9,8 @@ The frontend for this tool can be found [here](https://github.com/severinsch/mat
 * **Hybrid Inventory Tracking:** Bulk materials tracked by quantity, individual items with condition and status.
 * **Kits:** Packing lists made of groups of interchangeable materials.
 * **Damage Reporting:** Log and resolve damages of individual items.
-* **Loan Book:** Record what was lent to whom and when it came back.
+* **Loan Book:** Record what was lent to whom and when it came back: quantities ("4 Kohtenblätter, 10 Heringe") or,
+  where it matters, specific items.
 * **Purchase History:** Record purchase batches of bulk materials; purchased quantities are added to the stock.
 
 ## Roadmap

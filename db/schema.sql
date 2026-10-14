@@ -191,21 +191,22 @@ CREATE TABLE loans
     updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- What was lent: either one individual item, or a quantity of a bulk material.
+-- What was lent: either one specific individual item, or a quantity of a material without saying which pieces. The
+-- latter is how bulk materials are lent, and how individual materials are lent when their items are interchangeable
+-- ("4 Kohtenblätter"). The API doesn't combine both for the same material in one loan.
 CREATE TABLE loan_lines
 (
     id                 UUID PRIMARY KEY,
     loan_id            UUID NOT NULL REFERENCES loans (id) ON DELETE CASCADE,
     individual_item_id UUID REFERENCES individual_items (id) ON DELETE RESTRICT,
-    -- References bulk_stock, which only exists for BULK materials.
-    bulk_material_id   UUID REFERENCES bulk_stock (material_id) ON DELETE RESTRICT,
+    material_id        UUID REFERENCES materials (id) ON DELETE RESTRICT,
     quantity           INTEGER CHECK (quantity > 0),
     CHECK (
-        (individual_item_id IS NOT NULL AND bulk_material_id IS NULL AND quantity IS NULL) OR
-        (individual_item_id IS NULL AND bulk_material_id IS NOT NULL AND quantity IS NOT NULL)
+        (individual_item_id IS NOT NULL AND material_id IS NULL AND quantity IS NULL) OR
+        (individual_item_id IS NULL AND material_id IS NOT NULL AND quantity IS NOT NULL)
         ),
     UNIQUE (loan_id, individual_item_id),
-    UNIQUE (loan_id, bulk_material_id)
+    UNIQUE (loan_id, material_id)
 );
 
 
@@ -217,7 +218,7 @@ CREATE INDEX idx_damage_reports_individual_item_id ON damage_reports (individual
 CREATE INDEX idx_purchases_material_id ON purchases (material_id);
 CREATE INDEX idx_kit_group_options_material_id ON kit_group_options (material_id);
 CREATE INDEX idx_loan_lines_individual_item_id ON loan_lines (individual_item_id);
-CREATE INDEX idx_loan_lines_bulk_material_id ON loan_lines (bulk_material_id);
+CREATE INDEX idx_loan_lines_material_id ON loan_lines (material_id);
 
 
 -- ========= TRIGGERS =========
