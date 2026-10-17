@@ -41,7 +41,7 @@ fun Application.configureErrorHandling() {
     }
 }
 
-// Messages for violations of named constraints in db/schema.sql (Postgres' default names), so users learn what
+// Messages for violations of named constraints in the migrations (Postgres' default names), so users learn what
 // clashed. Other violations of the same kind get the generic message below.
 private val constraintMessages = mapOf(
     "materials_name_key" to "Es gibt schon ein Material mit diesem Namen.",

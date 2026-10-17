@@ -12,7 +12,7 @@ import kotlin.uuid.Uuid
 
 // Request and response bodies. `New*` classes are used for both creating (POST) and replacing (PUT) a resource.
 // Validation happens in init blocks, so invalid bodies are rejected with 400 while being received. The limits match
-// the column sizes in db/schema.sql. Messages are shown to users of the (German) frontend, so they are in German and
+// the column sizes in the migrations. Messages are shown to users of the (German) frontend, so they are in German and
 // name fields as the frontend labels them.
 
 @Serializable

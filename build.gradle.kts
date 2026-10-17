@@ -3,6 +3,7 @@ val logback_version = property("logback_version")
 val postgres_version = property("postgres_version")
 val hikari_version = property("hikari_version")
 val testcontainers_version = property("testcontainers_version")
+val flyway_version = property("flyway_version")
 
 plugins {
     kotlin("jvm") version "2.4.21"
@@ -47,6 +48,8 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposed_version")
     implementation("org.postgresql:postgresql:$postgres_version")
     implementation("com.zaxxer:HikariCP:$hikari_version")
+    implementation("org.flywaydb:flyway-core:$flyway_version")
+    implementation("org.flywaydb:flyway-database-postgresql:$flyway_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host")

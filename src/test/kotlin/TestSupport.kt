@@ -10,20 +10,19 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.config.*
 import io.ktor.server.testing.*
+import org.flywaydb.core.Flyway
 import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.MountableFile
 import java.sql.DriverManager
 import kotlin.test.assertEquals
 import kotlin.uuid.Uuid
 
-/** A Postgres container with db/schema.sql, shared by all tests and emptied before each one. */
+/** A Postgres container with the migrated schema, shared by all tests and emptied before each one. */
 object TestDatabase {
-    private val container = PostgreSQLContainer("postgres:18-alpine")
-        .withCopyFileToContainer(
-            MountableFile.forHostPath("db/schema.sql"),
-            "/docker-entrypoint-initdb.d/schema.sql"
-        )
-        .also { it.start() }
+    private val container = PostgreSQLContainer("postgres:18-alpine").also {
+        it.start()
+        // The application migrates as well, but the tables must exist before the first truncate.
+        Flyway.configure().dataSource(it.jdbcUrl, it.username, it.password).load().migrate()
+    }
 
     val config = MapApplicationConfig(
         "database.url" to container.jdbcUrl,

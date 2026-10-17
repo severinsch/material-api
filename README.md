@@ -19,8 +19,13 @@ Currently missing but planned is authentication.
 
 ## Database Model Concepts
 
-The schema is defined in [db/schema.sql](db/schema.sql), which is the single source of truth. The Postgres container
-runs it on first start; after changing it, recreate the database with `docker compose down -v && docker compose up -d`.
+The schema is defined by the [Flyway](https://documentation.red-gate.com/flyway) migrations in
+[src/main/resources/db/migration](src/main/resources/db/migration), which are the single source of truth. The API
+applies pending migrations when it starts, so a deployment only needs an empty database.
+
+To change the schema, add a migration `V<n>__<description>.sql` with the next number. Migrations that already ran
+against real data must not be edited: Flyway refuses to start if an applied migration changed. Locally, a changed
+migration is fine after resetting the database with `docker compose down -v && docker compose up -d postgres`.
 
 ### Hybrid Tracking
 
@@ -86,7 +91,7 @@ deleting something that is still referenced or lending an item twice).
 ## Development
 
 ```bash
-docker compose up -d postgres   # database with db/schema.sql
+docker compose up -d postgres   # empty database, the API creates the schema
 ./gradlew run                   # API on http://localhost:8080
 ./gradlew test                  # integration tests, need Docker (Testcontainers)
 ```

@@ -4,15 +4,15 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 data class DatabaseConfig(val url: String, val user: String, val password: String)
 
 /**
- * Entry point for all database access. The schema itself is created from db/schema.sql, not by the application.
- *
- * Creating an instance fails immediately if the database is unreachable.
+ * Entry point for all database access. Creating an instance brings the schema up to date with the migrations in
+ * src/main/resources/db/migration, and fails immediately if the database is unreachable or a migration fails.
  */
 class Db(config: DatabaseConfig) : AutoCloseable {
     private val dataSource = HikariDataSource(HikariConfig().apply {
@@ -20,7 +20,7 @@ class Db(config: DatabaseConfig) : AutoCloseable {
         username = config.user
         password = config.password
         maximumPoolSize = 5
-    })
+    }).also { Flyway.configure().dataSource(it).load().migrate() }
     private val database = Database.connect(dataSource)
 
     /** Runs [block] in a transaction. JDBC is blocking, so this happens on the IO dispatcher. */

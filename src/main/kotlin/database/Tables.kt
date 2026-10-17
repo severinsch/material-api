@@ -11,7 +11,7 @@ import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.postgresql.util.PGobject
 
-// Mappings of the schema defined in db/schema.sql, which is the source of truth and also holds all constraints.
+// Mappings of the schema defined by the migrations in src/main/resources/db/migration, which are the source of truth and also holds all constraints.
 // Columns maintained purely by the database (created_at, updated_at) are not mapped.
 
 private class PGEnum<T : Enum<T>>(enumTypeName: String, enumValue: T?) : PGobject() {

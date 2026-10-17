@@ -71,6 +71,9 @@ and Flyway at first deploy is also fine.
 
 **Decision (2026-10-13):** option 1, a single `schema.sql` for now. Revisit Flyway once real data exists.
 
+**Update (2026-10-15):** switched to option 2 before the first deployment. `db/schema.sql` became
+`src/main/resources/db/migration/V1__initial_schema.sql`, applied by Flyway when `Db` is created.
+
 **Original recommendation:** add Flyway (or Liquibase) migrations as the only way to define the schema. Treat Exposed `Table`
 objects as mappings of that schema, not its definition, and use `SchemaUtils` only in tests, if at all. Update
 `AGENTS.md` to point at the migrations instead of restating the schema.
