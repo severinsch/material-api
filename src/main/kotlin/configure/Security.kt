@@ -44,7 +44,7 @@ val ApplicationCall.tenantAccess: TenantAccess get() = attributes[TenantAccessKe
 val ApplicationCall.tenant: TenantId get() = tenantAccess.tenant
 
 /** The answer for unknown and deleted tenants, and for tenants the user has no access to. */
-internal const val TENANT_NOT_FOUND = "Diesen Bereich gibt es nicht, oder du hast keinen Zugriff darauf."
+internal const val TENANT_NOT_FOUND = "Diesen Stamm gibt es nicht, oder du hast keinen Zugriff darauf."
 
 private class TenantScopeConfig {
     lateinit var tenantService: TenantService
@@ -115,3 +115,39 @@ fun Route.requires(permission: Permission, build: Route.() -> Unit): Route =
 /** The permission an endpoint declared with [requires], if any. */
 fun RoutingNode.requiredPermission(): Permission? =
     generateSequence(this) { it.parent }.firstNotNullOfOrNull { (it.selector as? PermissionRouteSelector)?.permission }
+
+// ========= Platform administration =========
+
+private class PlatformAdminRouteSelector : RouteSelector() {
+    override suspend fun evaluate(context: RoutingResolveContext, segmentIndex: Int) = RouteSelectorEvaluation.Transparent
+    override fun toString() = "(platform admins)"
+}
+
+private val RequirePlatformAdmin = createRouteScopedPlugin("RequirePlatformAdmin") {
+    on(AuthenticationChecked) { call ->
+        if (!call.user.isPlatformAdmin) throw ForbiddenException("Das dürfen nur Plattform-Admins.")
+    }
+}
+
+/**
+ * Routes in [build] are for platform admins only (403 otherwise). They live outside [tenantRoutes], so tenant roles
+ * can never grant access to them.
+ */
+@OptIn(ExperimentalKtorApi::class)
+fun Route.platformAdminRoutes(build: Route.() -> Unit): Route =
+    createChild(PlatformAdminRouteSelector()).apply {
+        install(RequirePlatformAdmin)
+        describe {
+            responses {
+                HttpStatusCode.Forbidden {
+                    description = "Only for platform admins."
+                    schema = jsonSchema<ErrorResponse>()
+                }
+            }
+        }
+        build()
+    }
+
+/** Whether an endpoint is declared with [platformAdminRoutes]. */
+fun RoutingNode.isPlatformAdminRoute(): Boolean =
+    generateSequence(this) { it.parent }.any { it.selector is PlatformAdminRouteSelector }

@@ -62,6 +62,9 @@ internal val constraintMessages = mapOf(
     "materials_name_key" to "Es gibt schon ein Material mit diesem Namen.",
     "storage_locations_name_key" to "Es gibt schon einen Lagerort mit diesem Namen.",
     "kits_name_key" to "Es gibt schon ein Set mit diesem Namen.",
+    "tenants_name_key" to "Es gibt schon einen Stamm mit diesem Namen.",
+    "tenants_slug_key" to "Es gibt schon einen Stamm mit diesem Kürzel.",
+    "password_logins_username_key" to "Diesen Benutzernamen gibt es schon.",
     "individual_items_material_id_identifier_key" to "Diese Kennung ist bei diesem Material schon vergeben.",
     "individual_items_material_id_tracking_type_fkey" to
         "Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.",

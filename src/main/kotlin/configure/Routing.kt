@@ -28,6 +28,11 @@ fun Application.configureRouting(db: Db, authService: AuthService) {
                 damageRoutes(DamageService(db))
                 kitRoutes(KitService(db))
                 loanRoutes(LoanService(db))
+                memberRoutes(MemberService(db))
+            }
+            platformAdminRoutes {
+                tenantAdministrationRoutes(tenantService)
+                userRoutes(UserService(db))
             }
         }
 

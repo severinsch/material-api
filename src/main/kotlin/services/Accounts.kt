@@ -3,20 +3,19 @@ package services
 import api.LoginMethod
 import api.SessionToken
 import api.SetupLink
+import api.TenantRole
 import auth.Tokens
-import database.Sessions
-import database.SetupTokens
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.deleteWhere
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.upsert
+import database.*
+import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.jdbc.*
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
-// Sessions and setup links, shared by the services that manage accounts. Must be called inside a transaction.
+// Sessions, setup links and the rules for changing accounts, shared by the services that manage accounts. Must be
+// called inside a transaction.
 
 /** Sessions end after this long without use… */
 internal val SESSION_IDLE_LIMIT = 30.days
@@ -58,4 +57,47 @@ internal fun issueSetupLink(userId: Uuid, validFor: Duration): SetupLink {
  */
 internal fun revokeSetupLink(userId: Uuid) {
     SetupTokens.deleteWhere { SetupTokens.userId eq userId }
+}
+
+internal fun requireFreeUsername(username: String, exceptUser: Uuid? = null) {
+    val taken = PasswordLogins.select(PasswordLogins.userId)
+        .where { (PasswordLogins.username eq username) and (exceptUser?.let { PasswordLogins.userId neq it } ?: Op.TRUE) }
+        .any()
+    if (taken) conflict("Den Benutzernamen $username gibt es schon.")
+}
+
+/**
+ * Keeps at least one enabled admin in [tenant] when [userId] stops being one (demoted, removed, disabled, deleted).
+ * Locks the tenant first, so two admins demoting each other at the same time can't both succeed. A tenant without
+ * admins (e.g. a new one) stays possible.
+ */
+internal fun requireOtherTenantAdmin(tenant: Uuid, userId: Uuid) {
+    val name = Tenants.select(Tenants.name).where { Tenants.id eq tenant }.forUpdate().single()[Tenants.name]
+    val enabledAdmins = TenantMembers.innerJoin(Users)
+        .select(Users.id)
+        .where { (TenantMembers.tenantId eq tenant) and (TenantMembers.role eq TenantRole.ADMIN) and Users.disabledAt.isNull() }
+        .map { it[Users.id].value }
+    if (enabledAdmins == listOf(userId)) {
+        conflict("$name braucht mindestens einen Admin. Mach zuerst jemand anderen zum Admin.")
+    }
+}
+
+/** Like [requireOtherTenantAdmin] for platform admins, of which there must always be one. */
+internal fun requireOtherPlatformAdmin(userId: Uuid) {
+    val enabledAdmins = Users.select(Users.id)
+        .where { (Users.isPlatformAdmin eq true) and Users.disabledAt.isNull() }
+        .orderBy(Users.id)
+        .forUpdate()
+        .map { it[Users.id].value }
+    if (enabledAdmins == listOf(userId)) conflict("Es muss mindestens einen Plattform-Admin geben.")
+}
+
+/** Checks the rules for disabling or deleting [userId]: someone else must remain admin wherever they are one. */
+internal fun requireOtherAdmins(userId: Uuid) {
+    requireOtherPlatformAdmin(userId)
+    TenantMembers.select(TenantMembers.tenantId)
+        .where { (TenantMembers.userId eq userId) and (TenantMembers.role eq TenantRole.ADMIN) }
+        .orderBy(TenantMembers.tenantId) // Lock order, against deadlocks.
+        .map { it[TenantMembers.tenantId].value }
+        .forEach { requireOtherTenantAdmin(it, userId) }
 }

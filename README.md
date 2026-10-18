@@ -12,10 +12,39 @@ The frontend for this tool can be found [here](https://github.com/severinsch/mat
 * **Loan Book:** Record what was lent to whom and when it came back: quantities ("4 Kohtenblätter, 10 Heringe") or,
   where it matters, specific items.
 * **Purchase History:** Record purchase batches of bulk materials; purchased quantities are added to the stock.
+* **Accounts and tenants:** Each Stamm has its own, fully separated inventory. Members log in with username and
+  password and have a role per Stamm.
 
 ## Roadmap
 
-Currently missing but planned is authentication.
+Login via the DPSG's membership platform (hitobito) is planned once it is available; accounts and tenants are
+already independent of it (see PLAN.md, section 7).
+
+## Accounts and Permissions
+
+Users log in with username and password (`POST /auth/login`) and get an opaque session token, sent as
+`Authorization: Bearer <token>`. Sessions end after 30 days without use and after 180 days at most. Passwords are
+hashed with Argon2id; failed logins are throttled per username and client IP.
+
+Each user has a role per tenant:
+
+| Role | May |
+|---|---|
+| `VIEWER` | read everything, report damage (without resolving it or retiring items) |
+| `EDITOR` | also change inventory, loans, damage reports, kits and locations, and see the members |
+| `ADMIN` | also manage the members of the tenant |
+
+Platform admins have full access to every tenant and manage tenants and all accounts (`/tenants`, `/users`). Every
+tenant route declares its permission with `requires(Permission.X) { … }` (`configure/Security.kt`); the application
+doesn't start if one is missing, and `PermissionTest` checks all of them for every role.
+
+Accounts are created by admins, who get a single-use setup link to pass on (no email); the user sets their own
+password with it. The same kind of link resets a forgotten password. Links are valid 7 days for new accounts and 24
+hours for resets, and are revoked when the user's memberships, platform admin flag or disabled state change.
+
+**Bootstrap:** on startup, if there is no platform admin, the API creates the user `admin` and logs a setup link at
+WARN level (`docker compose logs api`), renewed on every start until its password is set. **Recovery:** if the only
+platform admin forgot their password, start the API once with `ADMIN_SETUP_LINK_FOR=<username>` to log a new link.
 
 ## Database Model Concepts
 
@@ -107,8 +136,10 @@ changes are visible in reviews and the frontend can generate its client from it.
 UPDATE_OPENAPI=1 ./gradlew clean test
 ```
 
-Errors are returned as `{"message": "..."}` with status 400 (invalid input), 404 (not found) or 409 (conflicts, e.g.
-deleting something that is still referenced or lending an item twice).
+Errors are returned as `{"message": "..."}` with status 400 (invalid input), 401 (no valid session; nothing else),
+403 (missing permission), 404 (not found, also for tenants the user has no access to), 409 (conflicts, e.g. deleting
+something that is still referenced or lending an item twice), 429 (too many failed logins, with `Retry-After`) or 503
+(too many password hashes at once).
 
 ## Development
 
@@ -126,6 +157,12 @@ docker compose up -d postgres   # empty database, the API creates the schema
 | `DATABASE_USER` / `DATABASE_PASSWORD` | `scout` / `scoutpass` | Matches docker-compose.yml |
 | `PORT` | `8080` | |
 | `SQL_LOG_LEVEL` | `INFO` | `DEBUG` logs all SQL statements |
+| `FRONTEND_URL` | `http://localhost:5173` | Base URL of the frontend, for the setup links in the log |
+| `AUTH_BOOTSTRAP` | `true` | Create the first platform admin on startup, see above |
+| `ADMIN_SETUP_LINK_FOR` | | Log a new setup link for this platform admin on startup |
+
+The database user must be allowed to create roles (`CREATEROLE`, which the superuser of the official Postgres image
+has): the first migration creates the role `material_app`, which the application uses for all queries.
 
 ## Deployment
 
@@ -134,3 +171,6 @@ Use the provided compose file to start both the database and the application.
 ```bash
 docker compose up -d --build
 ```
+
+The API must only be reachable from the frontend: it trusts the `X-Forwarded-For` header the frontend sets for the
+throttling of logins.

@@ -2,6 +2,7 @@ import api.*
 import auth.Permission
 import auth.permissions
 import configure.TENANT_NOT_FOUND
+import configure.isPlatformAdminRoute
 import configure.requiredPermission
 import configure.tenantRoutes
 import io.ktor.client.*
@@ -21,7 +22,8 @@ import kotlin.uuid.Uuid
 
 class PermissionTest {
 
-    private data class Endpoint(val method: HttpMethod, val path: String, val permission: Permission)
+    /** [permission] is null for platform routes. */
+    private data class Endpoint(val method: HttpMethod, val path: String, val permission: Permission? = null)
 
     /** Who calls, and the permissions they have in the tenant (null: no access at all). */
     private data class Caller(val name: String, val client: HttpClient, val permissions: Set<Permission>?)
@@ -30,10 +32,7 @@ class PermissionTest {
     @Test
     fun `every tenant route requires its declared permission`() = apiTest { context ->
         val endpoints = context.routing.getAllRoutes().mapNotNull { route ->
-            route.requiredPermission()?.let { permission ->
-                val method = generateSequence(route) { it.parent }.firstNotNullOf { (it.selector as? HttpMethodRouteSelector)?.method }
-                Endpoint(method, route.path(), permission)
-            }
+            route.requiredPermission()?.let { Endpoint(route.method(), route.path(), it) }
         }
         assertTrue(Endpoint(HttpMethod.Post, "/tenants/{tenantId}/damages", Permission.REPORT_DAMAGE) in endpoints)
 
@@ -62,6 +61,25 @@ class PermissionTest {
                 .map { "${it.name}: ${endpoint.method.value} ${endpoint.path}" }
         }
         assertEquals(emptyList(), stillReachable)
+    }
+
+    @Test
+    fun `platform routes are only for platform admins`() = apiTest { context ->
+        val endpoints = context.routing.getAllRoutes().filter { it.isPlatformAdminRoute() }.map { route ->
+            Endpoint(route.method(), route.path())
+        }
+        assertTrue(endpoints.any { it.path == "/users/{userId}" })
+
+        val platformAdmin = context.clientFor(null, isPlatformAdmin = true)
+        val tenantAdmin = context.clientFor(TenantRole.ADMIN)
+        val wrong = endpoints.mapNotNull { endpoint ->
+            val asTenantAdmin = tenantAdmin.call(endpoint, context.tenant).status
+            val asPlatformAdmin = platformAdmin.call(endpoint, context.tenant).status
+            val ok = asTenantAdmin == HttpStatusCode.Forbidden &&
+                asPlatformAdmin !in setOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
+            if (ok) null else "${endpoint.method.value} ${endpoint.path}: $asTenantAdmin / $asPlatformAdmin"
+        }
+        assertEquals(emptyList(), wrong)
     }
 
     @Test
@@ -95,8 +113,11 @@ class PermissionTest {
         assertContains(e.message.orEmpty(), "/tenants/{tenantId}/undeclared")
     }
 
+    private fun RoutingNode.method() =
+        generateSequence(this) { it.parent }.firstNotNullOf { (it.selector as? HttpMethodRouteSelector)?.method }
+
     private suspend fun HttpClient.call(endpoint: Endpoint, tenant: Uuid): HttpResponse =
-        request(endpoint.path.replace("{tenantId}", tenant.toString()).replace("{id}", Uuid.random().toString())) {
+        request(endpoint.path.replace("{tenantId}", tenant.toString()).replace(Regex("""\{\w+}"""), Uuid.random().toString())) {
             method = endpoint.method
             if (method == HttpMethod.Post || method == HttpMethod.Put) setBody("{}")
         }

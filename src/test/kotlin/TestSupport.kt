@@ -85,7 +85,7 @@ object TestDatabase {
 const val PASSWORD = "correct horse battery staple"
 
 /** A user created by [ApiTestContext.createUser], with a session. */
-data class TestUser(val id: Uuid, val username: String, val token: String)
+data class TestUser(val id: Uuid, val username: String, val displayName: String, val token: String)
 
 /** What an [apiTest] can use besides its default client. */
 class ApiTestContext(
@@ -108,9 +108,10 @@ class ApiTestContext(
         username: String = "user${++users}",
     ): TestUser {
         val hash = password?.let { TestDatabase.passwords.hash(it) }
+        val displayName = username.replaceFirstChar(Char::uppercase)
         return TestDatabase.db.query {
             val id = Users.insertAndGetId {
-                it[displayName] = username.replaceFirstChar(Char::uppercase)
+                it[Users.displayName] = displayName
                 it[Users.isPlatformAdmin] = isPlatformAdmin
             }
             PasswordLogins.insert {
@@ -125,7 +126,7 @@ class ApiTestContext(
                     it[TenantMembers.role] = role
                 }
             }
-            TestUser(id.value, username, startSession(id.value, LoginMethod.PASSWORD).token)
+            TestUser(id.value, username, displayName, startSession(id.value, LoginMethod.PASSWORD).token)
         }
     }
 

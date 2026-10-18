@@ -535,3 +535,26 @@ The next round of work (usability fixes, purchases updating the stock, new featu
   setup links incl. single use, expiry, disabled users, throttling over HTTP), unit tests for hashing, the semaphore
   and the throttle, bootstrap, the generated permission matrix (every tenant route × viewer/editor/admin/platform
   admin/non-member, and deleted tenants) and viewer damage reports.
+
+### 2026-10-18: Accounts and tenants, step 3 (tenants, users, members)
+
+- Platform admins (`platformAdminRoutes`, outside the tenant routes): `/tenants` (list incl. deleted, create, rename
+  and slug, soft delete, restore with 409 on name/slug conflicts) and `/users` (list with memberships, change name,
+  username, platform admin flag, disabled; delete; setup link). Disabling ends the user's sessions, so enabling them
+  again doesn't revive old ones.
+- Tenant members (`VIEW_MEMBERS` / `MANAGE_MEMBERS`): list, create account with setup link, change role and
+  optionally name/username, remove (the account stays), new setup link. Platform admins add users of other tenants
+  via `PUT /tenants/{t}/members/{userId}`.
+- Rules (`services/Accounts.kt`, `MemberService`): tenant admins can change roles of any member, but name, username
+  and setup links only of accounts that belong to their tenant alone, and nothing of platform admins (403). Unchanged
+  values in an update don't count as change, so a form can send all fields. The last enabled admin of a tenant and the
+  last enabled platform admin can't be demoted, removed, disabled or deleted (409); the tenant row (resp. the platform
+  admin rows) is locked first, a test lets two admins demote each other concurrently. Setup links are revoked on
+  every change of memberships (incl. role), platform admin flag or disabled state.
+- Slugs: lowercase with single hyphens, at most 50 characters, not one of the reserved top-level frontend paths
+  (`NewTenant.RESERVED_SLUGS`). "Stamm" is the German word for tenant in all messages (decided with the owner).
+- `Member` and `User` have `loginMethod` (always `PASSWORD` until hitobito) and `isDisabled`.
+- README: accounts, roles, bootstrap, recovery, configuration, error statuses.
+- Tests: member management (setup flow, usernames, escalation rules, last admin incl. concurrency, link revocation),
+  platform administration (tenant lifecycle incl. restore conflicts, user changes, last admins), platform routes
+  generated from the routing tree (tenant admins 403, platform admins pass). 64 tests in total.

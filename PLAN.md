@@ -259,7 +259,7 @@ Everything except login, setup and the OpenAPI document requires authentication 
   can set any status, so a viewer could otherwise decommission items.) The route passes the permission into the
   service.
 
-### 3.3 Tenants, users and members — [ ]
+### 3.3 Tenants, users and members — [x]
 
 Platform admin:
 
@@ -292,7 +292,7 @@ Rules:
   succeed. A new tenant starts without admins until the platform admin adds one.
 - Hitobito members (later) are read-only in all member endpoints.
 
-### 3.4 Tests — [ ]
+### 3.4 Tests — [x]
 
 - `TestSupport`: `apiTest` creates a tenant and an `EDITOR` via the services, logs in and configures the client with
   the bearer token and `/tenants/{id}/` as base path. Fixture paths become relative (`post("locations")`), since a
