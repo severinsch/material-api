@@ -648,3 +648,8 @@ From the owner's first test round:
 - Verified: backend tests (new: viewer loan rules, member borrowers incl. renamed, removed and deleted accounts),
   frontend check/lint/tests/build, and over HTTP against a throwaway stack (viewer and editor pages, the plain login
   form with right and wrong password). The borrower picker in the loan dialog is untested in a browser.
+- Short independent review of these changes: no authorization holes found (other loans, borrower changes,
+  reopening, non-members and members of other tenants all refused). Fixed: viewers were offered "Undo" after
+  returning a loan, which they can't reopen (403); now only editors get it. Accepted: after an account is deleted,
+  its loans show the name as of the last change to the loan, which can predate a later rename (documented on
+  `Loans.borrower`).

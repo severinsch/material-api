@@ -152,6 +152,7 @@ object KitGroupOptions : Table("kit_group_options") {
 }
 
 object Loans : UuidTable("loans") {
+    /** For members their name as of the last change to the loan, only shown after their account was deleted. */
     val borrower = varchar("borrower", 255)
     val borrowerId = optReference("borrower_id", Users, onDelete = ReferenceOption.SET_NULL)
     val lentAt = date("lent_at")
