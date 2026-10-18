@@ -14,6 +14,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.routing.*
 import io.ktor.server.testing.*
+import kotlinx.datetime.LocalDate
 import services.TenantService
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
@@ -101,6 +102,41 @@ class PermissionTest {
         report(NewDamageReport(item.id, "Riss", itemStatus = ItemStatus.IN_REPAIR)).expect<DamageReport>(HttpStatusCode.Created)
         report(NewDamageReport(item.id, "Riss", itemStatus = ItemStatus.ACTIVE)).expectError(HttpStatusCode.Forbidden)
         assertEquals(ItemStatus.IN_REPAIR, get("items/${item.id}").expect<IndividualItem>(HttpStatusCode.OK).status)
+    }
+
+    @Test
+    fun `viewers lend to themselves and only see and change their own open loans`() = apiTest { context ->
+        val bulk = createBulk()
+        val viewer = context.createUser(TenantRole.VIEWER)
+        val other = context.createUser(TenantRole.VIEWER)
+        val asViewer = context.client(viewer.token)
+        val loan = NewLoan(lentAt = LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(bulk.id, 2)), borrowerId = viewer.id)
+
+        val own: Loan = asViewer.post("loans") { setBody(loan) }.expect(HttpStatusCode.Created)
+        assertEquals(viewer.displayName, own.borrower)
+        asViewer.post("loans") { setBody(loan.copy(borrowerId = other.id)) }.expectError(HttpStatusCode.Forbidden)
+        asViewer.post("loans") { setBody(loan.copy(borrower = "Stamm Ost", borrowerId = null)) }
+            .expectError(HttpStatusCode.Forbidden)
+        val othersLoan: Loan = post("loans") { setBody(loan.copy(borrowerId = other.id)) }.expect(HttpStatusCode.Created)
+        val outsidersLoan: Loan = post("loans") { setBody(loan.copy(borrower = "Stamm Ost", borrowerId = null)) }
+            .expect(HttpStatusCode.Created)
+
+        assertEquals(listOf(own.id), asViewer.get("loans").expect<List<Loan>>(HttpStatusCode.OK).map { it.id })
+        assertEquals(3, get("loans").expect<List<Loan>>(HttpStatusCode.OK).size)
+        for (id in listOf(othersLoan.id, outsidersLoan.id)) {
+            asViewer.get("loans/$id").expectError(HttpStatusCode.NotFound)
+            asViewer.put("loans/$id") { setBody(loan) }.expectError(HttpStatusCode.NotFound)
+        }
+
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(materials = listOf(LoanQuantity(bulk.id, 3)))) }
+            .expect<Loan>(HttpStatusCode.OK)
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(borrowerId = other.id)) }.expectError(HttpStatusCode.Forbidden)
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = LocalDate(2026, 10, 3))) }
+            .expect<Loan>(HttpStatusCode.OK)
+        // Returned loans stay visible, but only editors can change them.
+        asViewer.get("loans/${own.id}").expect<Loan>(HttpStatusCode.OK)
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = null)) }.expectError(HttpStatusCode.Forbidden)
+        put("loans/${own.id}") { setBody(loan.copy(returnedAt = null)) }.expect<Loan>(HttpStatusCode.OK)
     }
 
     @Test

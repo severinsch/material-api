@@ -332,7 +332,10 @@ data class NewKitGroupOption(
 @Serializable
 data class Loan(
     val id: Uuid,
+    /** The borrower's name; for members their current display name. */
     val borrower: String,
+    /** The borrowing member, or null for someone without an account (or whose account was deleted). */
+    val borrowerId: Uuid?,
     val lentAt: LocalDate,
     val dueAt: LocalDate?,
     val returnedAt: LocalDate?,
@@ -342,21 +345,23 @@ data class Loan(
 )
 
 /**
- * Specific items must be active and on no other open loan; quantities must not exceed what is available, i.e. the
- * stock or the available items minus what other open loans hold.
+ * The borrower is either a member of the tenant ([borrowerId]), or someone without an account given by name
+ * ([borrower], ignored for members). Specific items must be active and on no other open loan; quantities must not
+ * exceed what is available, i.e. the stock or the available items minus what other open loans hold.
  */
 @Serializable
 data class NewLoan(
-    val borrower: String,
+    val borrower: String? = null,
     val lentAt: LocalDate,
     val dueAt: LocalDate? = null,
     val returnedAt: LocalDate? = null,
     val note: String? = null,
     val itemIds: List<Uuid> = emptyList(),
-    val materials: List<LoanQuantity> = emptyList()
+    val materials: List<LoanQuantity> = emptyList(),
+    val borrowerId: Uuid? = null
 ) {
     init {
-        requireText(borrower, "„Ausgeliehen an“", maxLength = 255)
+        if (borrowerId == null) requireText(borrower.orEmpty(), "„Ausgeliehen an“", maxLength = 255)
         require(itemIds.isNotEmpty() || materials.isNotEmpty()) { "Wähle mindestens einen Gegenstand oder ein Material aus." }
         require(itemIds.toSet().size == itemIds.size) { "Ein Gegenstand kann in einer Ausleihe nur einmal vorkommen." }
         require(materials.distinctBy { it.materialId }.size == materials.size) {

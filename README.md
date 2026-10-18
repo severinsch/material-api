@@ -30,9 +30,12 @@ Each user has a role per tenant:
 
 | Role | May |
 |---|---|
-| `VIEWER` | read everything, report damage (without resolving it or retiring items) |
-| `EDITOR` | also change inventory, loans, damage reports, kits and locations, and see the members |
+| `VIEWER` | read inventory, kits and locations, report damage (without resolving it or retiring items), lend to themselves and see and change their own open loans |
+| `EDITOR` | also change inventory, damage reports, kits and locations, manage all loans, and see the members |
 | `ADMIN` | also manage the members of the tenant |
+
+Loans to members are linked to their account (`borrowerId`), so they see them as their own; loans to someone
+without an account only have a name.
 
 Platform admins have full access to every tenant and manage tenants and all accounts (`/tenants`, `/users`). Every
 tenant route declares its permission with `requires(Permission.X) { … }` (`configure/Security.kt`); the application

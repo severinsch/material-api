@@ -34,6 +34,32 @@ class LoanAndDamageApiTest {
     }
 
     @Test
+    fun `loans to members show their current name and outlast their membership and account`() = apiTest { context ->
+        val bulk = createBulk()
+        val member = context.createUser(TenantRole.VIEWER)
+        val stranger = context.createUser(role = null)
+        val loan = NewLoan(lentAt = lentAt, materials = listOf(LoanQuantity(bulk.id, 1)), borrowerId = member.id)
+
+        val message = post("loans") { setBody(loan.copy(borrowerId = stranger.id)) }.expectError(HttpStatusCode.BadRequest)
+        assertEquals("Die ausleihende Person ist kein Mitglied dieses Stamms.", message)
+        post("loans") { setBody("""{"lentAt": "$lentAt", "materials": [{"materialId": "${bulk.id}", "quantity": 1}]}""") }
+            .expectError(HttpStatusCode.BadRequest)
+
+        // The name given is ignored for members.
+        val created: Loan = post("loans") { setBody(loan.copy(borrower = "Jemand")) }.expect(HttpStatusCode.Created)
+        assertEquals(member.id to member.displayName, created.borrowerId to created.borrower)
+        TestDatabase.execute("UPDATE users SET display_name = 'Max Neu' WHERE id = '${member.id}'")
+        assertEquals("Max Neu", get("loans/${created.id}").expect<Loan>(HttpStatusCode.OK).borrower)
+
+        // Still editable after leaving the tenant; after deleting the account, only the name remains.
+        TestDatabase.execute("DELETE FROM tenant_members WHERE user_id = '${member.id}'")
+        put("loans/${created.id}") { setBody(loan.copy(note = "Lager")) }.expect<Loan>(HttpStatusCode.OK)
+        TestDatabase.execute("DELETE FROM users WHERE id = '${member.id}'")
+        val orphaned: Loan = get("loans/${created.id}").expect(HttpStatusCode.OK)
+        assertEquals(null to "Max Neu", orphaned.borrowerId to orphaned.borrower)
+    }
+
+    @Test
     fun `a loan stays editable when one of its items is damaged`() = apiTest {
         val material = createIndividual()
         val item = createItem(material, "1")

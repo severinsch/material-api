@@ -629,3 +629,22 @@ The review found nothing that lets a user act in another tenant or reach the ses
 - Not changed: the members list doesn't know which accounts are platform admins or members elsewhere, so tenant
   admins can still open actions the API refuses with an explanatory 403 (would need an extra field in `Member`).
   The reserved slugs stay a copy in the frontend test, so its tests don't depend on the API repository.
+
+### 2026-10-18: Own loans for viewers, password manager fixes
+
+From the owner's first test round:
+
+- **Loans:** viewers no longer see all loans or the overview. New permission `BORROW` (viewers and up): lend to
+  oneself, see one's own loans, and change them until they are returned; other loans don't exist for them (404).
+  `EDIT` still manages all loans, and deleting needs it. Migration V3 adds `loans.borrower_id` (a user, `ON DELETE
+  SET NULL`): editors choose a member as borrower or enter a name for someone without an account; the API stores the
+  member's name as a fallback for deleted accounts and otherwise shows their current display name. A borrowing member
+  must belong to the tenant, unless they already are the loan's borrower (so old loans stay editable after someone
+  leaves). The overview (all open loans, damaged items) is for editors; the nav hides it for viewers.
+- **Bitwarden** neither filled in the login nor offered to save it. The login form is now a plain form submission
+  (no `use:enhance`), which password managers recognize best, with an explicit `type="text"` username. Setup and
+  password change showed the username only in `type="hidden"` fields, which password managers ignore; they now show
+  it in a read-only field. To be confirmed by the owner in the browser.
+- Verified: backend tests (new: viewer loan rules, member borrowers incl. renamed, removed and deleted accounts),
+  frontend check/lint/tests/build, and over HTTP against a throwaway stack (viewer and editor pages, the plain login
+  form with right and wrong password). The borrower picker in the loan dialog is untested in a browser.

@@ -2814,7 +2814,7 @@
                         }
                     },
                     "403": {
-                        "description": "Requires the permission EDIT in the tenant.",
+                        "description": "Requires the permission BORROW in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2824,7 +2824,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid loan or unknown item or material.",
+                        "description": "Invalid loan, unknown item or material, or the borrower isn't a member.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2861,7 +2861,7 @@
                 ]
             },
             "get": {
-                "summary": "Get all loans.",
+                "summary": "Get all loans; without the permission EDIT only the user's own.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -2904,7 +2904,7 @@
                         }
                     },
                     "403": {
-                        "description": "Requires the permission READ in the tenant.",
+                        "description": "Requires the permission BORROW in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2936,7 +2936,7 @@
         },
         "/tenants/{tenantId}/loans/{id}": {
             "put": {
-                "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned.",
+                "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned. Without the permission EDIT\nonly the user's own open loans, and they stay theirs.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -2980,7 +2980,7 @@
                         }
                     },
                     "404": {
-                        "description": "No loan with this id.",
+                        "description": "No loan with this id that the user may see.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2990,7 +2990,7 @@
                         }
                     },
                     "403": {
-                        "description": "Requires the permission EDIT in the tenant.",
+                        "description": "Requires the permission BORROW in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3127,7 +3127,7 @@
                         }
                     },
                     "404": {
-                        "description": "No loan with this id.",
+                        "description": "No loan with this id that the user may see.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3137,7 +3137,7 @@
                         }
                     },
                     "403": {
-                        "description": "Requires the permission READ in the tenant.",
+                        "description": "Requires the permission BORROW in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -5132,6 +5132,13 @@
                     "borrower": {
                         "type": "string"
                     },
+                    "borrowerId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
                     "lentAt": {
                         "type": "string",
                         "format": "date"
@@ -5175,12 +5182,14 @@
                 "type": "object",
                 "title": "NewLoan",
                 "required": [
-                    "borrower",
                     "lentAt"
                 ],
                 "properties": {
                     "borrower": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "lentAt": {
                         "type": "string",
@@ -5218,6 +5227,13 @@
                         "items": {
                             "$ref": "#/components/schemas/LoanQuantity"
                         }
+                    },
+                    "borrowerId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
                     }
                 }
             },

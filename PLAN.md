@@ -41,7 +41,8 @@ Decided with the owner (2026-10-18):
   in hand-written SQL. Without a tenant set, queries return nothing. Details in 2.3.
 - **Setup links for local accounts.** An admin creates an account and gets a single-use link to pass on; the user sets
   their own password. The same mechanism is the admin-triggered password reset. No email.
-- **Roles per tenant:** `VIEWER` (read everything, report damage), `EDITOR` (change inventory, loans, damage reports,
+- **Roles per tenant:** `VIEWER` (read, report damage, lend to themselves; see REVIEW.md 2026-10-18 for the loan
+  rules), `EDITOR` (change inventory, loans, damage reports,
   kits, locations; see the member list; expected to be Materialwart and Vorstand), `ADMIN` (also manage the tenant's
   members). Plus a global **platform admin** flag with full access to every tenant (no separate "support access").
 - **Hitobito accounts and local accounts are separate accounts.** A hitobito account's memberships come only from
@@ -246,8 +247,8 @@ Everything except login, setup and the OpenAPI document requires authentication 
   call attributes. Services receive the `TenantId` and run their transactions through `db.tenantQuery`; the queries
   themselves stay as they are (RLS filters, the default fills `tenant_id`). `References.kt` then automatically treats
   another tenant's ids as non-existent (400 "gibt es nicht").
-- Permissions: `READ`, `REPORT_DAMAGE`, `EDIT`, `VIEW_MEMBERS`, `MANAGE_MEMBERS`, derived from the role in one place
-  (`VIEWER`: read, report damage; `EDITOR`: + edit, view members; `ADMIN`: + manage members). The hitobito mapping
+- Permissions: `READ`, `REPORT_DAMAGE`, `BORROW`, `EDIT`, `VIEW_MEMBERS`, `MANAGE_MEMBERS`, derived from the role in
+  one place (`VIEWER`: read, report damage, borrow; `EDITOR`: + edit, view members; `ADMIN`: + manage members). The hitobito mapping
   later only has to produce a role.
 - **Every route declares its permission explicitly**; there is no default. At startup the routing tree is checked and
   the application refuses to start if a route below `/tenants/{tenantId}` has no declaration. The permission matrix

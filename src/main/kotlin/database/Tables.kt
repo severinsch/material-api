@@ -153,6 +153,7 @@ object KitGroupOptions : Table("kit_group_options") {
 
 object Loans : UuidTable("loans") {
     val borrower = varchar("borrower", 255)
+    val borrowerId = optReference("borrower_id", Users, onDelete = ReferenceOption.SET_NULL)
     val lentAt = date("lent_at")
     val dueAt = date("due_at").nullable()
     val returnedAt = date("returned_at").nullable()
