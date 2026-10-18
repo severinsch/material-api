@@ -317,7 +317,7 @@ Rules:
 
 ## 4. Frontend **(frontend)**
 
-### 4.1 Session handling — [ ]
+### 4.1 Session handling — [x]
 
 - `hooks.server.ts` `handle`: reads the cookie, loads `/auth/me` into `locals.user`, redirects page requests without a
   session to `/login?redirectTo=…` (except `/login`, `/setup`). Doing this in the hook rather than a layout load
@@ -343,7 +343,7 @@ Rules:
 - Headers: `Content-Security-Policy: frame-ancestors 'none'` (clickjacking of admin pages), `Referrer-Policy:
   same-origin`.
 
-### 4.2 Tenant routes — [ ]
+### 4.2 Tenant routes — [x]
 
 - All current pages move below `src/routes/[tenant]/`; the layout resolves the slug from `locals.user.tenants`
   (404 if unknown) and provides a tenant-bound API client, so call sites don't repeat the tenant id (e.g. a client
@@ -361,7 +361,7 @@ Rules:
   with the "in repair" toggle). The backend enforces everything regardless.
 - Damage dialog prefills "Gemeldet von" with the user's name.
 
-### 4.3 Administration — [ ]
+### 4.3 Administration — [x]
 
 - `/[tenant]/members`: editors read, admins manage: list with roles and "Einrichtung ausstehend", create account
   (shows the setup link with copy button and expiry), change role / name / username, new setup link, remove.

@@ -582,3 +582,33 @@ An adversarial review of the backend found one major and several minor problems;
 - Not changed: binding the compose port to localhost (decided against earlier; production uses vps-deployments).
   Indexes on `tenant_id`: the plan asked for one per root table, but the unique constraints on `(tenant_id, name)`
   already cover `storage_locations`, `materials` and `kits`, so only `loans` got its own.
+
+### 2026-10-18: Accounts and tenants, step 4 (frontend)
+
+material-frontend, branch `accounts`:
+
+- **Sessions (4.1):** `hooks.server.ts` loads `/auth/me` for page requests (not for `/api/*`, where the API checks
+  the token itself) and redirects to `/login?redirectTo=…`; `safeRedirectTarget` only accepts paths on the site (unit
+  tests incl. `//host`, `/\host`, tab/newline tricks). Login, logout (POST) and setup are form actions; the session
+  token only lives in an httpOnly `SameSite=Lax` cookie. The setup page reads the token from the URL fragment and
+  sends it to a form action. The proxy has an allowlist (`tenants/**`, `users/**`, `auth/me`, `auth/me/password`),
+  adds the bearer token and the client IP, rejects unsafe methods from other origins and clears the cookie on 401.
+  Loads redirect to the login on 401 (openapi-fetch middleware); `mutate` keeps the page and offers to log in in a
+  new tab. CSP `frame-ancestors 'none'` and `Referrer-Policy: same-origin` on all responses.
+- **Tenant routes (4.2):** all pages below `src/routes/[tenant]/`. The tenant layout resolves the slug from the
+  user's tenants on every navigation, so membership changes apply without reload; someone who lost access to the
+  tenant they were using lands on `/` with a notice (an alert there instead of the toast the plan suggested, since
+  `/` usually redirects on). Components get a tenant-bound client from context, typed by stripping
+  `/tenants/{tenantId}` from the generated paths, so call sites stay `api.GET('/materials')`. `/` goes to the only or
+  last used tenant (cookie) or shows a picker / "no access yet"; old top-level paths redirect via a param matcher.
+  Header with tenant switcher and user menu (account, members, administration, logout). Viewers don't see edit
+  actions; the damage dialog prefills "Gemeldet von". A test compares the reserved slugs with the route directories.
+- **Administration (4.3):** `/[tenant]/members` (editors read, admins create accounts with setup link and copy
+  button, change role/name/username, new setup link, remove) and `/admin` for platform admins (tenants: create with
+  slug suggestion, rename, delete, restore; accounts: edit incl. platform admin and disabled flags, add to a tenant,
+  setup link, delete).
+- Verified: `bun run check`, `eslint`, `prettier`, 29 unit tests, `bun run build`; the flows over HTTP against a
+  local stack on an empty database (bootstrap link → setup → tenant → member → viewer UI, login/logout, wrong
+  password, foreign origin, unknown API paths, reserved slugs, legacy redirects, removed member). Not clicked through
+  in a browser (extension unavailable): dialogs, the tenant switcher and the session-expired toast are untested.
+- Step 5 (deployment) is open and only happens together with the owner.
