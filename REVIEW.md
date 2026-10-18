@@ -304,13 +304,13 @@ check-in/check-out, which doesn't exist.
 3. ~~Decide kit group semantics (DB-5b).~~ Done, including DB-5a and DB-5c.
 4. ~~Backend: BE-1 … BE-8, DEP-1, missing endpoints.~~ Done.
 5. ~~Frontend: FE-1 … FE-6, DEP-2.~~ Done.
-6. Next: CI for both repositories. Login and tenants wait for the identity provider (section 6).
+6. Next: CI for both repositories; accounts and tenants (PLAN.md).
 
 ---
 
 ## 6. Expected future: login and tenants (nothing built yet)
 
-Status: waiting for real information. Don't build anything for this until the identity provider exists.
+Status: superseded on 2026-10-18. Accounts, password login and tenants are built now, independent of the identity provider; see PLAN.md. The backend owns sessions instead of validating hitobito tokens per request. The notes below remain the background for the later hitobito login (PLAN.md section 7).
 
 - **Identity provider:** the DPSG's new membership platform, expected to be an adapted
   [hitobito](https://hitobito.com/de/). Upstream hitobito is an OAuth 2.0 / OpenID Connect provider
