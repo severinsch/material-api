@@ -612,3 +612,20 @@ material-frontend, branch `accounts`:
   password, foreign origin, unknown API paths, reserved slugs, legacy redirects, removed member). Not clicked through
   in a browser (extension unavailable): dialogs, the tenant switcher and the session-expired toast are untested.
 - Step 5 (deployment) is open and only happens together with the owner.
+
+### 2026-10-18: Fixes from the independent review of step 4
+
+The review found nothing that lets a user act in another tenant or reach the session token; fixed:
+
+- `safeRedirectTarget` checked for `//` before resolving dot segments, so `/.//evil.example` became `//evil.example`
+  (SvelteKit's `redirect()` refused it, giving a 500). Now the normalized result is checked; tests added.
+- The root layout's user was only loaded once, so `/` and `/account` showed stale tenants after losing access (the
+  picker kept listing the lost tenant). The root layout now reruns on every navigation and the tenant layout reads
+  the user from it. Every unknown slug of a logged-in user now leads to `/` with the notice (instead of a 404 unless
+  it was the last used tenant), which also covers several open tabs.
+- Logout clears the cookie even if the API is down; the setup page can't hang on broken links or non-JSON answers;
+  "Undo" toasts stay bound to the tenant of the change; old links keep encoded path segments; no reset link for
+  disabled members; small accessibility and wording fixes, comments corrected.
+- Not changed: the members list doesn't know which accounts are platform admins or members elsewhere, so tenant
+  admins can still open actions the API refuses with an explanatory 403 (would need an extra field in `Member`).
+  The reserved slugs stay a copy in the frontend test, so its tests don't depend on the API repository.
