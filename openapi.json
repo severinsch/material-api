@@ -157,6 +157,16 @@
             "post": {
                 "summary": "End the current session.",
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "204": {
                         "description": ""
                     }
@@ -181,6 +191,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -201,6 +221,16 @@
             "get": {
                 "summary": "Get the current user and the tenants they have access to.",
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -241,6 +271,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "The current password is wrong, or the new one too short.",
                         "content": {
@@ -307,6 +347,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -369,6 +419,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -445,6 +505,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No location with this id.",
                         "content": {
@@ -507,6 +577,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No location with this id.",
                         "content": {
@@ -562,6 +642,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No location with this id.",
                         "content": {
@@ -625,6 +715,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -699,6 +799,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -775,6 +885,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No material with this id.",
                         "content": {
@@ -857,6 +977,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No material with this id.",
                         "content": {
@@ -922,6 +1052,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No material with this id.",
                         "content": {
@@ -985,6 +1125,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1066,6 +1216,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1142,6 +1302,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No item with this id.",
                         "content": {
@@ -1224,6 +1394,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No item with this id.",
                         "content": {
@@ -1289,6 +1469,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No item with this id.",
                         "content": {
@@ -1355,6 +1545,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1441,6 +1641,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1512,6 +1722,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1588,6 +1808,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No purchase with this id.",
                         "content": {
@@ -1660,6 +1890,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No purchase with this id.",
                         "content": {
@@ -1725,6 +1965,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No purchase with this id.",
                         "content": {
@@ -1788,6 +2038,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1859,6 +2119,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -1935,6 +2205,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No report with this id.",
                         "content": {
@@ -1997,6 +2277,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No report with this id.",
                         "content": {
@@ -2052,6 +2342,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No report with this id.",
                         "content": {
@@ -2115,6 +2415,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2187,6 +2497,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2263,6 +2583,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No kit with this id.",
                         "content": {
@@ -2325,6 +2655,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No kit with this id.",
                         "content": {
@@ -2380,6 +2720,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No kit with this id.",
                         "content": {
@@ -2443,6 +2793,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2523,6 +2883,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2599,6 +2969,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No loan with this id.",
                         "content": {
@@ -2671,6 +3051,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No loan with this id.",
                         "content": {
@@ -2726,6 +3116,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No loan with this id.",
                         "content": {
@@ -2789,6 +3189,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2851,6 +3261,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No tenant with this id, or the user has no access to it.",
                         "content": {
@@ -2927,6 +3347,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No member with this id.",
                         "content": {
@@ -2999,6 +3429,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No member with this id.",
                         "content": {
@@ -3066,6 +3506,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "No member with this id.",
                         "content": {
@@ -3127,6 +3577,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3177,6 +3637,16 @@
             "get": {
                 "summary": "Get all tenants, including deleted ones.",
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3233,6 +3703,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3295,6 +3775,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3342,6 +3832,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3394,6 +3894,16 @@
             "get": {
                 "summary": "Get all accounts with their memberships.",
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3450,6 +3960,16 @@
                     }
                 },
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3512,6 +4032,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {
@@ -3569,6 +4099,16 @@
                     }
                 ],
                 "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Only for platform admins.",
                         "content": {

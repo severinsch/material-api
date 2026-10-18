@@ -147,10 +147,12 @@ class TenantIsolationTest {
     /** The convention for tenant-owned tables in the README, so later migrations can't forget a part of it. */
     @Test
     fun `every tenant-owned table has the tenant default and the policy`() {
+        val policy = "(tenant_id = current_tenant_id())"
         val tables = TestDatabase.query(
             """
             SELECT c.relname, c.relrowsecurity, pg_get_expr(d.adbin, d.adrelid),
-                   EXISTS (SELECT FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation')
+                   EXISTS (SELECT FROM pg_policies p WHERE p.tablename = c.relname AND p.policyname = 'tenant_isolation'
+                                                     AND p.cmd = 'ALL' AND p.qual = '$policy' AND p.with_check = '$policy')
             FROM pg_attribute a
                      JOIN pg_class c ON c.oid = a.attrelid
                      LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
@@ -166,6 +168,19 @@ class TenantIsolationTest {
             assertEquals("current_tenant_id()", default, "default of $table.tenant_id")
             assertEquals(true, hasPolicy, "policy on $table")
         }
+
+        // A new table without tenant_id would be visible to all tenants: it has to be added here deliberately.
+        val withoutTenant = TestDatabase.query(
+            """
+            SELECT relname FROM pg_class c
+            WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace
+              AND NOT EXISTS (SELECT FROM pg_attribute WHERE attrelid = c.oid AND attname = 'tenant_id')
+            """
+        ).map { it.single() }.toSet()
+        assertEquals(
+            setOf("flyway_schema_history", "tenants", "users", "password_logins", "sessions", "setup_tokens"),
+            withoutTenant
+        )
     }
 
     @Test

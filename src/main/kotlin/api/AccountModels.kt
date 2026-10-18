@@ -22,7 +22,12 @@ enum class LoginMethod { PASSWORD }
 
 /** The username is case-insensitive; surrounding whitespace is ignored. */
 @Serializable
-data class Credentials(val username: String, val password: String)
+data class Credentials(val username: String, val password: String) {
+    init {
+        requireMaxLength(username, "Der Benutzername", 100)
+        requireMaxLength(password, "Das Passwort", MAX_PASSWORD_LENGTH)
+    }
+}
 
 /** The token is sent as `Authorization: Bearer <token>`. Sessions also end after 30 days without use. */
 @Serializable
@@ -60,6 +65,7 @@ data class NewProfile(val displayName: String) {
 @Serializable
 data class PasswordChange(val currentPassword: String, val newPassword: String) {
     init {
+        requireMaxLength(currentPassword, "Das aktuelle Passwort", MAX_PASSWORD_LENGTH)
         requireNewPassword(newPassword)
     }
 }
@@ -198,6 +204,9 @@ data class MemberUpdate(val role: TenantRole, val displayName: String? = null, v
 
 // ========= Validation helpers =========
 
+/** Longer passwords aren't hashed at all, so they can't be used to keep the server busy. */
+private const val MAX_PASSWORD_LENGTH = 200
+
 private val USERNAME = Regex("^[a-z0-9._-]{3,100}$")
 
 private fun requireUsername(value: String) = require(value.matches(USERNAME)) {
@@ -209,5 +218,5 @@ internal fun requireDisplayName(value: String) = requireText(value, "Der Name", 
 
 private fun requireNewPassword(value: String) {
     require(value.length >= 12) { "Das Passwort muss mindestens 12 Zeichen lang sein." }
-    requireMaxLength(value, "Das Passwort", 200)
+    requireMaxLength(value, "Das Passwort", MAX_PASSWORD_LENGTH)
 }

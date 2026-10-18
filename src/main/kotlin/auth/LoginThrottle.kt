@@ -74,7 +74,7 @@ class LoginThrottle(private val clock: Clock = Clock.System) {
 
     companion object {
         const val FREE_FAILURES = 5
-        val FIRST_DELAY = 1.seconds
+        val FIRST_DELAY = 5.seconds
         val MAX_DELAY = 15.minutes
         val FORGET_AFTER = 24.hours
         const val MAX_FAILURES_PER_IP = 50

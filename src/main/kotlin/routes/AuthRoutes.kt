@@ -5,10 +5,9 @@ import api.NewProfile
 import api.PasswordChange
 import api.PasswordSetup
 import api.SetupToken
-import configure.SESSION
+import configure.authenticated
 import configure.user
 import io.ktor.http.*
-import io.ktor.server.auth.*
 import io.ktor.server.plugins.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -48,7 +47,7 @@ fun Route.authRoutes(authService: AuthService) {
             call.respond(authService.completeSetup(call.receive<PasswordSetup>()))
         }
 
-        authenticate(SESSION) {
+        authenticated {
             /**
              * End the current session.
              */
@@ -87,9 +86,9 @@ fun Route.authRoutes(authService: AuthService) {
 }
 
 /**
- * The client's IP address for throttling. The API is only reachable from the frontend, which forwards the address in
- * `X-Forwarded-For`.
+ * The client's IP address for throttling. The API is only reachable from the frontend, which sets it as
+ * `X-Forwarded-For`. The last entry is the one added by the closest proxy, so clients can't choose it.
  */
 private val RoutingCall.clientIp: String
-    get() = request.headers[HttpHeaders.XForwardedFor]?.substringBefore(',')?.trim()?.ifEmpty { null }
+    get() = request.headers[HttpHeaders.XForwardedFor]?.substringAfterLast(',')?.trim()?.ifEmpty { null }
         ?: request.origin.remoteAddress

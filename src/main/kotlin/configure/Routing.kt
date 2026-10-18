@@ -4,7 +4,6 @@ import database.Db
 import io.ktor.http.*
 import io.ktor.openapi.*
 import io.ktor.server.application.*
-import io.ktor.server.auth.*
 import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
 import io.ktor.server.routing.*
@@ -17,7 +16,7 @@ fun Application.configureRouting(db: Db, authService: AuthService) {
     routing {
         authRoutes(authService)
 
-        authenticate(SESSION) {
+        authenticated {
             tenantRoutes(tenantService) {
                 // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant
                 // used as a property elsewhere gets a generated name.
@@ -47,5 +46,5 @@ fun Application.configureRouting(db: Db, authService: AuthService) {
             this.info = info
             this.source = source
         }
-    }
+    }.requirePermissionDeclarations()
 }

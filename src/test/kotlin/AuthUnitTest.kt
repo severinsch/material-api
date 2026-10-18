@@ -48,14 +48,14 @@ class AuthUnitTest {
             throttle.check("max", "ip")
             throttle.failed("max", "ip")
         }
-        assertEquals(1.seconds, waitTime { throttle.check("max", "ip") })
+        assertEquals(5.seconds, waitTime { throttle.check("max", "ip") })
         throttle.check("max", "other ip")
         throttle.check("moritz", "ip")
 
-        clock.now += 1.seconds
+        clock.now += 5.seconds
         throttle.check("max", "ip")
         throttle.failed("max", "ip")
-        assertEquals(2.seconds, waitTime { throttle.check("max", "ip") })
+        assertEquals(10.seconds, waitTime { throttle.check("max", "ip") })
 
         repeat(20) { throttle.failed("max", "ip") }
         assertEquals(LoginThrottle.MAX_DELAY, waitTime { throttle.check("max", "ip") })

@@ -3,7 +3,9 @@ import auth.Permission
 import auth.permissions
 import configure.TENANT_NOT_FOUND
 import configure.isPlatformAdminRoute
+import configure.requirePermissionDeclarations
 import configure.requiredPermission
+import configure.requires
 import configure.tenantRoutes
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -15,6 +17,7 @@ import io.ktor.server.testing.*
 import services.TenantService
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -105,12 +108,19 @@ class PermissionTest {
         val e = assertFailsWith<IllegalStateException> {
             testApplication {
                 application {
-                    routing { tenantRoutes(TenantService(TestDatabase.db)) { get("/undeclared") {} } }
+                    routing {
+                        tenantRoutes(TenantService(TestDatabase.db)) {
+                            requires(Permission.READ) { get("/declared") {} }
+                        }
+                        // Ends up below the tenant route, too.
+                        route("/tenants/{tenantId}/undeclared") { get {} }
+                    }.requirePermissionDeclarations()
                 }
                 startApplication()
             }
         }
         assertContains(e.message.orEmpty(), "/tenants/{tenantId}/undeclared")
+        assertFalse(e.message.orEmpty().contains("{tenantId}/declared"))
     }
 
     private fun RoutingNode.method() =

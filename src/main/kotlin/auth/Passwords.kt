@@ -24,8 +24,8 @@ class Passwords(private val config: Argon2Config) {
     private val random = SecureRandom()
     private val permits = Semaphore(MAX_CONCURRENT)
 
-    /** Verified instead of a missing hash, so unknown users take as long as known ones. */
-    private val dummyHash by lazy { hashBlocking(Tokens.generate()) }
+    /** Verified instead of a missing hash, so unknown users take as long as known ones (from the first login on). */
+    private val dummyHash = hashBlocking(Tokens.generate())
 
     suspend fun hash(password: String): String = limited { hashBlocking(password) }
 

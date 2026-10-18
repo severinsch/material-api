@@ -32,12 +32,13 @@ fun Application.module() {
     )
     monitor.subscribe(ApplicationStopped) { db.close() }
 
-    if (config.property("auth.bootstrap").getString().toBoolean()) bootstrap(db, config)
+    bootstrap(db, config)
     val authService = AuthService(db, Passwords(argon2Config(config)), LoginThrottle())
     launch {
         while (true) {
             delay(1.hours)
-            authService.cleanUp()
+            // A failure (e.g. the database restarting) must not end the loop.
+            runCatching { authService.cleanUp() }.onFailure { log.error("Cleaning up sessions failed", it) }
         }
     }
 
@@ -49,9 +50,12 @@ fun Application.module() {
 
 /** Logs setup links that keep the platform administration reachable, see [BootstrapService]. */
 private fun Application.bootstrap(db: Db, config: ApplicationConfig) {
-    val recoveryUsername = config.propertyOrNull("auth.adminSetupLinkFor")?.getString()?.ifBlank { null }
+    val createAdmin = config.property("auth.bootstrap").getString().toBoolean()
+    val recoveryUsername = config.propertyOrNull("auth.adminSetupLinkFor")?.getString()?.trim()?.lowercase()
+        ?.ifEmpty { null }
+    if (!createAdmin && recoveryUsername == null) return
     val frontendUrl = config.property("auth.frontendUrl").getString().trimEnd('/')
-    runBlocking { BootstrapService(db).run(recoveryUsername) }.forEach { (username, link) ->
+    runBlocking { BootstrapService(db).run(createAdmin, recoveryUsername) }.forEach { (username, link) ->
         log.warn("Setup link for $username, valid until ${link.expiresAt}: $frontendUrl/setup#${link.token}")
     }
 }

@@ -36,6 +36,7 @@ class MemberService(private val db: Db) {
 
     /** Changes the role and the given account fields. Platform admins can also add users of other tenants this way. */
     suspend fun update(access: TenantAccess, userId: Uuid, update: MemberUpdate): Member = db.query {
+        lockUser(userId)
         val tenant = access.tenant.value
         val current = findWhere { (TenantMembers.tenantId eq tenant) and (TenantMembers.userId eq userId) }.singleOrNull()
         val account = account(userId)
@@ -70,6 +71,7 @@ class MemberService(private val db: Db) {
 
     /** Removes the membership. The account stays, even without memberships, until a platform admin deletes it. */
     suspend fun remove(access: TenantAccess, userId: Uuid) = db.query {
+        lockUser(userId)
         val tenant = access.tenant.value
         val member = find(access.tenant, userId)
         requireNotPlatformAdmin(access, checkNotNull(account(userId)))
@@ -80,6 +82,7 @@ class MemberService(private val db: Db) {
 
     /** A new setup link, e.g. for a forgotten password. Replaces an older link; the password works until it's used. */
     suspend fun setupLink(access: TenantAccess, userId: Uuid): SetupLink = db.query {
+        lockUser(userId)
         val member = find(access.tenant, userId)
         val account = checkNotNull(account(userId))
         requireNotPlatformAdmin(access, account)

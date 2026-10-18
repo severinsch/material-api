@@ -558,3 +558,27 @@ The next round of work (usability fixes, purchases updating the stock, new featu
 - Tests: member management (setup flow, usernames, escalation rules, last admin incl. concurrency, link revocation),
   platform administration (tenant lifecycle incl. restore conflicts, user changes, last admins), platform routes
   generated from the routing tree (tenant admins 403, platform admins pass). 64 tests in total.
+
+### 2026-10-18: Fixes from the independent review of steps 1–3
+
+An adversarial review of the backend found one major and several minor problems; all fixed:
+
+- **Major:** `POST /auth/setup` hashed the password before checking the link, so unauthenticated requests with junk
+  tokens could keep both hashing slots busy and every login at 503. The link is now checked first.
+- Account changes (member update/remove/setup link, user update/delete/setup link) lock the user's row first, so the
+  "belongs to this tenant only" check can't race with a platform admin adding a membership.
+- Soft-deleted tenants no longer block disabling or deleting their only admin (they can do without admins).
+- The hourly cleanup survives failures (it stopped for good after one exception).
+- The permission declaration check runs over the whole routing tree after `routing {}`: a route with the same path
+  defined elsewhere ends up below the tenant route without declaration (Ktor merges equal path selectors).
+- The convention test also requires an allowlist for tables *without* `tenant_id` and checks the policy expression.
+- Credentials are capped (username 100, passwords 200 characters) before hashing.
+- `authenticated { }` documents 401 for all routes that need a session.
+- `ADMIN_SETUP_LINK_FOR` works independently of `AUTH_BOOTSTRAP`, and is trimmed and lowercased.
+- The dummy hash is computed at startup, the client IP is the last `X-Forwarded-For` entry, the first throttling
+  delay is 5 s (was 1 s, which also made the HTTP throttling test timing-sensitive), the revocation test checks the
+  database instead of the setup page (which hides disabled users anyway), README fixes (role created by V2, debug SQL
+  logging shows hashes, the API port must not be published).
+- Not changed: binding the compose port to localhost (decided against earlier; production uses vps-deployments).
+  Indexes on `tenant_id`: the plan asked for one per root table, but the unique constraints on `(tenant_id, name)`
+  already cover `storage_locations`, `materials` and `kits`, so only `loans` got its own.

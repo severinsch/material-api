@@ -17,12 +17,12 @@ import kotlin.uuid.Uuid
 class BootstrapService(private val db: Db) {
 
     /**
-     * Creates the platform admin [ADMIN] without password if there is no platform admin at all. Returns the setup
-     * links to log, by username: one for [ADMIN] as long as its password isn't set (renewed on every start), and one
-     * for [recoveryUsername], a platform admin who forgot their password.
+     * With [createAdmin], creates the platform admin [ADMIN] without password if there is no platform admin at all.
+     * Returns the setup links to log, by username: one for [ADMIN] as long as its password isn't set (renewed on every
+     * start), and one for [recoveryUsername], a platform admin who forgot their password.
      */
-    suspend fun run(recoveryUsername: String?): Map<String, SetupLink> = db.query {
-        if (Users.select(Users.id).where { Users.isPlatformAdmin eq true }.empty()) {
+    suspend fun run(createAdmin: Boolean, recoveryUsername: String?): Map<String, SetupLink> = db.query {
+        if (createAdmin && Users.select(Users.id).where { Users.isPlatformAdmin eq true }.empty()) {
             check(PasswordLogins.select(PasswordLogins.userId).where { PasswordLogins.username eq ADMIN }.empty()) {
                 "There is no platform admin, but the username $ADMIN is taken. Rename that user, or make an existing " +
                     "user platform admin in the database (users.is_platform_admin)."
@@ -37,7 +37,9 @@ class BootstrapService(private val db: Db) {
             }
         }
         buildMap {
-            userId(ADMIN, pendingSetup = true)?.let { put(ADMIN, issueSetupLink(it, NEW_ACCOUNT_LINK_VALIDITY)) }
+            if (createAdmin) {
+                userId(ADMIN, pendingSetup = true)?.let { put(ADMIN, issueSetupLink(it, NEW_ACCOUNT_LINK_VALIDITY)) }
+            }
             recoveryUsername?.let { username ->
                 val id = checkNotNull(userId(username)) {
                     "ADMIN_SETUP_LINK_FOR: $username isn't an enabled platform admin with a password login."

@@ -14,37 +14,37 @@ class BootstrapTest {
 
     @Test
     fun `the first platform admin gets a new setup link on every start until the password is set`() = runBlocking {
-        val first = bootstrap.run(recoveryUsername = null)
+        val first = bootstrap.run(createAdmin = true, recoveryUsername = null)
         assertEquals(setOf("admin"), first.keys)
         assertEquals(
             listOf(listOf(true, null)),
             TestDatabase.query("SELECT is_platform_admin, password_hash FROM users JOIN password_logins ON user_id = id")
         )
 
-        val second = bootstrap.run(recoveryUsername = null)
+        val second = bootstrap.run(createAdmin = true, recoveryUsername = null)
         assertNotEquals(first.getValue("admin").token, second.getValue("admin").token)
         assertEquals(1, TestDatabase.query("SELECT * FROM setup_tokens").size, "the old link is replaced")
 
         TestDatabase.execute("UPDATE password_logins SET password_hash = 'set'")
-        assertEquals(emptyMap(), bootstrap.run(recoveryUsername = null))
+        assertEquals(emptyMap(), bootstrap.run(createAdmin = true, recoveryUsername = null))
         assertEquals(1, TestDatabase.query("SELECT * FROM users").size)
     }
 
     @Test
     fun `a platform admin can get a recovery link`() = runBlocking {
-        bootstrap.run(recoveryUsername = null)
+        bootstrap.run(createAdmin = true, recoveryUsername = null)
         TestDatabase.execute("UPDATE password_logins SET password_hash = 'set'")
-        assertEquals(setOf("admin"), bootstrap.run(recoveryUsername = "admin").keys)
+        assertEquals(setOf("admin"), bootstrap.run(createAdmin = false, recoveryUsername = "admin").keys)
 
         insertUser("max", isPlatformAdmin = false)
-        assertFailsWith<IllegalStateException> { bootstrap.run(recoveryUsername = "max") }
-        assertFailsWith<IllegalStateException> { bootstrap.run(recoveryUsername = "nobody") }
+        assertFailsWith<IllegalStateException> { bootstrap.run(createAdmin = false, recoveryUsername = "max") }
+        assertFailsWith<IllegalStateException> { bootstrap.run(createAdmin = false, recoveryUsername = "nobody") }
     }
 
     @Test
     fun `startup fails if the username admin is taken by someone who isn't platform admin`() {
         insertUser("admin", isPlatformAdmin = false)
-        val e = assertFailsWith<IllegalStateException> { runBlocking { bootstrap.run(recoveryUsername = null) } }
+        val e = assertFailsWith<IllegalStateException> { runBlocking { bootstrap.run(createAdmin = true, recoveryUsername = null) } }
         assertContains(e.message.orEmpty(), "username admin is taken")
     }
 

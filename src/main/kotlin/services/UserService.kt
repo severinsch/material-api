@@ -18,6 +18,7 @@ class UserService(private val db: Db) {
 
     /** Disabling ends the user's sessions. Someone else must remain admin wherever the user stops being one. */
     suspend fun update(userId: Uuid, update: UserUpdate): User = db.query {
+        lockUser(userId)
         val user = find(userId)
         val disables = update.isDisabled && !user.isDisabled
         if (disables) requireOtherAdmins(userId)
@@ -41,13 +42,14 @@ class UserService(private val db: Db) {
 
     /** Deletes the account with its memberships and sessions. Nothing else references users. */
     suspend fun delete(userId: Uuid) = db.query {
-        find(userId)
+        if (!lockUser(userId)) notFound("Benutzer", userId)
         requireOtherAdmins(userId)
         Users.deleteWhere { id eq userId }
     }
 
     /** A new setup link for an account with a password login. Replaces an older link. */
     suspend fun setupLink(userId: Uuid): SetupLink = db.query {
+        lockUser(userId)
         val user = find(userId)
         if (user.username == null) invalid("Dieses Konto meldet sich nicht mit Passwort an.")
         if (user.isDisabled) conflict("Das Konto ist deaktiviert.")

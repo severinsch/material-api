@@ -59,6 +59,13 @@ internal fun revokeSetupLink(userId: Uuid) {
     SetupTokens.deleteWhere { SetupTokens.userId eq userId }
 }
 
+/**
+ * Locks the user's row until the transaction ends, so changes to an account and its memberships happen one after
+ * another and the checks of one see the result of the other. Returns whether the user exists.
+ */
+internal fun lockUser(userId: Uuid): Boolean =
+    Users.select(Users.id).where { Users.id eq userId }.forUpdate().any()
+
 internal fun requireFreeUsername(username: String, exceptUser: Uuid? = null) {
     val taken = PasswordLogins.select(PasswordLogins.userId)
         .where { (PasswordLogins.username eq username) and (exceptUser?.let { PasswordLogins.userId neq it } ?: Op.TRUE) }
@@ -92,11 +99,17 @@ internal fun requireOtherPlatformAdmin(userId: Uuid) {
     if (enabledAdmins == listOf(userId)) conflict("Es muss mindestens einen Plattform-Admin geben.")
 }
 
-/** Checks the rules for disabling or deleting [userId]: someone else must remain admin wherever they are one. */
+/**
+ * Checks the rules for disabling or deleting [userId]: someone else must remain admin wherever they are one. Deleted
+ * tenants don't count; they can do without admins like new ones.
+ */
 internal fun requireOtherAdmins(userId: Uuid) {
     requireOtherPlatformAdmin(userId)
-    TenantMembers.select(TenantMembers.tenantId)
-        .where { (TenantMembers.userId eq userId) and (TenantMembers.role eq TenantRole.ADMIN) }
+    TenantMembers.innerJoin(Tenants)
+        .select(TenantMembers.tenantId)
+        .where {
+            (TenantMembers.userId eq userId) and (TenantMembers.role eq TenantRole.ADMIN) and Tenants.deletedAt.isNull()
+        }
         .orderBy(TenantMembers.tenantId) // Lock order, against deadlocks.
         .map { it[TenantMembers.tenantId].value }
         .forEach { requireOtherTenantAdmin(it, userId) }

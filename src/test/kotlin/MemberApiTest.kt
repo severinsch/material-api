@@ -120,13 +120,13 @@ class MemberApiTest {
         val otherTenant = TestDatabase.createTenant("Stamm West")
         val user = context.createUser(TenantRole.VIEWER)
         suspend fun newLink() = platformAdmin.post("/users/${user.id}/setup-link").expect<SetupLink>(HttpStatusCode.OK).token
-        suspend fun linkWorks(token: String) =
-            context.client(null).post("/auth/setup/inspect") { setBody(SetupToken(token)) }.status == HttpStatusCode.OK
+        // Checked in the database: the setup page would hide the link of a disabled user anyway.
+        fun hasLink() = TestDatabase.query("SELECT * FROM setup_tokens WHERE user_id = '${user.id}'").isNotEmpty()
 
-        val beforeRename = newLink()
+        newLink()
         admin.put("members/${user.id}") { setBody(MemberUpdate(TenantRole.VIEWER, displayName = "Max")) }
             .expect<Member>(HttpStatusCode.OK)
-        assertTrue(linkWorks(beforeRename), "renaming doesn't change access")
+        assertTrue(hasLink(), "renaming doesn't change access")
 
         val changes = listOf<Pair<String, suspend () -> HttpStatusCode>>(
             "role" to { admin.put("members/${user.id}") { setBody(MemberUpdate(TenantRole.EDITOR)) }.status },
@@ -142,9 +142,9 @@ class MemberApiTest {
             },
         )
         for ((change, perform) in changes) {
-            val link = newLink()
+            newLink()
             assertTrue(perform().isSuccess(), change)
-            assertFalse(linkWorks(link), change)
+            assertFalse(hasLink(), change)
         }
     }
 

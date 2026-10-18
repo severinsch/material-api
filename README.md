@@ -156,13 +156,13 @@ docker compose up -d postgres   # empty database, the API creates the schema
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/scout_material` | |
 | `DATABASE_USER` / `DATABASE_PASSWORD` | `scout` / `scoutpass` | Matches docker-compose.yml |
 | `PORT` | `8080` | |
-| `SQL_LOG_LEVEL` | `INFO` | `DEBUG` logs all SQL statements |
+| `SQL_LOG_LEVEL` | `INFO` | `DEBUG` logs all SQL statements with their values, including password and token hashes: only for debugging |
 | `FRONTEND_URL` | `http://localhost:5173` | Base URL of the frontend, for the setup links in the log |
 | `AUTH_BOOTSTRAP` | `true` | Create the first platform admin on startup, see above |
-| `ADMIN_SETUP_LINK_FOR` | | Log a new setup link for this platform admin on startup |
+| `ADMIN_SETUP_LINK_FOR` | | Log a new setup link for this platform admin on startup (independent of `AUTH_BOOTSTRAP`) |
 
 The database user must be allowed to create roles (`CREATEROLE`, which the superuser of the official Postgres image
-has): the first migration creates the role `material_app`, which the application uses for all queries.
+has): the migrations create the role `material_app`, which the application uses for all queries.
 
 ## Deployment
 
@@ -172,5 +172,5 @@ Use the provided compose file to start both the database and the application.
 docker compose up -d --build
 ```
 
-The API must only be reachable from the frontend: it trusts the `X-Forwarded-For` header the frontend sets for the
-throttling of logins.
+The API must only be reachable from the frontend (don't publish its port): it trusts the `X-Forwarded-For` header
+the frontend sets for the throttling of logins.

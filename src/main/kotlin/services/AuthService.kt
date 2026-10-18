@@ -113,19 +113,12 @@ class AuthService(private val db: Db, private val passwords: Passwords, private 
         }
     }
 
-    suspend fun inspectSetup(setup: SetupToken): SetupInfo = db.query {
-        SetupTokens.innerJoin(Users).innerJoin(PasswordLogins)
-            .select(Users.displayName, PasswordLogins.username)
-            .where {
-                (SetupTokens.tokenHash eq Tokens.hash(setup.token)) and
-                    (SetupTokens.expiresAt greater Clock.System.now()) and Users.disabledAt.isNull()
-            }
-            .singleOrNull()
-            ?.let { SetupInfo(it[Users.displayName], it[PasswordLogins.username]) }
-    } ?: invalidLink()
+    suspend fun inspectSetup(setup: SetupToken): SetupInfo = db.query { setupInfo(setup.token) } ?: invalidLink()
 
     /** Uses up the link, sets the password, ends all existing sessions of the user and starts a new one. */
     suspend fun completeSetup(setup: PasswordSetup): SessionToken {
+        // Checked before hashing, so invalid links can't keep the hashing slots busy.
+        db.query { setupInfo(setup.token) } ?: invalidLink()
         val hash = passwords.hash(setup.password)
         return db.query {
             // One statement, so a link can't be used twice concurrently.
@@ -151,6 +144,16 @@ class AuthService(private val db: Db, private val passwords: Passwords, private 
         }
         throttle.cleanUp()
     }
+
+    /** The account of a valid setup link of an enabled user. */
+    private fun setupInfo(token: String): SetupInfo? = SetupTokens.innerJoin(Users).innerJoin(PasswordLogins)
+        .select(Users.displayName, PasswordLogins.username)
+        .where {
+            (SetupTokens.tokenHash eq Tokens.hash(token)) and (SetupTokens.expiresAt greater Clock.System.now()) and
+                Users.disabledAt.isNull()
+        }
+        .singleOrNull()
+        ?.let { SetupInfo(it[Users.displayName], it[PasswordLogins.username]) }
 
     private fun invalidLink(): Nothing = throw NotFoundException("Der Link ist ungültig oder abgelaufen.")
 }

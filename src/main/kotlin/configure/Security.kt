@@ -31,7 +31,21 @@ fun Application.configureSecurity(authService: AuthService) {
     }
 }
 
-/** The user of a call inside `authenticate(SESSION)`. */
+/** Routes in [build] require a session (401 otherwise). */
+@OptIn(ExperimentalKtorApi::class)
+fun Route.authenticated(build: Route.() -> Unit): Route = authenticate(SESSION) {
+    describe {
+        responses {
+            HttpStatusCode.Unauthorized {
+                description = "No valid session; log in again."
+                schema = jsonSchema<ErrorResponse>()
+            }
+        }
+    }
+    build()
+}
+
+/** The user of a call inside [authenticated]. */
 val ApplicationCall.user: UserPrincipal get() = checkNotNull(principal<UserPrincipal>()) { "Route not authenticated" }
 
 // ========= Tenants =========
@@ -62,7 +76,7 @@ private val TenantScope = createRouteScopedPlugin("TenantScope", ::TenantScopeCo
 
 /**
  * Routes of the tenant in the path, for its members and platform admins. Every route in [build] must declare the
- * permission it needs with [requires]; otherwise the application doesn't start.
+ * permission it needs with [requires], see [requirePermissionDeclarations].
  */
 fun Route.tenantRoutes(tenantService: TenantService, build: Route.() -> Unit) {
     /**
@@ -71,10 +85,23 @@ fun Route.tenantRoutes(tenantService: TenantService, build: Route.() -> Unit) {
      */
     route("/tenants/{tenantId}") {
         install(TenantScope) { this.tenantService = tenantService }
+        attributes.put(TenantRoutesKey, Unit)
         build()
-        val undeclared = (this as RoutingNode).getAllRoutes().filter { it.requiredPermission() == null }
-        check(undeclared.isEmpty()) { "Tenant routes without a permission declaration: ${undeclared.joinToString()}" }
     }
+}
+
+private val TenantRoutesKey = AttributeKey<Unit>("TenantRoutes")
+
+/**
+ * Fails if an endpoint below [tenantRoutes] declares no permission. Checks the whole tree, since routes defined
+ * elsewhere with the same path end up below the tenant route as well.
+ */
+fun RoutingNode.requirePermissionDeclarations() {
+    val undeclared = getAllRoutes().filter { route ->
+        val tenantRoute = generateSequence(route) { it.parent }.any { it.attributes.contains(TenantRoutesKey) }
+        tenantRoute && route.requiredPermission() == null
+    }
+    check(undeclared.isEmpty()) { "Tenant routes without a permission declaration: ${undeclared.joinToString()}" }
 }
 
 // ========= Permissions =========
