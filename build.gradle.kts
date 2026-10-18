@@ -4,6 +4,7 @@ val postgres_version = property("postgres_version")
 val hikari_version = property("hikari_version")
 val testcontainers_version = property("testcontainers_version")
 val flyway_version = property("flyway_version")
+val bouncycastle_version = property("bouncycastle_version")
 
 plugins {
     kotlin("jvm") version "2.4.21"
@@ -40,6 +41,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation")
     implementation("io.ktor:ktor-serialization-kotlinx-json")
     implementation("io.ktor:ktor-server-status-pages")
+    implementation("io.ktor:ktor-server-auth")
     implementation("io.ktor:ktor-server-routing-openapi")
     implementation("io.ktor:ktor-server-openapi")
     implementation("io.ktor:ktor-server-swagger")
@@ -51,6 +53,8 @@ dependencies {
     implementation("org.flywaydb:flyway-core:$flyway_version")
     implementation("org.flywaydb:flyway-database-postgresql:$flyway_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
+    // Argon2id password hashing, pure Java.
+    implementation("org.bouncycastle:bcprov-jdk18on:$bouncycastle_version")
     testImplementation(kotlin("test"))
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("io.ktor:ktor-client-content-negotiation")

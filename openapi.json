@@ -6,6 +6,282 @@
         "description": "API for managing scout material"
     },
     "paths": {
+        "/auth/login": {
+            "post": {
+                "summary": "Log in with username and password.",
+                "parameters": [
+                    {
+                        "name": "X-Forwarded-For",
+                        "in": "header",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Credentials"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "401": {
+                        "description": "Wrong username or password.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many failed attempts, see the Retry-After header.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Too many logins at the same time.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionToken"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/setup/inspect": {
+            "post": {
+                "summary": "Look up the account of a setup link, for the setup page.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SetupToken"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "The link is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SetupInfo"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/setup": {
+            "post": {
+                "summary": "Set the password with a setup link, which is used up. Ends all sessions of the user and logs in.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordSetup"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "404": {
+                        "description": "The link is invalid or expired.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Too many logins at the same time.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionToken"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "summary": "End the current session.",
+                "responses": {
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
+        "/auth/me": {
+            "put": {
+                "summary": "Change the own display name.",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewProfile"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CurrentUser"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            },
+            "get": {
+                "summary": "Get the current user and the tenants they have access to.",
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CurrentUser"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
+        "/auth/me/password": {
+            "put": {
+                "summary": "Change the own password. Ends all other sessions of the user.",
+                "parameters": [
+                    {
+                        "name": "X-Forwarded-For",
+                        "in": "header",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordChange"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "400": {
+                        "description": "The current password is wrong, or the new one too short.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many failed attempts, see the Retry-After header.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Too many logins at the same time.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
         "/tenants/{tenantId}/locations": {
             "post": {
                 "summary": "Create a storage location.",
@@ -32,7 +308,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -61,7 +347,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all storage locations.",
@@ -79,7 +370,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -101,7 +402,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/locations/{id}": {
@@ -149,6 +455,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -159,7 +475,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a storage location. Materials and items stored there keep existing without a location.",
@@ -196,10 +517,25 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a storage location.",
@@ -236,6 +572,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -246,7 +592,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/materials": {
@@ -275,7 +626,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -304,7 +665,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all materials.",
@@ -334,7 +700,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -356,7 +732,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/materials/{id}": {
@@ -404,6 +785,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid material or unknown location.",
                         "content": {
@@ -434,7 +825,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a material. Only possible while nothing references it (items, purchases, kits, loans).",
@@ -471,6 +867,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "The material is still in use.",
                         "content": {
@@ -484,7 +890,12 @@
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a material.",
@@ -521,6 +932,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -531,7 +952,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/items": {
@@ -560,7 +986,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -599,7 +1035,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all individual items.",
@@ -626,7 +1067,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -648,7 +1099,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/items/{id}": {
@@ -696,6 +1152,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid item.",
                         "content": {
@@ -726,7 +1192,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete an individual item. Only possible while it has no damage reports or loans; retire it via its status\notherwise.",
@@ -763,6 +1234,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "The item is still in use.",
                         "content": {
@@ -776,7 +1257,12 @@
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get an individual item.",
@@ -813,6 +1299,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -823,7 +1319,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/items/batch": {
@@ -855,7 +1356,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -897,7 +1408,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/purchases": {
@@ -926,7 +1442,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -955,7 +1481,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get the purchase history of bulk materials.",
@@ -982,7 +1513,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1004,7 +1545,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/purchases/{id}": {
@@ -1052,6 +1598,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "The stock would drop below the pieces lent out.",
                         "content": {
@@ -1072,7 +1628,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a purchase. Its quantity is subtracted from the stock again.",
@@ -1109,6 +1670,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "The stock would drop below the pieces lent out.",
                         "content": {
@@ -1122,7 +1693,12 @@
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a purchase.",
@@ -1159,6 +1735,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1169,12 +1755,17 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/damages": {
             "post": {
-                "summary": "Report a damage.",
+                "summary": "Report a damage. Without the permission EDIT (viewers), only unresolved reports without resolution\nnotes, and `itemStatus` can only send an active item to repair.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1198,7 +1789,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission REPORT_DAMAGE in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1227,7 +1828,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all damage reports.",
@@ -1254,7 +1860,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1276,7 +1892,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/damages/{id}": {
@@ -1324,6 +1945,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1334,7 +1965,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a damage report.",
@@ -1371,10 +2007,25 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a damage report.",
@@ -1411,6 +2062,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1421,7 +2082,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/kits": {
@@ -1450,7 +2116,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1489,7 +2165,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all kits.",
@@ -1507,7 +2188,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1529,7 +2220,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/kits/{id}": {
@@ -1577,6 +2273,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1587,7 +2293,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a kit.",
@@ -1624,10 +2335,25 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a kit.",
@@ -1664,6 +2390,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1674,7 +2410,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/loans": {
@@ -1703,7 +2444,17 @@
                 },
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1742,7 +2493,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get all loans.",
@@ -1768,7 +2524,17 @@
                 ],
                 "responses": {
                     "404": {
-                        "description": "No tenant with this id.",
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1790,7 +2556,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         },
         "/tenants/{tenantId}/loans/{id}": {
@@ -1838,6 +2609,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "Same as for creating a loan.",
                         "content": {
@@ -1858,7 +2639,12 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "delete": {
                 "summary": "Delete a loan.",
@@ -1895,10 +2681,25 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             },
             "get": {
                 "summary": "Get a loan.",
@@ -1935,6 +2736,16 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1945,13 +2756,34 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
             }
         }
     },
     "webhooks": {},
     "components": {
         "schemas": {
+            "Credentials": {
+                "type": "object",
+                "title": "Credentials",
+                "required": [
+                    "username",
+                    "password"
+                ],
+                "properties": {
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
             "ErrorResponse": {
                 "type": "object",
                 "title": "ErrorResponse",
@@ -1960,6 +2792,163 @@
                 ],
                 "properties": {
                     "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SessionToken": {
+                "type": "object",
+                "title": "SessionToken",
+                "required": [
+                    "token",
+                    "expiresAt"
+                ],
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "SetupToken": {
+                "type": "object",
+                "title": "SetupToken",
+                "required": [
+                    "token"
+                ],
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SetupInfo": {
+                "type": "object",
+                "title": "SetupInfo",
+                "required": [
+                    "displayName",
+                    "username"
+                ],
+                "properties": {
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PasswordSetup": {
+                "type": "object",
+                "title": "PasswordSetup",
+                "required": [
+                    "token",
+                    "password"
+                ],
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UserTenant": {
+                "type": "object",
+                "title": "UserTenant",
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "role",
+                    "isMember"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "VIEWER",
+                            "EDITOR",
+                            "ADMIN"
+                        ]
+                    },
+                    "isMember": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "CurrentUser": {
+                "type": "object",
+                "title": "CurrentUser",
+                "required": [
+                    "id",
+                    "displayName",
+                    "isPlatformAdmin",
+                    "tenants"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "isPlatformAdmin": {
+                        "type": "boolean"
+                    },
+                    "tenants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserTenant"
+                        }
+                    }
+                }
+            },
+            "NewProfile": {
+                "type": "object",
+                "title": "NewProfile",
+                "required": [
+                    "displayName"
+                ],
+                "properties": {
+                    "displayName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PasswordChange": {
+                "type": "object",
+                "title": "PasswordChange",
+                "required": [
+                    "currentPassword",
+                    "newPassword"
+                ],
+                "properties": {
+                    "currentPassword": {
+                        "type": "string"
+                    },
+                    "newPassword": {
                         "type": "string"
                     }
                 }
@@ -2838,6 +3827,13 @@
                         }
                     }
                 }
+            }
+        },
+        "securitySchemes": {
+            "session": {
+                "scheme": "bearer",
+                "description": "Session token from POST /auth/login",
+                "type": "http"
             }
         }
     }

@@ -26,7 +26,7 @@ class TenantIsolationTest {
         val loan: Loan = post("loans") { setBody(loanOf(itemIds = listOf(item.id))) }.expect(HttpStatusCode.Created)
 
         // The other tenant's bodies reference its own data, so a PUT fails only because the id is unknown there.
-        val other = context.client(TestDatabase.createTenant("Stamm West"))
+        val other = context.clientFor(TenantRole.EDITOR, TestDatabase.createTenant("Stamm West"))
         val otherBulk = other.createBulk()
         val otherItem = other.createItem(other.createIndividual(), "1")
         val resources = listOf(
@@ -62,7 +62,7 @@ class TenantIsolationTest {
         val individual = createIndividual()
         val item = createItem(individual, "1")
 
-        val other = context.client(TestDatabase.createTenant("Stamm West"))
+        val other = context.clientFor(TenantRole.EDITOR, TestDatabase.createTenant("Stamm West"))
         val otherIndividual = other.createIndividual()
         val requests = listOf(
             other.post("materials") {

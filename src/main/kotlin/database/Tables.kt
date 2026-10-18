@@ -67,7 +67,8 @@ object Sessions : UuidTable("sessions") {
 }
 
 object SetupTokens : Table("setup_tokens") {
-    val userId = reference("user_id", PasswordLogins.userId, onDelete = ReferenceOption.CASCADE)
+    // The schema references password_logins (users with a password only); Exposed can only reference id tables.
+    val userId = reference("user_id", Users, onDelete = ReferenceOption.CASCADE)
     val tokenHash = binary("token_hash")
     val expiresAt = timestamp("expires_at")
     override val primaryKey = PrimaryKey(userId)

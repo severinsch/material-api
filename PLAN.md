@@ -198,7 +198,7 @@ created. The platform admin renames the tenant afterwards.
 
 ## 3. Backend
 
-### 3.1 Authentication — [ ]
+### 3.1 Authentication — [x]
 
 - `auth/Passwords.kt`: Argon2id via Bouncy Castle (pure Java, works on the Alpine image), OWASP parameters
   (19 MiB, 2 iterations, 1 lane), configurable so tests can use cheap ones. PHC string format, so parameters can be
@@ -238,7 +238,7 @@ privileges than the user had when it was issued.
 
 Everything except login, setup and the OpenAPI document requires authentication (401).
 
-### 3.2 Tenant scoping and permissions — [ ]
+### 3.2 Tenant scoping and permissions — [x]
 
 - `TenantId` value class (`@JvmInline value class TenantId(val value: Uuid)`).
 - All domain routes move into `route("/tenants/{tenantId}") { … }`. A route-scoped plugin resolves the membership (or

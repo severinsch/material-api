@@ -11,3 +11,12 @@ database:
     user: "$DATABASE_USER:scout"
     password: "$DATABASE_PASSWORD:scoutpass"
 
+
+auth:
+    # On startup: create the platform admin "admin" if there is no platform admin, and log a setup link for it as long
+    # as its password isn't set.
+    bootstrap: "$AUTH_BOOTSTRAP:true"
+    # On startup: log a new setup link for this platform admin, e.g. after a forgotten password.
+    adminSetupLinkFor: "$?ADMIN_SETUP_LINK_FOR"
+    # Base URL of the frontend, for the setup links in the log.
+    frontendUrl: "$FRONTEND_URL:http://localhost:5173"

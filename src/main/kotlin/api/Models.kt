@@ -384,12 +384,12 @@ private const val MAX_PRICE = 99_999_999.99 // DECIMAL(10, 2)
 
 // [field] is the subject of the message including its article, e.g. "Der Name".
 
-private fun requireText(value: String, field: String, maxLength: Int? = null) {
+internal fun requireText(value: String, field: String, maxLength: Int? = null) {
     require(value.isNotBlank()) { "$field darf nicht leer sein." }
     maxLength?.let { requireMaxLength(value, field, it) }
 }
 
-private fun requireMaxLength(value: String?, field: String, maxLength: Int) =
+internal fun requireMaxLength(value: String?, field: String, maxLength: Int) =
     require(value == null || value.length <= maxLength) { "$field darf höchstens $maxLength Zeichen lang sein." }
 
 private fun requireNonNegative(value: Int, field: String) = require(value >= 0) { "$field darf nicht negativ sein." }

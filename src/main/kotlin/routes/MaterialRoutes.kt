@@ -1,9 +1,11 @@
 package routes
 
-import configure.tenant
 import api.MaterialTrackingType
 import api.NewIndividualItem
 import api.NewMaterial
+import auth.Permission
+import configure.requires
+import configure.tenant
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -13,129 +15,137 @@ import services.MaterialService
 
 fun Route.materialRoutes(materialService: MaterialService) {
     route("/materials") {
-        /**
-         * Get all materials.
-         *
-         * Query: type [api.MaterialTrackingType] Only return materials of this type.
-         */
-        get {
-            call.respond(materialService.getAll(call.tenant, call.enumQueryParameter<MaterialTrackingType>("type")))
+        requires(Permission.READ) {
+            /**
+             * Get all materials.
+             *
+             * Query: type [api.MaterialTrackingType] Only return materials of this type.
+             */
+            get {
+                call.respond(materialService.getAll(call.tenant, call.enumQueryParameter<MaterialTrackingType>("type")))
+            }
+
+            /**
+             * Get a material.
+             *
+             * Path: id [kotlin.uuid.Uuid] The material id.
+             * Response: 404 application/json [api.ErrorResponse] No material with this id.
+             */
+            get("/{id}") {
+                call.respond(materialService.get(call.tenant, call.uuidPathParameter()))
+            }
         }
 
-        /**
-         * Get a material.
-         *
-         * Path: id [kotlin.uuid.Uuid] The material id.
-         * Response: 404 application/json [api.ErrorResponse] No material with this id.
-         */
-        get("/{id}") {
-            call.respond(materialService.get(call.tenant, call.uuidPathParameter()))
-        }
+        requires(Permission.EDIT) {
+            /**
+             * Create a material. `trackingType` decides whether it's a bulk or an individual material.
+             *
+             * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
+             */
+            post {
+                call.respond(HttpStatusCode.Created, materialService.create(call.tenant, call.receive<NewMaterial>()))
+            }
 
-        /**
-         * Create a material. `trackingType` decides whether it's a bulk or an individual material.
-         *
-         * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
-         */
-        post {
-            call.respond(HttpStatusCode.Created, materialService.create(call.tenant, call.receive<NewMaterial>()))
-        }
+            /**
+             * Replace a material. Its `trackingType` can't be changed.
+             *
+             * Path: id [kotlin.uuid.Uuid] The material id.
+             * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
+             * Response: 404 application/json [api.ErrorResponse] No material with this id.
+             * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, or the stock
+             * differs from `expectedAvailableCount` or would drop below the pieces lent out.
+             */
+            put("/{id}") {
+                val id = call.uuidPathParameter()
+                call.respond(materialService.update(call.tenant, id, call.receive<NewMaterial>()))
+            }
 
-        /**
-         * Replace a material. Its `trackingType` can't be changed.
-         *
-         * Path: id [kotlin.uuid.Uuid] The material id.
-         * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
-         * Response: 404 application/json [api.ErrorResponse] No material with this id.
-         * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, or the stock
-         * differs from `expectedAvailableCount` or would drop below the pieces lent out.
-         */
-        put("/{id}") {
-            val id = call.uuidPathParameter()
-            call.respond(materialService.update(call.tenant, id, call.receive<NewMaterial>()))
-        }
-
-        /**
-         * Delete a material. Only possible while nothing references it (items, purchases, kits, loans).
-         *
-         * Path: id [kotlin.uuid.Uuid] The material id.
-         * Response: 404 application/json [api.ErrorResponse] No material with this id.
-         * Response: 409 application/json [api.ErrorResponse] The material is still in use.
-         */
-        delete("/{id}") {
-            materialService.delete(call.tenant, call.uuidPathParameter())
-            call.respond(HttpStatusCode.NoContent)
+            /**
+             * Delete a material. Only possible while nothing references it (items, purchases, kits, loans).
+             *
+             * Path: id [kotlin.uuid.Uuid] The material id.
+             * Response: 404 application/json [api.ErrorResponse] No material with this id.
+             * Response: 409 application/json [api.ErrorResponse] The material is still in use.
+             */
+            delete("/{id}") {
+                materialService.delete(call.tenant, call.uuidPathParameter())
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
     }
 }
 
 fun Route.itemRoutes(itemService: ItemService) {
     route("/items") {
-        /**
-         * Get all individual items.
-         *
-         * Query: materialId [kotlin.uuid.Uuid] Only return items of this material.
-         */
-        get {
-            call.respond(itemService.getAll(call.tenant, call.uuidQueryParameter("materialId")))
+        requires(Permission.READ) {
+            /**
+             * Get all individual items.
+             *
+             * Query: materialId [kotlin.uuid.Uuid] Only return items of this material.
+             */
+            get {
+                call.respond(itemService.getAll(call.tenant, call.uuidQueryParameter("materialId")))
+            }
+
+            /**
+             * Get an individual item.
+             *
+             * Path: id [kotlin.uuid.Uuid] The item id.
+             * Response: 404 application/json [api.ErrorResponse] No item with this id.
+             */
+            get("/{id}") {
+                call.respond(itemService.get(call.tenant, call.uuidPathParameter()))
+            }
         }
 
-        /**
-         * Get an individual item.
-         *
-         * Path: id [kotlin.uuid.Uuid] The item id.
-         * Response: 404 application/json [api.ErrorResponse] No item with this id.
-         */
-        get("/{id}") {
-            call.respond(itemService.get(call.tenant, call.uuidPathParameter()))
-        }
+        requires(Permission.EDIT) {
+            /**
+             * Create an individual item.
+             *
+             * Response: 400 application/json [api.ErrorResponse] Invalid item, or the material isn't an individual one.
+             * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
+             */
+            post {
+                call.respond(HttpStatusCode.Created, itemService.create(call.tenant, call.receive<NewIndividualItem>()))
+            }
 
-        /**
-         * Create an individual item.
-         *
-         * Response: 400 application/json [api.ErrorResponse] Invalid item, or the material isn't an individual one.
-         * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
-         */
-        post {
-            call.respond(HttpStatusCode.Created, itemService.create(call.tenant, call.receive<NewIndividualItem>()))
-        }
+            /**
+             * Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are
+             * created or none.
+             *
+             * Response: 400 application/json [api.ErrorResponse] Invalid or no items, or a material isn't an individual one.
+             * Response: 409 application/json [api.ErrorResponse] An identifier is taken or used twice.
+             */
+            post("/batch") {
+                val items = call.receive<List<NewIndividualItem>>()
+                call.respond(HttpStatusCode.Created, itemService.createAll(call.tenant, items))
+            }
 
-        /**
-         * Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are
-         * created or none.
-         *
-         * Response: 400 application/json [api.ErrorResponse] Invalid or no items, or a material isn't an individual one.
-         * Response: 409 application/json [api.ErrorResponse] An identifier is taken or used twice.
-         */
-        post("/batch") {
-            val items = call.receive<List<NewIndividualItem>>()
-            call.respond(HttpStatusCode.Created, itemService.createAll(call.tenant, items))
-        }
+            /**
+             * Replace an individual item. Its `materialId` can't be changed.
+             *
+             * Path: id [kotlin.uuid.Uuid] The item id.
+             * Response: 400 application/json [api.ErrorResponse] Invalid item.
+             * Response: 404 application/json [api.ErrorResponse] No item with this id.
+             * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
+             */
+            put("/{id}") {
+                val id = call.uuidPathParameter()
+                call.respond(itemService.update(call.tenant, id, call.receive<NewIndividualItem>()))
+            }
 
-        /**
-         * Replace an individual item. Its `materialId` can't be changed.
-         *
-         * Path: id [kotlin.uuid.Uuid] The item id.
-         * Response: 400 application/json [api.ErrorResponse] Invalid item.
-         * Response: 404 application/json [api.ErrorResponse] No item with this id.
-         * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
-         */
-        put("/{id}") {
-            val id = call.uuidPathParameter()
-            call.respond(itemService.update(call.tenant, id, call.receive<NewIndividualItem>()))
-        }
-
-        /**
-         * Delete an individual item. Only possible while it has no damage reports or loans; retire it via its status
-         * otherwise.
-         *
-         * Path: id [kotlin.uuid.Uuid] The item id.
-         * Response: 404 application/json [api.ErrorResponse] No item with this id.
-         * Response: 409 application/json [api.ErrorResponse] The item is still in use.
-         */
-        delete("/{id}") {
-            itemService.delete(call.tenant, call.uuidPathParameter())
-            call.respond(HttpStatusCode.NoContent)
+            /**
+             * Delete an individual item. Only possible while it has no damage reports or loans; retire it via its status
+             * otherwise.
+             *
+             * Path: id [kotlin.uuid.Uuid] The item id.
+             * Response: 404 application/json [api.ErrorResponse] No item with this id.
+             * Response: 409 application/json [api.ErrorResponse] The item is still in use.
+             */
+            delete("/{id}") {
+                itemService.delete(call.tenant, call.uuidPathParameter())
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
     }
 }

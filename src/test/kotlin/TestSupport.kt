@@ -8,8 +8,16 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import auth.Argon2Config
+import auth.Passwords
+import database.*
+import io.ktor.server.application.*
 import io.ktor.server.config.*
+import io.ktor.server.routing.*
 import io.ktor.server.testing.*
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertAndGetId
+import services.startSession
 import org.flywaydb.core.Flyway
 import org.testcontainers.postgresql.PostgreSQLContainer
 import java.sql.Connection
@@ -29,7 +37,16 @@ object TestDatabase {
         "database.url" to container.jdbcUrl,
         "database.user" to container.username,
         "database.password" to container.password,
+        "auth.bootstrap" to "false",
+        "auth.argon2.memoryKib" to "64",
+        "auth.argon2.iterations" to "1",
     )
+
+    /** Cheap hashing for tests, as in [config]. */
+    val passwords = Passwords(Argon2Config(memoryKib = 64, iterations = 1))
+
+    /** For fixtures that are simpler to set up directly than through the API. */
+    val db by lazy { Db(DatabaseConfig(container.jdbcUrl, container.username, container.password)) }
 
     /** URL of another database in the same container, e.g. created by [execute]. */
     fun url(database: String) = "jdbc:postgresql://${container.host}:${container.firstMappedPort}/$database"
@@ -65,29 +82,83 @@ object TestDatabase {
     }
 }
 
-/** What an [apiTest] can use besides its default client. */
-class ApiTestContext(private val builder: ApplicationTestBuilder, val tenant: Uuid) {
+const val PASSWORD = "correct horse battery staple"
 
-    /** A client for the API of [tenant]. */
-    fun client(tenant: Uuid = this.tenant): HttpClient = builder.createClient {
+/** A user created by [ApiTestContext.createUser], with a session. */
+data class TestUser(val id: Uuid, val username: String, val token: String)
+
+/** What an [apiTest] can use besides its default client. */
+class ApiTestContext(
+    private val builder: ApplicationTestBuilder,
+    /** The tenant of the default client, which belongs to an EDITOR. */
+    val tenant: Uuid,
+    val routing: RoutingRoot,
+) {
+    private var users = 0
+
+    /**
+     * A user with [role] in [tenant] (no membership if null) and the password [PASSWORD] (pending setup if null),
+     * logged in.
+     */
+    suspend fun createUser(
+        role: TenantRole? = TenantRole.EDITOR,
+        tenant: Uuid = this.tenant,
+        isPlatformAdmin: Boolean = false,
+        password: String? = PASSWORD,
+        username: String = "user${++users}",
+    ): TestUser {
+        val hash = password?.let { TestDatabase.passwords.hash(it) }
+        return TestDatabase.db.query {
+            val id = Users.insertAndGetId {
+                it[displayName] = username.replaceFirstChar(Char::uppercase)
+                it[Users.isPlatformAdmin] = isPlatformAdmin
+            }
+            PasswordLogins.insert {
+                it[userId] = id
+                it[PasswordLogins.username] = username
+                it[passwordHash] = hash
+            }
+            role?.let { role ->
+                TenantMembers.insert {
+                    it[tenantId] = tenant
+                    it[userId] = id
+                    it[TenantMembers.role] = role
+                }
+            }
+            TestUser(id.value, username, startSession(id.value, LoginMethod.PASSWORD).token)
+        }
+    }
+
+    /** A client for the API of [tenant], logged in with [token] if given. */
+    fun client(token: String?, tenant: Uuid = this.tenant): HttpClient = builder.createClient {
         install(ContentNegotiation) { json(ApiJson) }
         defaultRequest {
             url("http://localhost/tenants/$tenant/")
             contentType(ContentType.Application.Json)
+            token?.let(::bearerAuth)
         }
     }
+
+    /** A client of a new user with [role] in [tenant]. */
+    suspend fun clientFor(role: TenantRole?, tenant: Uuid = this.tenant, isPlatformAdmin: Boolean = false) =
+        client(createUser(role, tenant, isPlatformAdmin).token, tenant)
 }
 
 /**
- * Runs [block] against the full application on an empty database with one tenant. Requests go to the tenant's API
- * by default, so paths are relative (`get("materials")`); a leading slash leaves the tenant.
+ * Runs [block] against the full application on an empty database with one tenant, as one of its editors. Requests
+ * go to the tenant's API by default, so paths are relative (`get("materials")`); a leading slash leaves the tenant.
  */
 fun apiTest(block: suspend HttpClient.(ApiTestContext) -> Unit) = testApplication {
     TestDatabase.truncateAll()
     environment { config = TestDatabase.config }
-    application { module() }
-    val context = ApiTestContext(this, TestDatabase.createTenant())
-    context.client().block(context)
+    lateinit var routing: RoutingRoot
+    application {
+        module()
+        routing = plugin(RoutingRoot)
+    }
+    startApplication()
+    val context = ApiTestContext(this, TestDatabase.createTenant(), routing)
+    context.clientFor(TenantRole.EDITOR).block(context)
 }
 
 suspend inline fun <reified T> HttpResponse.expect(status: HttpStatusCode): T {

@@ -8,9 +8,13 @@ import io.ktor.server.plugins.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
+import services.BusyException
 import services.ConflictException
+import services.ForbiddenException
 import services.InvalidRequestException
 import services.NotFoundException
+import services.TooManyRequestsException
+import services.UnauthorizedException
 import org.postgresql.util.PSQLException
 import java.sql.SQLException
 
@@ -27,8 +31,19 @@ fun Application.configureErrorHandling() {
             call.respondError(HttpStatusCode.BadRequest, message)
         }
         exception<InvalidRequestException> { call, e -> call.respondError(HttpStatusCode.BadRequest, e.message) }
+        exception<UnauthorizedException> { call, e -> call.respondError(HttpStatusCode.Unauthorized, e.message) }
+        exception<ForbiddenException> { call, e -> call.respondError(HttpStatusCode.Forbidden, e.message) }
         exception<NotFoundException> { call, e -> call.respondError(HttpStatusCode.NotFound, e.message) }
         exception<ConflictException> { call, e -> call.respondError(HttpStatusCode.Conflict, e.message) }
+        exception<TooManyRequestsException> { call, e ->
+            call.response.header(HttpHeaders.RetryAfter, e.retryAfter.inWholeSeconds + 1)
+            call.respondError(HttpStatusCode.TooManyRequests, e.message)
+        }
+        exception<BusyException> { call, e -> call.respondError(HttpStatusCode.ServiceUnavailable, e.message) }
+        // Requests without a valid session; the authentication provider only sets the status.
+        status(HttpStatusCode.Unauthorized) { call, status ->
+            call.respondError(status, "Du bist nicht angemeldet, oder deine Sitzung ist abgelaufen.")
+        }
         // Services check the common cases themselves; the constraints in the schema are the last line of defense.
         exception<SQLException> { call, e ->
             val (status, message) = constraintViolation(e) ?: return@exception call.respondInternalError(e)

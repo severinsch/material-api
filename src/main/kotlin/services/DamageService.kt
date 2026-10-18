@@ -1,6 +1,7 @@
 package services
 
 import api.DamageReport
+import api.ItemStatus
 import api.NewDamageReport
 import database.DamageReports
 import database.Db
@@ -19,18 +20,24 @@ class DamageService(private val db: Db) {
 
     suspend fun get(tenant: TenantId, id: Uuid): DamageReport = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(tenant: TenantId, report: NewDamageReport): DamageReport = db.tenantQuery(tenant) {
-        requireItem(report.itemId)
-        val id = DamageReports.insertAndGetId {
-            it[individualItemId] = report.itemId
-            it[description] = report.description
-            it[reportedBy] = report.reportedBy
-            it[resolvedAt] = if (report.isResolved) Clock.System.now() else null
-            it[resolutionNotes] = report.resolutionNotes
+    /**
+     * Without [canEdit] (viewers), only reports that don't resolve anything are accepted, and the item's status can
+     * only go from ACTIVE to IN_REPAIR: viewers can report damage, but not decommission items.
+     */
+    suspend fun create(tenant: TenantId, report: NewDamageReport, canEdit: Boolean): DamageReport =
+        db.tenantQuery(tenant) {
+            requireItem(report.itemId)
+            if (!canEdit) requireReportOnly(report)
+            val id = DamageReports.insertAndGetId {
+                it[individualItemId] = report.itemId
+                it[description] = report.description
+                it[reportedBy] = report.reportedBy
+                it[resolvedAt] = if (report.isResolved) Clock.System.now() else null
+                it[resolutionNotes] = report.resolutionNotes
+            }
+            updateItemStatus(report)
+            find(id.value)
         }
-        updateItemStatus(report)
-        find(id.value)
-    }
 
     suspend fun update(tenant: TenantId, id: Uuid, report: NewDamageReport): DamageReport = db.tenantQuery(tenant) {
         val existing = find(id)
@@ -48,6 +55,18 @@ class DamageService(private val db: Db) {
 
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (DamageReports.deleteWhere { DamageReports.id eq id } == 0) notFound("Schadensmeldung", id)
+    }
+
+    private fun requireReportOnly(report: NewDamageReport) {
+        if (report.isResolved || !report.resolutionNotes.isNullOrBlank()) {
+            forbidden("Ohne Bearbeitungsrechte kannst du Schäden nur melden, nicht erledigen.")
+        }
+        val status = report.itemStatus ?: return
+        val current = IndividualItems.select(IndividualItems.status).where { IndividualItems.id eq report.itemId }
+            .single()[IndividualItems.status]
+        if (status != current && !(current == ItemStatus.ACTIVE && status == ItemStatus.IN_REPAIR)) {
+            forbidden("Ohne Bearbeitungsrechte kannst du einen Gegenstand nur in Reparatur geben.")
+        }
     }
 
     private fun updateItemStatus(report: NewDamageReport) {

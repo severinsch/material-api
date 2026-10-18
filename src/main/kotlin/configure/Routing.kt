@@ -4,6 +4,7 @@ import database.Db
 import io.ktor.http.*
 import io.ktor.openapi.*
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
 import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
 import io.ktor.server.routing.*
@@ -11,24 +12,23 @@ import io.ktor.server.routing.openapi.OpenApiDocSource
 import routes.*
 import services.*
 
-fun Application.configureRouting(db: Db) {
+fun Application.configureRouting(db: Db, authService: AuthService) {
     val tenantService = TenantService(db)
     routing {
-        /**
-         * Path: tenantId [kotlin.uuid.Uuid] The tenant id.
-         * Response: 404 application/json [api.ErrorResponse] No tenant with this id.
-         */
-        route("/tenants/{tenantId}") {
-            install(TenantScope) { this.tenantService = tenantService }
-            // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant used
-            // as a property elsewhere gets a generated name.
-            locationRoutes(LocationService(db))
-            materialRoutes(MaterialService(db))
-            itemRoutes(ItemService(db))
-            purchaseRoutes(PurchaseService(db))
-            damageRoutes(DamageService(db))
-            kitRoutes(KitService(db))
-            loanRoutes(LoanService(db))
+        authRoutes(authService)
+
+        authenticate(SESSION) {
+            tenantRoutes(tenantService) {
+                // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant
+                // used as a property elsewhere gets a generated name.
+                locationRoutes(LocationService(db))
+                materialRoutes(MaterialService(db))
+                itemRoutes(ItemService(db))
+                purchaseRoutes(PurchaseService(db))
+                damageRoutes(DamageService(db))
+                kitRoutes(KitService(db))
+                loanRoutes(LoanService(db))
+            }
         }
 
         // The OpenAPI document is assembled at runtime from the routes above.

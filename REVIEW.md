@@ -509,3 +509,29 @@ The next round of work (usability fixes, purchases updating the stock, new featu
   cross-tenant references in plain SQL, no rows without tenant, role attributes, the convention check for all tables
   with `tenant_id`, privileges, migration of existing data (tenant assignment, unchanged `updated_at`) and that all
   constraints with specific messages exist.
+
+### 2026-10-18: Accounts and tenants, step 2 (authentication, permissions, bootstrap)
+
+- `ktor-server-auth` with a bearer provider `session` resolving opaque session tokens (SHA-256 stored); sessions end
+  after 30 days idle or 180 days, `last_used_at` is written at most hourly. Requests without a valid session get 401
+  with a JSON message, and 401 means nothing else (wrong current password when changing it is 400).
+- `auth/Passwords.kt`: Argon2id via Bouncy Castle 1.86, PHC strings, OWASP parameters (configurable, cheap in tests),
+  at most 2 hashes at a time (503 otherwise). Unknown, pending and disabled users are verified against a dummy hash.
+- `auth/LoginThrottle.kt`: per username and client IP, doubling delays after 5 failures (1 s … 15 min, forgotten
+  after a day); per IP at most 50 failures per hour. 429 with `Retry-After`. The client IP is the first
+  `X-Forwarded-For` entry (the frontend sets it), which the OpenAPI document now lists as optional header. Also
+  applied to the current password when changing it.
+- Endpoints `/auth/login`, `/auth/logout`, `/auth/me` (GET/PUT), `/auth/me/password`, `/auth/setup/inspect`,
+  `/auth/setup` as in the plan. A password change also revokes a pending setup link.
+- Permissions: `requires(Permission.X) { … }` creates a transparent child route with a route-scoped plugin and
+  documents the 403 in OpenAPI. `tenantRoutes { … }` resolves the membership (platform admins: ADMIN) and refuses to
+  start if a route inside has no declaration. Viewer damage reports are restricted in `DamageService.create`.
+- Bootstrap (`auth.bootstrap`, off in tests): creates `admin` if there is no platform admin, logs a setup link
+  (`FRONTEND_URL/setup#token`) while its password isn't set; `ADMIN_SETUP_LINK_FOR` logs a reset link.
+- Spike results: the OpenAPI inference adds the bearer security requirement for routes in `authenticate` and keeps
+  working inside custom route functions; `RoutingNode.getAllRoutes()` and `Route.path()` are public, so the startup
+  check and the permission matrix test walk the same tree.
+- Tests: auth flows (login, identical failures, idle/expired/disabled sessions, logout, profile, password change,
+  setup links incl. single use, expiry, disabled users, throttling over HTTP), unit tests for hashing, the semaphore
+  and the throttle, bootstrap, the generated permission matrix (every tenant route × viewer/editor/admin/platform
+  admin/non-member, and deleted tenants) and viewer damage reports.
