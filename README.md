@@ -27,6 +27,28 @@ To change the schema, add a migration `V<n>__<description>.sql` with the next nu
 against real data must not be edited: Flyway refuses to start if an applied migration changed. Locally, a changed
 migration is fine after resetting the database with `docker compose down -v && docker compose up -d postgres`.
 
+### Tenants
+
+Each inventory belongs to a tenant (usually a Stamm), and the API is scoped by tenant: `/tenants/{tenantId}/materials`.
+Tenants are isolated by Postgres row-level security: the application runs every transaction as the role
+`material_app` (created by the migrations, without login), and the policies only show and accept rows of the tenant
+set for the transaction (`Db.tenantQuery`). Services don't filter by tenant themselves. Without a tenant
+(`Db.query`, used for accounts and platform administration), tenant-owned tables appear empty.
+
+A new tenant-owned table needs, in its migration:
+
+* `tenant_id UUID NOT NULL DEFAULT current_tenant_id()`, so inserts get the current tenant. Exposed doesn't map the
+  column.
+* Foreign keys to other tenant-owned tables that include `tenant_id`, e.g.
+  `FOREIGN KEY (kit_id, tenant_id) REFERENCES kits (id, tenant_id)`. Foreign key checks ignore row-level security, so
+  these keys are what prevents references to another tenant's rows. Root tables reference `tenants (id)` instead.
+* `ALTER TABLE … ENABLE ROW LEVEL SECURITY` and the policy
+  `CREATE POLICY tenant_isolation ON … USING (tenant_id = current_tenant_id()) WITH CHECK (tenant_id = current_tenant_id())`.
+* Explicit names for constraints that have specific error messages (`constraintMessages` in `ErrorHandling.kt`).
+
+`material_app` gets access to new tables automatically (default privileges). `TenantIsolationTest` checks the
+convention for all tables with a `tenant_id` column.
+
 ### Hybrid Tracking
 
 Materials are separated into "Individual" and "Bulk" materials.

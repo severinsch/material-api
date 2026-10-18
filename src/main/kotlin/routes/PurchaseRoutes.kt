@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.NewPurchase
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -15,7 +16,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
          * Query: materialId [kotlin.uuid.Uuid] Only return purchases of this material.
          */
         get {
-            call.respond(purchaseService.getAll(call.uuidQueryParameter("materialId")))
+            call.respond(purchaseService.getAll(call.tenant, call.uuidQueryParameter("materialId")))
         }
 
         /**
@@ -25,7 +26,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
          * Response: 404 application/json [api.ErrorResponse] No purchase with this id.
          */
         get("/{id}") {
-            call.respond(purchaseService.get(call.uuidPathParameter()))
+            call.respond(purchaseService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -34,7 +35,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
          * Response: 400 application/json [api.ErrorResponse] Invalid purchase, or the material isn't a bulk material.
          */
         post {
-            call.respond(HttpStatusCode.Created, purchaseService.create(call.receive<NewPurchase>()))
+            call.respond(HttpStatusCode.Created, purchaseService.create(call.tenant, call.receive<NewPurchase>()))
         }
 
         /**
@@ -46,7 +47,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(purchaseService.update(id, call.receive<NewPurchase>()))
+            call.respond(purchaseService.update(call.tenant, id, call.receive<NewPurchase>()))
         }
 
         /**
@@ -57,7 +58,7 @@ fun Route.purchaseRoutes(purchaseService: PurchaseService) {
          * Response: 409 application/json [api.ErrorResponse] The stock would drop below the pieces lent out.
          */
         delete("/{id}") {
-            purchaseService.delete(call.uuidPathParameter())
+            purchaseService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }

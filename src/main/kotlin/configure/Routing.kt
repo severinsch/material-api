@@ -12,16 +12,24 @@ import routes.*
 import services.*
 
 fun Application.configureRouting(db: Db) {
+    val tenantService = TenantService(db)
     routing {
-        // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant used
-        // as a property elsewhere gets a generated name.
-        locationRoutes(LocationService(db))
-        materialRoutes(MaterialService(db))
-        itemRoutes(ItemService(db))
-        purchaseRoutes(PurchaseService(db))
-        damageRoutes(DamageService(db))
-        kitRoutes(KitService(db))
-        loanRoutes(LoanService(db))
+        /**
+         * Path: tenantId [kotlin.uuid.Uuid] The tenant id.
+         * Response: 404 application/json [api.ErrorResponse] No tenant with this id.
+         */
+        route("/tenants/{tenantId}") {
+            install(TenantScope) { this.tenantService = tenantService }
+            // Registered first so the OpenAPI schema `StorageLocation` is the non-null one; the nullable variant used
+            // as a property elsewhere gets a generated name.
+            locationRoutes(LocationService(db))
+            materialRoutes(MaterialService(db))
+            itemRoutes(ItemService(db))
+            purchaseRoutes(PurchaseService(db))
+            damageRoutes(DamageService(db))
+            kitRoutes(KitService(db))
+            loanRoutes(LoanService(db))
+        }
 
         // The OpenAPI document is assembled at runtime from the routes above.
         val info = OpenApiInfo("Material API", "1.0", description = "API for managing scout material")

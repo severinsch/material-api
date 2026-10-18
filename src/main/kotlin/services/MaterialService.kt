@@ -11,13 +11,13 @@ class MaterialService(private val db: Db) {
 
     private data class Counts(val available: Int = 0, val damaged: Int = 0)
 
-    suspend fun getAll(type: MaterialTrackingType? = null): List<Material> = db.query {
+    suspend fun getAll(tenant: TenantId, type: MaterialTrackingType? = null): List<Material> = db.tenantQuery(tenant) {
         findWhere { type?.let { Materials.trackingType eq it } ?: Op.TRUE }
     }
 
-    suspend fun get(id: Uuid): Material = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): Material = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(material: NewMaterial): Material = db.query {
+    suspend fun create(tenant: TenantId, material: NewMaterial): Material = db.tenantQuery(tenant) {
         if (material is NewBulkMaterial) requireLocation(material.storageLocationId)
         val id = Materials.insertAndGetId {
             it[trackingType] = material.trackingType
@@ -31,7 +31,7 @@ class MaterialService(private val db: Db) {
     }
 
     /** Replaces a material. Its type can't be changed. */
-    suspend fun update(id: Uuid, material: NewMaterial): Material = db.query {
+    suspend fun update(tenant: TenantId, id: Uuid, material: NewMaterial): Material = db.tenantQuery(tenant) {
         if (find(id).trackingType != material.trackingType) conflict("Die Erfassungsart eines Materials kann nicht geändert werden.")
         if (material is NewBulkMaterial) {
             requireLocation(material.storageLocationId)
@@ -42,7 +42,7 @@ class MaterialService(private val db: Db) {
         find(id)
     }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Material", id)
     }
 

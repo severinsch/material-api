@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.NewLoan
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -15,7 +16,7 @@ fun Route.loanRoutes(loanService: LoanService) {
          * Query: open [kotlin.Boolean] If set, only open (true) or only returned (false) loans.
          */
         get {
-            call.respond(loanService.getAll(call.booleanQueryParameter("open")))
+            call.respond(loanService.getAll(call.tenant, call.booleanQueryParameter("open")))
         }
 
         /**
@@ -25,7 +26,7 @@ fun Route.loanRoutes(loanService: LoanService) {
          * Response: 404 application/json [api.ErrorResponse] No loan with this id.
          */
         get("/{id}") {
-            call.respond(loanService.get(call.uuidPathParameter()))
+            call.respond(loanService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -35,7 +36,7 @@ fun Route.loanRoutes(loanService: LoanService) {
          * Response: 409 application/json [api.ErrorResponse] Something isn't available (inactive, lent out, out of stock).
          */
         post {
-            call.respond(HttpStatusCode.Created, loanService.create(call.receive<NewLoan>()))
+            call.respond(HttpStatusCode.Created, loanService.create(call.tenant, call.receive<NewLoan>()))
         }
 
         /**
@@ -47,7 +48,7 @@ fun Route.loanRoutes(loanService: LoanService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(loanService.update(id, call.receive<NewLoan>()))
+            call.respond(loanService.update(call.tenant, id, call.receive<NewLoan>()))
         }
 
         /**
@@ -57,7 +58,7 @@ fun Route.loanRoutes(loanService: LoanService) {
          * Response: 404 application/json [api.ErrorResponse] No loan with this id.
          */
         delete("/{id}") {
-            loanService.delete(call.uuidPathParameter())
+            loanService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }

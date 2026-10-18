@@ -488,3 +488,24 @@ pieces per alternative and the selected-kits list were lost in the rework and ar
 (searchable) and sortable columns in the materials table.
 
 The next round of work (usability fixes, purchases updating the stock, new features) is planned in PLAN.md.
+
+### 2026-10-18: Accounts and tenants, step 1 (schema, RLS, tenant scoping)
+
+- Migration `V2__accounts_and_tenants.sql`: tenants, users, password logins, memberships, sessions, setup tokens;
+  `tenant_id` on all tenant-owned tables with the default `current_tenant_id()` (reads `app.tenant_id`), composite
+  foreign keys including `tenant_id` (names kept, so the specific error messages still apply), names unique per
+  tenant, row-level security with one `tenant_isolation` policy per table, and the role `material_app`.
+- Existing data goes to a tenant "Standard". Instead of a nullable column, an `UPDATE` and disabled triggers (as the
+  plan suggested), the column is added with the tenant's id as constant default and the default is then replaced:
+  existing rows get the id without being updated, so `updated_at` stays without touching the triggers.
+- `Db.query` / `Db.tenantQuery`: every transaction runs `SET LOCAL ROLE material_app`, tenant transactions also
+  `set_config('app.tenant_id', …, true)`. Startup fails if the role is superuser or `BYPASSRLS`.
+- All domain routes below `/tenants/{tenantId}`; services take a `TenantId`, queries are unchanged. A temporary
+  route plugin only checks that the tenant exists (replaced by memberships in step 2). The `tenantId` parameter and
+  its 404 are documented once by a KDoc on the parent route, which the OpenAPI inference merges into every operation.
+- Spikes: `SET LOCAL ROLE` and `set_config` through Exposed/HikariCP, RLS with composite foreign keys on Postgres 18,
+  and the OpenAPI inference below a parent route all work as planned.
+- Tests: tenant isolation (lists, by-id GET/PUT/DELETE, references in bodies), composite keys rejecting
+  cross-tenant references in plain SQL, no rows without tenant, role attributes, the convention check for all tables
+  with `tenant_id`, privileges, migration of existing data (tenant assignment, unchanged `updated_at`) and that all
+  constraints with specific messages exist.

@@ -2,7 +2,9 @@ package database
 
 import api.ItemCondition
 import api.ItemStatus
+import api.LoginMethod
 import api.MaterialTrackingType
+import api.TenantRole
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
@@ -12,7 +14,7 @@ import org.jetbrains.exposed.v1.datetime.timestamp
 import org.postgresql.util.PGobject
 
 // Mappings of the schema defined by the migrations in src/main/resources/db/migration, which are the source of truth and also holds all constraints.
-// Columns maintained purely by the database (created_at, updated_at) are not mapped.
+// Columns maintained purely by the database (created_at, updated_at, and tenant_id of tenant-owned tables) are not mapped.
 
 private class PGEnum<T : Enum<T>>(enumTypeName: String, enumValue: T?) : PGobject() {
     init {
@@ -27,6 +29,51 @@ private inline fun <reified T : Enum<T>> Table.pgEnum(name: String, sqlType: Str
         sql = sqlType,
         fromDb = { value -> enumValueOf<T>(value as String) },
         toDb = { PGEnum(sqlType, it) })
+
+// ========= Tenants and accounts =========
+
+object Tenants : UuidTable("tenants") {
+    val name = varchar("name", 100)
+    val slug = varchar("slug", 50)
+    val deletedAt = timestamp("deleted_at").nullable()
+}
+
+object Users : UuidTable("users") {
+    val displayName = varchar("display_name", 255)
+    val isPlatformAdmin = bool("is_platform_admin")
+    val disabledAt = timestamp("disabled_at").nullable()
+}
+
+object PasswordLogins : Table("password_logins") {
+    val userId = reference("user_id", Users, onDelete = ReferenceOption.CASCADE)
+    val username = varchar("username", 100)
+    val passwordHash = text("password_hash").nullable()
+    override val primaryKey = PrimaryKey(userId)
+}
+
+object TenantMembers : Table("tenant_members") {
+    val tenantId = reference("tenant_id", Tenants, onDelete = ReferenceOption.CASCADE)
+    val userId = reference("user_id", Users, onDelete = ReferenceOption.CASCADE)
+    val role = pgEnum<TenantRole>("role", "tenant_role")
+    override val primaryKey = PrimaryKey(tenantId, userId)
+}
+
+object Sessions : UuidTable("sessions") {
+    val tokenHash = binary("token_hash")
+    val userId = reference("user_id", Users, onDelete = ReferenceOption.CASCADE)
+    val loginMethod = enumerationByName<LoginMethod>("login_method", 20)
+    val lastUsedAt = timestamp("last_used_at")
+    val expiresAt = timestamp("expires_at")
+}
+
+object SetupTokens : Table("setup_tokens") {
+    val userId = reference("user_id", PasswordLogins.userId, onDelete = ReferenceOption.CASCADE)
+    val tokenHash = binary("token_hash")
+    val expiresAt = timestamp("expires_at")
+    override val primaryKey = PrimaryKey(userId)
+}
+
+// ========= Tenant-owned tables =========
 
 object StorageLocations : UuidTable("storage_locations") {
     val name = varchar("name", 100)

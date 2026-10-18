@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.NewKit
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -13,7 +14,7 @@ fun Route.kitRoutes(kitService: KitService) {
          * Get all kits.
          */
         get {
-            call.respond(kitService.getAll())
+            call.respond(kitService.getAll(call.tenant))
         }
 
         /**
@@ -23,7 +24,7 @@ fun Route.kitRoutes(kitService: KitService) {
          * Response: 404 application/json [api.ErrorResponse] No kit with this id.
          */
         get("/{id}") {
-            call.respond(kitService.get(call.uuidPathParameter()))
+            call.respond(kitService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -33,7 +34,7 @@ fun Route.kitRoutes(kitService: KitService) {
          * Response: 409 application/json [api.ErrorResponse] The name is taken.
          */
         post {
-            call.respond(HttpStatusCode.Created, kitService.create(call.receive<NewKit>()))
+            call.respond(HttpStatusCode.Created, kitService.create(call.tenant, call.receive<NewKit>()))
         }
 
         /**
@@ -44,7 +45,7 @@ fun Route.kitRoutes(kitService: KitService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(kitService.update(id, call.receive<NewKit>()))
+            call.respond(kitService.update(call.tenant, id, call.receive<NewKit>()))
         }
 
         /**
@@ -54,7 +55,7 @@ fun Route.kitRoutes(kitService: KitService) {
          * Response: 404 application/json [api.ErrorResponse] No kit with this id.
          */
         delete("/{id}") {
-            kitService.delete(call.uuidPathParameter())
+            kitService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }

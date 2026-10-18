@@ -5,6 +5,7 @@ import api.KitGroup
 import api.KitGroupOption
 import api.NewKit
 import database.Db
+import database.TenantId
 import database.KitGroupOptions
 import database.KitGroups
 import database.Kits
@@ -15,11 +16,11 @@ import kotlin.uuid.Uuid
 
 class KitService(private val db: Db) {
 
-    suspend fun getAll(): List<Kit> = db.query { findWhere { Op.TRUE } }
+    suspend fun getAll(tenant: TenantId): List<Kit> = db.tenantQuery(tenant) { findWhere { Op.TRUE } }
 
-    suspend fun get(id: Uuid): Kit = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): Kit = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(kit: NewKit): Kit = db.query {
+    suspend fun create(tenant: TenantId, kit: NewKit): Kit = db.tenantQuery(tenant) {
         requireOptionMaterials(kit)
         val id = Kits.insertAndGetId {
             it[name] = kit.name
@@ -30,7 +31,7 @@ class KitService(private val db: Db) {
     }
 
     /** Replaces the kit including all of its groups, which are recreated. */
-    suspend fun update(id: Uuid, kit: NewKit): Kit = db.query {
+    suspend fun update(tenant: TenantId, id: Uuid, kit: NewKit): Kit = db.tenantQuery(tenant) {
         requireOptionMaterials(kit)
         val updated = Kits.update({ Kits.id eq id }) {
             it[name] = kit.name
@@ -42,7 +43,7 @@ class KitService(private val db: Db) {
         find(id)
     }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Set", id)
     }
 

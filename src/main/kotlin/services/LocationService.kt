@@ -3,6 +3,7 @@ package services
 import api.NewStorageLocation
 import api.StorageLocation
 import database.Db
+import database.TenantId
 import database.StorageLocations
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
@@ -15,23 +16,24 @@ import kotlin.uuid.Uuid
 
 class LocationService(private val db: Db) {
 
-    suspend fun getAll(): List<StorageLocation> = db.query {
+    suspend fun getAll(tenant: TenantId): List<StorageLocation> = db.tenantQuery(tenant) {
         StorageLocations.selectAll().orderBy(StorageLocations.name).map(::toStorageLocation)
     }
 
-    suspend fun get(id: Uuid): StorageLocation = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): StorageLocation = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(location: NewStorageLocation): StorageLocation = db.query {
+    suspend fun create(tenant: TenantId, location: NewStorageLocation): StorageLocation = db.tenantQuery(tenant) {
         val id = StorageLocations.insertAndGetId { it.fill(location) }
         find(id.value)
     }
 
-    suspend fun update(id: Uuid, location: NewStorageLocation): StorageLocation = db.query {
-        if (StorageLocations.update({ StorageLocations.id eq id }) { it.fill(location) } == 0) notFound("Lagerort", id)
-        find(id)
-    }
+    suspend fun update(tenant: TenantId, id: Uuid, location: NewStorageLocation): StorageLocation =
+        db.tenantQuery(tenant) {
+            if (StorageLocations.update({ StorageLocations.id eq id }) { it.fill(location) } == 0) notFound("Lagerort", id)
+            find(id)
+        }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (StorageLocations.deleteWhere { StorageLocations.id eq id } == 0) notFound("Lagerort", id)
     }
 

@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.NewDamageReport
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -15,7 +16,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          * Query: itemId [kotlin.uuid.Uuid] Only return reports for this individual item.
          */
         get {
-            call.respond(damageService.getAll(call.uuidQueryParameter("itemId")))
+            call.respond(damageService.getAll(call.tenant, call.uuidQueryParameter("itemId")))
         }
 
         /**
@@ -25,7 +26,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          * Response: 404 application/json [api.ErrorResponse] No report with this id.
          */
         get("/{id}") {
-            call.respond(damageService.get(call.uuidPathParameter()))
+            call.respond(damageService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -34,7 +35,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          * Response: 400 application/json [api.ErrorResponse] Invalid report or unknown item.
          */
         post {
-            call.respond(HttpStatusCode.Created, damageService.create(call.receive<NewDamageReport>()))
+            call.respond(HttpStatusCode.Created, damageService.create(call.tenant, call.receive<NewDamageReport>()))
         }
 
         /**
@@ -45,7 +46,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(damageService.update(id, call.receive<NewDamageReport>()))
+            call.respond(damageService.update(call.tenant, id, call.receive<NewDamageReport>()))
         }
 
         /**
@@ -55,7 +56,7 @@ fun Route.damageRoutes(damageService: DamageService) {
          * Response: 404 application/json [api.ErrorResponse] No report with this id.
          */
         delete("/{id}") {
-            damageService.delete(call.uuidPathParameter())
+            damageService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }

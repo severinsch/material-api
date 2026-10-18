@@ -16,28 +16,30 @@ class ItemService(private val db: Db) {
         const val MAX_BATCH = 100
     }
 
-    suspend fun getAll(materialId: Uuid? = null): List<IndividualItem> = db.query {
+    suspend fun getAll(tenant: TenantId, materialId: Uuid? = null): List<IndividualItem> = db.tenantQuery(tenant) {
         findWhere { materialId?.let { IndividualItems.materialId eq it } ?: Op.TRUE }
     }
 
-    suspend fun get(id: Uuid): IndividualItem = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): IndividualItem = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(item: NewIndividualItem): IndividualItem = createAll(listOf(item)).single()
+    suspend fun create(tenant: TenantId, item: NewIndividualItem): IndividualItem =
+        createAll(tenant, listOf(item)).single()
 
     /** Creates several items at once; either all of them or none. */
-    suspend fun createAll(items: List<NewIndividualItem>): List<IndividualItem> = db.query {
-        if (items.isEmpty()) invalid("Es wurden keine Gegenstände angegeben.")
-        if (items.size > MAX_BATCH) invalid("Es können höchstens $MAX_BATCH Gegenstände auf einmal angelegt werden.")
-        items.map { it.materialId }.distinct().forEach { requireMaterial(it, MaterialTrackingType.INDIVIDUAL) }
-        items.mapNotNull { it.storageLocationId }.distinct().forEach(::requireLocation)
-        items.groupBy({ it.materialId }, { it.identifier }).forEach { (materialId, identifiers) ->
-            requireFreeIdentifiers(materialId, identifiers)
+    suspend fun createAll(tenant: TenantId, items: List<NewIndividualItem>): List<IndividualItem> =
+        db.tenantQuery(tenant) {
+            if (items.isEmpty()) invalid("Es wurden keine Gegenstände angegeben.")
+            if (items.size > MAX_BATCH) invalid("Es können höchstens $MAX_BATCH Gegenstände auf einmal angelegt werden.")
+            items.map { it.materialId }.distinct().forEach { requireMaterial(it, MaterialTrackingType.INDIVIDUAL) }
+            items.mapNotNull { it.storageLocationId }.distinct().forEach(::requireLocation)
+            items.groupBy({ it.materialId }, { it.identifier }).forEach { (materialId, identifiers) ->
+                requireFreeIdentifiers(materialId, identifiers)
+            }
+            val ids = IndividualItems.batchInsert(items) { fill(it) }.map { it[IndividualItems.id].value }
+            findWhere { IndividualItems.id inList ids }
         }
-        val ids = IndividualItems.batchInsert(items) { fill(it) }.map { it[IndividualItems.id].value }
-        findWhere { IndividualItems.id inList ids }
-    }
 
-    suspend fun update(id: Uuid, item: NewIndividualItem): IndividualItem = db.query {
+    suspend fun update(tenant: TenantId, id: Uuid, item: NewIndividualItem): IndividualItem = db.tenantQuery(tenant) {
         requireUnchanged("Das Material eines Gegenstands", find(id).materialId, item.materialId)
         requireLocation(item.storageLocationId)
         requireFreeIdentifiers(item.materialId, listOf(item.identifier), exceptItem = id)
@@ -45,7 +47,7 @@ class ItemService(private val db: Db) {
         find(id)
     }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Gegenstand", id)
     }
 

@@ -12,6 +12,7 @@ import io.ktor.server.config.*
 import io.ktor.server.testing.*
 import org.flywaydb.core.Flyway
 import org.testcontainers.postgresql.PostgreSQLContainer
+import java.sql.Connection
 import java.sql.DriverManager
 import kotlin.test.assertEquals
 import kotlin.uuid.Uuid
@@ -30,21 +31,63 @@ object TestDatabase {
         "database.password" to container.password,
     )
 
-    fun truncateAll() = DriverManager.getConnection(container.jdbcUrl, container.username, container.password).use {
-        // Cascades to all other tables.
-        it.createStatement().execute("TRUNCATE materials, storage_locations, kits, loans CASCADE")
+    /** URL of another database in the same container, e.g. created by [execute]. */
+    fun url(database: String) = "jdbc:postgresql://${container.host}:${container.firstMappedPort}/$database"
+
+    /** Applies the migrations up to [target] (all if null) to the database at [url]. */
+    fun migrate(url: String, target: String? = null) {
+        Flyway.configure().dataSource(url, container.username, container.password)
+            .apply { target?.let(::target) }
+            .load().migrate()
+    }
+
+    /**
+     * Runs [block] with a connection as the owner of the tables, which isn't subject to row-level security. The
+     * connection is in auto-commit mode.
+     */
+    fun <T> connect(url: String = container.jdbcUrl, block: (Connection) -> T): T =
+        DriverManager.getConnection(url, container.username, container.password).use(block)
+
+    fun execute(sql: String, url: String = container.jdbcUrl) = connect(url) { it.createStatement().execute(sql) }
+
+    /** The rows returned by [sql], each as a list of column values. */
+    fun query(sql: String, url: String = container.jdbcUrl): List<List<Any?>> = connect(url) {
+        it.createStatement().executeQuery(sql).use { rs ->
+            buildList { while (rs.next()) add((1..rs.metaData.columnCount).map(rs::getObject)) }
+        }
+    }
+
+    // Cascades to all other tables.
+    fun truncateAll() = execute("TRUNCATE tenants, users CASCADE")
+
+    fun createTenant(name: String = "Stamm Nord"): Uuid = Uuid.random().also {
+        execute("INSERT INTO tenants (id, name, slug) VALUES ('$it', '$name', '${name.lowercase().replace(' ', '-')}')")
     }
 }
 
-/** Runs [block] against the full application on an empty database. */
-fun apiTest(block: suspend HttpClient.() -> Unit) = testApplication {
+/** What an [apiTest] can use besides its default client. */
+class ApiTestContext(private val builder: ApplicationTestBuilder, val tenant: Uuid) {
+
+    /** A client for the API of [tenant]. */
+    fun client(tenant: Uuid = this.tenant): HttpClient = builder.createClient {
+        install(ContentNegotiation) { json(ApiJson) }
+        defaultRequest {
+            url("http://localhost/tenants/$tenant/")
+            contentType(ContentType.Application.Json)
+        }
+    }
+}
+
+/**
+ * Runs [block] against the full application on an empty database with one tenant. Requests go to the tenant's API
+ * by default, so paths are relative (`get("materials")`); a leading slash leaves the tenant.
+ */
+fun apiTest(block: suspend HttpClient.(ApiTestContext) -> Unit) = testApplication {
     TestDatabase.truncateAll()
     environment { config = TestDatabase.config }
     application { module() }
-    createClient {
-        install(ContentNegotiation) { json(ApiJson) }
-        defaultRequest { contentType(ContentType.Application.Json) }
-    }.block()
+    val context = ApiTestContext(this, TestDatabase.createTenant())
+    context.client().block(context)
 }
 
 suspend inline fun <reified T> HttpResponse.expect(status: HttpStatusCode): T {
@@ -60,19 +103,19 @@ suspend fun HttpResponse.expectError(status: HttpStatusCode): String {
 // Fixtures
 
 suspend fun HttpClient.createLocation(name: String = "Keller"): StorageLocation =
-    post("/locations") { setBody(NewStorageLocation(name)) }.expect(HttpStatusCode.Created)
+    post("locations") { setBody(NewStorageLocation(name)) }.expect(HttpStatusCode.Created)
 
 suspend fun HttpClient.createBulk(
     name: String = "Hering",
     available: Int = 10,
     location: StorageLocation? = null
 ): BulkMaterial =
-    post("/materials") {
+    post("materials") {
         setBody<NewMaterial>(NewBulkMaterial(name, availableCount = available, storageLocationId = location?.id))
     }.expect<Material>(HttpStatusCode.Created) as BulkMaterial
 
 suspend fun HttpClient.createIndividual(name: String = "Kohtenblatt"): IndividualMaterial =
-    post("/materials") { setBody<NewMaterial>(NewIndividualMaterial(name)) }
+    post("materials") { setBody<NewMaterial>(NewIndividualMaterial(name)) }
         .expect<Material>(HttpStatusCode.Created) as IndividualMaterial
 
 suspend fun HttpClient.createItem(
@@ -81,7 +124,7 @@ suspend fun HttpClient.createItem(
     condition: ItemCondition = ItemCondition.GOOD,
     status: ItemStatus = ItemStatus.ACTIVE
 ): IndividualItem =
-    post("/items") { setBody(NewIndividualItem(material.id, identifier, condition, status)) }
+    post("items") { setBody(NewIndividualItem(material.id, identifier, condition, status)) }
         .expect(HttpStatusCode.Created)
 
-suspend fun HttpClient.getMaterial(id: Uuid): Material = get("/materials/$id").expect(HttpStatusCode.OK)
+suspend fun HttpClient.getMaterial(id: Uuid): Material = get("materials/$id").expect(HttpStatusCode.OK)

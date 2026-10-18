@@ -6,9 +6,21 @@
         "description": "API for managing scout material"
     },
     "paths": {
-        "/locations": {
+        "/tenants/{tenantId}/locations": {
             "post": {
                 "summary": "Create a storage location.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -19,6 +31,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "409": {
                         "description": "The name is taken.",
                         "content": {
@@ -43,7 +65,29 @@
             },
             "get": {
                 "summary": "Get all storage locations.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -60,10 +104,20 @@
                 }
             }
         },
-        "/locations/{id}": {
+        "/tenants/{tenantId}/locations/{id}": {
             "put": {
                 "summary": "Replace a storage location.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -111,6 +165,16 @@
                 "summary": "Delete a storage location. Materials and items stored there keep existing without a location.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The location id.",
@@ -140,6 +204,16 @@
             "get": {
                 "summary": "Get a storage location.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -175,9 +249,21 @@
                 }
             }
         },
-        "/materials": {
+        "/tenants/{tenantId}/materials": {
             "post": {
                 "summary": "Create a material. `trackingType` decides whether it's a bulk or an individual material.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -188,6 +274,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid material or unknown location.",
                         "content": {
@@ -214,6 +310,16 @@
                 "summary": "Get all materials.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "type",
                         "in": "query",
                         "description": "Only return materials of this type.",
@@ -227,6 +333,16 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -243,10 +359,20 @@
                 }
             }
         },
-        "/materials/{id}": {
+        "/tenants/{tenantId}/materials/{id}": {
             "put": {
                 "summary": "Replace a material. Its `trackingType` can't be changed.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -268,8 +394,8 @@
                     }
                 },
                 "responses": {
-                    "400": {
-                        "description": "Invalid material or unknown location.",
+                    "404": {
+                        "description": "No material with this id.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -278,8 +404,8 @@
                             }
                         }
                     },
-                    "404": {
-                        "description": "No material with this id.",
+                    "400": {
+                        "description": "Invalid material or unknown location.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -313,6 +439,16 @@
             "delete": {
                 "summary": "Delete a material. Only possible while nothing references it (items, purchases, kits, loans).",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -354,6 +490,16 @@
                 "summary": "Get a material.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The material id.",
@@ -388,9 +534,21 @@
                 }
             }
         },
-        "/items": {
+        "/tenants/{tenantId}/items": {
             "post": {
                 "summary": "Create an individual item.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -401,6 +559,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid item, or the material isn't an individual one.",
                         "content": {
@@ -437,6 +605,16 @@
                 "summary": "Get all individual items.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "materialId",
                         "in": "query",
                         "description": "Only return items of this material.",
@@ -447,6 +625,16 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -463,10 +651,20 @@
                 }
             }
         },
-        "/items/{id}": {
+        "/tenants/{tenantId}/items/{id}": {
             "put": {
                 "summary": "Replace an individual item. Its `materialId` can't be changed.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -488,8 +686,8 @@
                     }
                 },
                 "responses": {
-                    "400": {
-                        "description": "Invalid item.",
+                    "404": {
+                        "description": "No item with this id.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -498,8 +696,8 @@
                             }
                         }
                     },
-                    "404": {
-                        "description": "No item with this id.",
+                    "400": {
+                        "description": "Invalid item.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -533,6 +731,16 @@
             "delete": {
                 "summary": "Delete an individual item. Only possible while it has no damage reports or loans; retire it via its status\notherwise.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -574,6 +782,16 @@
                 "summary": "Get an individual item.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The item id.",
@@ -608,9 +826,21 @@
                 }
             }
         },
-        "/items/batch": {
+        "/tenants/{tenantId}/items/batch": {
             "post": {
                 "summary": "Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are\ncreated or none.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -624,6 +854,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid or no items, or a material isn't an individual one.",
                         "content": {
@@ -660,9 +900,21 @@
                 }
             }
         },
-        "/purchases": {
+        "/tenants/{tenantId}/purchases": {
             "post": {
                 "summary": "Record a purchase. Its quantity is added to the material's available stock.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -673,6 +925,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid purchase, or the material isn't a bulk material.",
                         "content": {
@@ -699,6 +961,16 @@
                 "summary": "Get the purchase history of bulk materials.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "materialId",
                         "in": "query",
                         "description": "Only return purchases of this material.",
@@ -709,6 +981,16 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -725,10 +1007,20 @@
                 }
             }
         },
-        "/purchases/{id}": {
+        "/tenants/{tenantId}/purchases/{id}": {
             "put": {
                 "summary": "Replace a purchase. Its `materialId` can't be changed. The stock changes by the difference of the quantities.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -786,6 +1078,16 @@
                 "summary": "Delete a purchase. Its quantity is subtracted from the stock again.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The purchase id.",
@@ -826,6 +1128,16 @@
                 "summary": "Get a purchase.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The purchase id.",
@@ -860,9 +1172,21 @@
                 }
             }
         },
-        "/damages": {
+        "/tenants/{tenantId}/damages": {
             "post": {
                 "summary": "Report a damage.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -873,6 +1197,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid report or unknown item.",
                         "content": {
@@ -899,6 +1233,16 @@
                 "summary": "Get all damage reports.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "itemId",
                         "in": "query",
                         "description": "Only return reports for this individual item.",
@@ -909,6 +1253,16 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -925,10 +1279,20 @@
                 }
             }
         },
-        "/damages/{id}": {
+        "/tenants/{tenantId}/damages/{id}": {
             "put": {
                 "summary": "Replace a damage report, e.g. to resolve it. Its `itemId` can't be changed.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -976,6 +1340,16 @@
                 "summary": "Delete a damage report.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The report id.",
@@ -1005,6 +1379,16 @@
             "get": {
                 "summary": "Get a damage report.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -1040,9 +1424,21 @@
                 }
             }
         },
-        "/kits": {
+        "/tenants/{tenantId}/kits": {
             "post": {
                 "summary": "Create a kit.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1053,6 +1449,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid kit or unknown material.",
                         "content": {
@@ -1087,7 +1493,29 @@
             },
             "get": {
                 "summary": "Get all kits.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1104,10 +1532,20 @@
                 }
             }
         },
-        "/kits/{id}": {
+        "/tenants/{tenantId}/kits/{id}": {
             "put": {
                 "summary": "Replace a kit including all of its groups.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -1155,6 +1593,16 @@
                 "summary": "Delete a kit.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The kit id.",
@@ -1184,6 +1632,16 @@
             "get": {
                 "summary": "Get a kit.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -1219,9 +1677,21 @@
                 }
             }
         },
-        "/loans": {
+        "/tenants/{tenantId}/loans": {
             "post": {
                 "summary": "",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -1232,6 +1702,16 @@
                     }
                 },
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Invalid loan or unknown item or material.",
                         "content": {
@@ -1268,6 +1748,16 @@
                 "summary": "Get all loans.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "open",
                         "in": "query",
                         "description": "If set, only open (true) or only returned (false) loans.",
@@ -1277,6 +1767,16 @@
                     }
                 ],
                 "responses": {
+                    "404": {
+                        "description": "No tenant with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -1293,10 +1793,20 @@
                 }
             }
         },
-        "/loans/{id}": {
+        "/tenants/{tenantId}/loans/{id}": {
             "put": {
                 "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -1354,6 +1864,16 @@
                 "summary": "Delete a loan.",
                 "parameters": [
                     {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
                         "name": "id",
                         "in": "path",
                         "description": "The loan id.",
@@ -1383,6 +1903,16 @@
             "get": {
                 "summary": "Get a loan.",
                 "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -1422,6 +1952,18 @@
     "webhooks": {},
     "components": {
         "schemas": {
+            "ErrorResponse": {
+                "type": "object",
+                "title": "ErrorResponse",
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
             "StorageLocation": {
                 "type": "object",
                 "title": "StorageLocation",
@@ -1442,18 +1984,6 @@
                             "string",
                             "null"
                         ]
-                    }
-                }
-            },
-            "ErrorResponse": {
-                "type": "object",
-                "title": "ErrorResponse",
-                "required": [
-                    "message"
-                ],
-                "properties": {
-                    "message": {
-                        "type": "string"
                     }
                 }
             },

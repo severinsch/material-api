@@ -14,7 +14,7 @@ import kotlin.uuid.Uuid
 class LoanService(private val db: Db) {
 
     /** All loans, or only open (not yet returned) / only returned ones. */
-    suspend fun getAll(open: Boolean? = null): List<Loan> = db.query {
+    suspend fun getAll(tenant: TenantId, open: Boolean? = null): List<Loan> = db.tenantQuery(tenant) {
         findWhere {
             when (open) {
                 null -> Op.TRUE
@@ -24,9 +24,9 @@ class LoanService(private val db: Db) {
         }
     }
 
-    suspend fun get(id: Uuid): Loan = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): Loan = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(loan: NewLoan): Loan = db.query {
+    suspend fun create(tenant: TenantId, loan: NewLoan): Loan = db.tenantQuery(tenant) {
         checkLines(loan, existing = null)
         val id = Loans.insertAndGetId { it.fill(loan) }
         insertLines(id, loan)
@@ -34,7 +34,7 @@ class LoanService(private val db: Db) {
     }
 
     /** Replaces the loan including all of its lines. Returning a loan means setting `returnedAt`. */
-    suspend fun update(id: Uuid, loan: NewLoan): Loan = db.query {
+    suspend fun update(tenant: TenantId, id: Uuid, loan: NewLoan): Loan = db.tenantQuery(tenant) {
         checkLines(loan, existing = find(id))
         Loans.update({ Loans.id eq id }) { it.fill(loan) }
         LoanLines.deleteWhere { loanId eq id }
@@ -42,7 +42,7 @@ class LoanService(private val db: Db) {
         find(id)
     }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Ausleihe", id)
     }
 

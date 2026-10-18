@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.MaterialTrackingType
 import api.NewIndividualItem
 import api.NewMaterial
@@ -18,7 +19,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
          * Query: type [api.MaterialTrackingType] Only return materials of this type.
          */
         get {
-            call.respond(materialService.getAll(call.enumQueryParameter<MaterialTrackingType>("type")))
+            call.respond(materialService.getAll(call.tenant, call.enumQueryParameter<MaterialTrackingType>("type")))
         }
 
         /**
@@ -28,7 +29,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
          * Response: 404 application/json [api.ErrorResponse] No material with this id.
          */
         get("/{id}") {
-            call.respond(materialService.get(call.uuidPathParameter()))
+            call.respond(materialService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -37,7 +38,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
          * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
          */
         post {
-            call.respond(HttpStatusCode.Created, materialService.create(call.receive<NewMaterial>()))
+            call.respond(HttpStatusCode.Created, materialService.create(call.tenant, call.receive<NewMaterial>()))
         }
 
         /**
@@ -51,7 +52,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(materialService.update(id, call.receive<NewMaterial>()))
+            call.respond(materialService.update(call.tenant, id, call.receive<NewMaterial>()))
         }
 
         /**
@@ -62,7 +63,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
          * Response: 409 application/json [api.ErrorResponse] The material is still in use.
          */
         delete("/{id}") {
-            materialService.delete(call.uuidPathParameter())
+            materialService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }
@@ -76,7 +77,7 @@ fun Route.itemRoutes(itemService: ItemService) {
          * Query: materialId [kotlin.uuid.Uuid] Only return items of this material.
          */
         get {
-            call.respond(itemService.getAll(call.uuidQueryParameter("materialId")))
+            call.respond(itemService.getAll(call.tenant, call.uuidQueryParameter("materialId")))
         }
 
         /**
@@ -86,7 +87,7 @@ fun Route.itemRoutes(itemService: ItemService) {
          * Response: 404 application/json [api.ErrorResponse] No item with this id.
          */
         get("/{id}") {
-            call.respond(itemService.get(call.uuidPathParameter()))
+            call.respond(itemService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -96,7 +97,7 @@ fun Route.itemRoutes(itemService: ItemService) {
          * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
          */
         post {
-            call.respond(HttpStatusCode.Created, itemService.create(call.receive<NewIndividualItem>()))
+            call.respond(HttpStatusCode.Created, itemService.create(call.tenant, call.receive<NewIndividualItem>()))
         }
 
         /**
@@ -107,7 +108,8 @@ fun Route.itemRoutes(itemService: ItemService) {
          * Response: 409 application/json [api.ErrorResponse] An identifier is taken or used twice.
          */
         post("/batch") {
-            call.respond(HttpStatusCode.Created, itemService.createAll(call.receive<List<NewIndividualItem>>()))
+            val items = call.receive<List<NewIndividualItem>>()
+            call.respond(HttpStatusCode.Created, itemService.createAll(call.tenant, items))
         }
 
         /**
@@ -120,7 +122,7 @@ fun Route.itemRoutes(itemService: ItemService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(itemService.update(id, call.receive<NewIndividualItem>()))
+            call.respond(itemService.update(call.tenant, id, call.receive<NewIndividualItem>()))
         }
 
         /**
@@ -132,7 +134,7 @@ fun Route.itemRoutes(itemService: ItemService) {
          * Response: 409 application/json [api.ErrorResponse] The item is still in use.
          */
         delete("/{id}") {
-            itemService.delete(call.uuidPathParameter())
+            itemService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }

@@ -41,9 +41,9 @@ fun Application.configureErrorHandling() {
     }
 }
 
-// Messages for violations of named constraints in the migrations (Postgres' default names), so users learn what
-// clashed. Other violations of the same kind get the generic message below.
-private val constraintMessages = mapOf(
+// Messages for violations of named constraints in the migrations, so users learn what clashed. Other violations of
+// the same kind get the generic message below. MigrationTest checks that these constraints exist.
+internal val constraintMessages = mapOf(
     "materials_name_key" to "Es gibt schon ein Material mit diesem Namen.",
     "storage_locations_name_key" to "Es gibt schon einen Lagerort mit diesem Namen.",
     "kits_name_key" to "Es gibt schon ein Set mit diesem Namen.",

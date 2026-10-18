@@ -5,6 +5,7 @@ import api.NewPurchase
 import api.Purchase
 import database.BulkStock
 import database.Db
+import database.TenantId
 import database.Purchases
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
@@ -14,20 +15,20 @@ import kotlin.uuid.Uuid
 /** Purchases add to the stock of their material: creating, changing and deleting one adjusts the stock. */
 class PurchaseService(private val db: Db) {
 
-    suspend fun getAll(materialId: Uuid? = null): List<Purchase> = db.query {
+    suspend fun getAll(tenant: TenantId, materialId: Uuid? = null): List<Purchase> = db.tenantQuery(tenant) {
         findWhere { materialId?.let { Purchases.materialId eq it } ?: Op.TRUE }
     }
 
-    suspend fun get(id: Uuid): Purchase = db.query { find(id) }
+    suspend fun get(tenant: TenantId, id: Uuid): Purchase = db.tenantQuery(tenant) { find(id) }
 
-    suspend fun create(purchase: NewPurchase): Purchase = db.query {
+    suspend fun create(tenant: TenantId, purchase: NewPurchase): Purchase = db.tenantQuery(tenant) {
         requireMaterial(purchase.materialId, MaterialTrackingType.BULK)
         val id = Purchases.insertAndGetId { it.fill(purchase) }
         adjustStock(purchase.materialId, purchase.quantity)
         find(id.value)
     }
 
-    suspend fun update(id: Uuid, purchase: NewPurchase): Purchase = db.query {
+    suspend fun update(tenant: TenantId, id: Uuid, purchase: NewPurchase): Purchase = db.tenantQuery(tenant) {
         val existing = find(id, lock = true)
         requireUnchanged("Das Material eines Einkaufs", existing.materialId, purchase.materialId)
         Purchases.update({ Purchases.id eq id }) { it.fill(purchase) }
@@ -35,7 +36,7 @@ class PurchaseService(private val db: Db) {
         find(id)
     }
 
-    suspend fun delete(id: Uuid) = db.query {
+    suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
         val existing = find(id, lock = true)
         Purchases.deleteWhere { Purchases.id eq id }
         adjustStock(existing.materialId, -existing.quantity)

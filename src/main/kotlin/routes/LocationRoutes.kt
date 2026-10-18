@@ -1,5 +1,6 @@
 package routes
 
+import configure.tenant
 import api.NewStorageLocation
 import io.ktor.http.*
 import io.ktor.server.request.*
@@ -13,7 +14,7 @@ fun Route.locationRoutes(locationService: LocationService) {
          * Get all storage locations.
          */
         get {
-            call.respond(locationService.getAll())
+            call.respond(locationService.getAll(call.tenant))
         }
 
         /**
@@ -23,7 +24,7 @@ fun Route.locationRoutes(locationService: LocationService) {
          * Response: 404 application/json [api.ErrorResponse] No location with this id.
          */
         get("/{id}") {
-            call.respond(locationService.get(call.uuidPathParameter()))
+            call.respond(locationService.get(call.tenant, call.uuidPathParameter()))
         }
 
         /**
@@ -32,7 +33,8 @@ fun Route.locationRoutes(locationService: LocationService) {
          * Response: 409 application/json [api.ErrorResponse] The name is taken.
          */
         post {
-            call.respond(HttpStatusCode.Created, locationService.create(call.receive<NewStorageLocation>()))
+            val location = call.receive<NewStorageLocation>()
+            call.respond(HttpStatusCode.Created, locationService.create(call.tenant, location))
         }
 
         /**
@@ -43,7 +45,7 @@ fun Route.locationRoutes(locationService: LocationService) {
          */
         put("/{id}") {
             val id = call.uuidPathParameter()
-            call.respond(locationService.update(id, call.receive<NewStorageLocation>()))
+            call.respond(locationService.update(call.tenant, id, call.receive<NewStorageLocation>()))
         }
 
         /**
@@ -53,7 +55,7 @@ fun Route.locationRoutes(locationService: LocationService) {
          * Response: 404 application/json [api.ErrorResponse] No location with this id.
          */
         delete("/{id}") {
-            locationService.delete(call.uuidPathParameter())
+            locationService.delete(call.tenant, call.uuidPathParameter())
             call.respond(HttpStatusCode.NoContent)
         }
     }
