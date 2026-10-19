@@ -38,6 +38,17 @@ Answered 2026-10-13.
   - *Answer:* Yes if cheap, ideally toggleable. → API returns a separate `loanedCount`; the frontend toggles whether
     to subtract it.
 
+Raised 2026-10-19 while entering demo data; not addressed yet.
+
+- [ ] **Q8** Groups with a variable amount. A Jurte is built either with an *Einbein* (1 Jurtenstange) or a
+  *Dreibein* (3), chosen by what it's used for; nothing else differs. This is a real use for the minimum/maximum
+  units dropped in DB-5b. Today the kit has to pick one (the demo Jurte uses 3 and says so in its description), or
+  there are two kits.
+- [ ] **Q9** Ropes of different lengths. Lengths are stored as separate bulk materials (Seil 10 m, 15 m, 20 m), but
+  for most kits any length works, so the kit lists all of them as equal options of one group. Works, but every kit
+  repeats the list, and a new length has to be added to every kit. Possibly a material "family" or category that a
+  group can refer to.
+
 ---
 
 ## 1. Database schema
@@ -283,6 +294,36 @@ check-in/check-out, which doesn't exist.
 - [x] `$derived(() => …)` is called as a function many times per render; use `$derived.by`.
 - [x] The Dockerfile runner stage runs `bun install --frozen-lockfile` without copying the lockfile.
 - [x] No tests, no CI. (Unit tests for the kit allocation; CI is still missing in both repos.)
+
+### FE-7 Kit allocation reports shortages that a different split would avoid — [ ]
+
+Found 2026-10-19 with the demo data. `allocate.ts` fills each group greedily in priority order, so a group can use up
+a material that another group needs, even when the first group has alternatives left. Example, with the Jurte roof
+preferring Kohtenplanen over Jurtenhalbdächer (stock: 8 Kohtenplanen, 4 with 45 cm Latz, 2 Jurtenhalbdächer): 1 Jurte
++ 2 Kohten reports 2 Kohtenplanen missing. The Jurte takes 6 Kohtenplanen and leaves the Jurtenhalbdächer unused,
+although 2 Jurtenhalbdächer + 8 Kohtenplanen (or + 4 Kohtenplanen + 4 with Latz) cover everything.
+
+The demo kits now prefer the Jurtenhalbdach, which hides this case, but any kit set where groups share materials
+with different alternatives can hit it. Fix: find a feasible split first and use priorities only to choose among
+feasible ones, e.g. a small exact search over the groups' options (the numbers are small), and report a shortage
+only if no split covers everything.
+
+### FE-8 Fix an alternative for one kit in the packing list — [ ]
+
+Raised 2026-10-19. It should be possible to pin the option of a group for one selected kit (e.g. this Jurte gets the
+Jurtenhalbdächer, that one Kohtenplanen) and let the allocation fill the rest. Best done together with FE-7.
+
+### FE-9 UI improvements — [ ]
+
+Raised 2026-10-19 after entering the demo data; the exact designs are open.
+
+- [ ] **FE-9a** Packing list: the per-kit breakdown per material ("14× für Jurte, 20× für Kohte",
+  `[tenant]/kits/+page.svelte`) clutters the list. Redesign, e.g. show it only on demand.
+- [ ] **FE-9b** Kits: the list of alternatives per group gets cluttered with more than 2–3 options. Redesign how
+  groups and their options are shown.
+- [ ] **FE-9c** Top bar: the Stamm's name looks like a clickable tab like the others. Make it visually distinct.
+- [ ] **FE-9d** Material table: hard to scan with many materials. Ideas: filter by category with a dropdown, group
+  rows by category.
 
 ---
 
