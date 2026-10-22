@@ -871,3 +871,33 @@ Frontend commits `f12c734`, `c8d772a` on `variants`; everything in PLAN.md secti
   stacked confirmation, "behalten"), the item and purchase variant selects, the loan dialog, the material picker's
   search and indentation, the kit editor's overlap error. `bun run lint` fails only on the git-ignored
   `.claude/settings.local.json`.
+
+### 2026-10-22: Merge dialog (Q9, PLAN.md step 4)
+
+Frontend commit `cc7fd03` on `variants`.
+
+- Material list: editors get "Zusammenführen", a selection mode with a checkbox column and a bar ("N ausgewählt: …",
+  "Abbrechen", "Weiter" from two materials on); materials of the other tracking type can't be ticked. The first one
+  selected is the target. Kits are loaded on the list page for editors only.
+- `MergeDialog.svelte`: name, target ("Kategorie und Beschreibung übernehmen von"), one row per variant with its
+  current and new name, the same client-side name checks as the material dialog, a preview ("Ergebnis: Seil: 10 m,
+  15 m, 20 m"), the kit notes, "lässt sich nicht rückgängig machen". API errors show as a toast with the dialog
+  open; success opens the merged material.
+- `lib/merge.ts` (+ 10 tests): common prefix in whole words, case-insensitive ("Seil 10 m"/"Seil 15 m" → "Seil",
+  not "Seil 1"), separators and enclosing parentheses stripped from the rests ("Kanister (10 L)" → "10 L").
+- Deviation from the plan's note: kits that use a multi-variant *target* with "any variant" also accept the
+  merged-in variants afterwards (by design, see PLAN.md section 1, now spelled out there); the dialog says so for
+  those kits, and "uses exactly the same variants as before" for all others.
+- Verified: `bun run check` (0/0), `bun run test` (57), eslint, `bun run build`; over HTTP against a throwaway stack:
+  three ropes merged (counts, id, category kept; kit "any" options rewritten to the exact variants), both 409 kit
+  cases, the 400s (duplicate variant names, different tracking types), the pages for editor and viewer (viewer: no
+  button, no kit load).
+- Needs the browser pass: selection mode (checkboxes, disabled ones, phone layout), the dialog (prefill, switching
+  the target, name errors, preview, kit notes), a real submit incl. the 409 toast.
+
+### 2026-10-22: Status and next steps (handoff)
+
+Steps 1–4 of PLAN.md are implemented on the branches `variants` (based on `kit-amounts`) in both repositories, not
+merged, not deployed. Next: step 5, the independent review of `main..variants` in both repositories and its fixes;
+then the owner's browser pass (the "Needs the browser pass" lists above); then deployment together with the owner
+(PLAN.md step 6). The owner decided to deploy everything together; FE-7, FE-8 and FE-9 follow afterwards.

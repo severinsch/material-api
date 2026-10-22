@@ -64,6 +64,8 @@ Defaults chosen in this plan (cheap to change):
   differently (Kanister 10 L / 20 L in a "Wasser" group) list their variants individually; the kit editor says so.
 - **Merging materials** (section 4.4) turns existing separate materials (Seil 10 m, Seil 15 m, Seil 20 m) into
   variants of one material in one step, keeping items, purchases, loans and kit references with their exact meaning.
+  Exception by design: if the target already has several variants and a kit uses it with "any variant", that kit
+  accepts the merged-in variants too ("any" includes variants added later); the merge dialog says so per kit.
 - **Moving an individual item to another variant of its material** is allowed (fixing a wrong entry). Like a status
   change, it isn't checked against quantity loans of the old variant; those may then exceed what's available, which
   the loan dialog already tolerates for unchanged lines.
@@ -288,7 +290,7 @@ README: the "Kit" section (amounts, options referring to a material or a variant
 and "Hybrid Tracking" (variants; items unique per variant). REVIEW.md: Q8/Q9 answered with a pointer to this plan;
 progress log entries.
 
-### 4.4 Merging materials — [x] (backend; the dialog in 5.2 is open)
+### 4.4 Merging materials — [x]
 
 `POST /materials/merge` (EDIT) with `{ materialIds: [<target>, <source>…], name, variantNames: { <variantId>: "<name>" } }`:
 
@@ -325,7 +327,7 @@ progress log entries.
 
 ---
 
-## 5. Q9: frontend **(frontend)** — [x] (all but the merge dialog in 5.2)
+## 5. Q9: frontend **(frontend)** — [x]
 
 ### 5.1 Hierarchy and the confusion with items
 
