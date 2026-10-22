@@ -1110,6 +1110,99 @@
                 ]
             }
         },
+        "/tenants/{tenantId}/materials/merge": {
+            "post": {
+                "summary": "Merge materials of the same type into the first one listed, whose variants they become. Its id, category\nand description stay; it gets the new `name`, and every variant the name given in `variantNames` (by\nvariant id) or its current one. Items, stock, purchases, loans and kit options come along with their\nvariants, the other materials are deleted. Responds with the merged material.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MaterialMerge"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No tenant with this id, or the user has no access to it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Fewer than two or duplicate materials, an unknown material, different tracking types, a variant of another material in `variantNames`, or missing or duplicate variant names.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
         "/tenants/{tenantId}/items": {
             "post": {
                 "summary": "Create an individual item of a variant.",
@@ -4794,6 +4887,32 @@
                     "mapping": {
                         "BULK": "#/components/schemas/NewBulkMaterial",
                         "INDIVIDUAL": "#/components/schemas/NewIndividualMaterial"
+                    }
+                }
+            },
+            "MaterialMerge": {
+                "type": "object",
+                "title": "MaterialMerge",
+                "required": [
+                    "materialIds",
+                    "name"
+                ],
+                "properties": {
+                    "materialIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "variantNames": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
                     }
                 }
             },

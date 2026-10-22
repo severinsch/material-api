@@ -198,6 +198,30 @@ data class NewIndividualVariant(
     val name: String? = null
 )
 
+/**
+ * Merges materials of the same type into one, e.g. "Seil 10 m", "Seil 15 m" and "Seil 20 m" into "Seil" with three
+ * variants. The first of [materialIds] is the target: it keeps its id, category and description and gets [name]. The
+ * variants of the others move to it with their items, stock, purchases and loans, and the others are deleted.
+ *
+ * Afterwards every variant needs a name, unique within the material: the one in [variantNames] (by variant id) or its
+ * current one. Kit options keep their meaning: "any variant" of a material with a single variant becomes that
+ * variant. Other materials with several variants must not be used with "any variant" in kits, since that can't be
+ * expressed after the merge.
+ */
+@Serializable
+data class MaterialMerge(
+    val materialIds: List<Uuid>,
+    val name: String,
+    val variantNames: Map<Uuid, String> = emptyMap()
+) {
+    init {
+        require(materialIds.size >= 2) { "Wähle mindestens zwei Materialien zum Zusammenführen aus." }
+        require(materialIds.toSet().size == materialIds.size) { "Ein Material kann nur einmal vorkommen." }
+        requireText(name, "Der Name", maxLength = 255)
+        variantNames.values.forEach { requireText(it, "Der Name einer Variante", maxLength = 100) }
+    }
+}
+
 private fun NewMaterial.requireMaterialFields() {
     requireText(name, "Der Name", maxLength = 255)
     requireMaxLength(category, "Die Kategorie", 100)

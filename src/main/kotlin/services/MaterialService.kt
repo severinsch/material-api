@@ -13,6 +13,8 @@ class MaterialService(private val db: Db) {
 
     private data class Counts(val available: Int = 0, val damaged: Int = 0)
 
+    private data class VariantRow(val id: Uuid, val materialId: Uuid, val name: String?)
+
     suspend fun getAll(tenant: TenantId, type: MaterialTrackingType? = null): List<Material> = db.tenantQuery(tenant) {
         findWhere { type?.let { Materials.trackingType eq it } ?: Op.TRUE }
     }
@@ -58,6 +60,103 @@ class MaterialService(private val db: Db) {
         if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Material", id)
     }
 
+    /**
+     * Merges materials into the first one, see [MaterialMerge]. Everything that references a variant comes along
+     * unchanged; kit options for a specific variant follow it through their cascading key.
+     */
+    suspend fun merge(tenant: TenantId, merge: MaterialMerge): Material = db.tenantQuery(tenant) {
+        val targetId = merge.materialIds.first()
+        val sourceIds = merge.materialIds.drop(1)
+
+        // Variants first, in the same order as everywhere else. Then the materials, so nobody can add variants or
+        // kit options to them meanwhile; their variants are read again, including any added just before.
+        lockVariantsOf(merge.materialIds)
+        val materials = Materials.select(Materials.id, Materials.name, Materials.trackingType)
+            .where { Materials.id inList merge.materialIds }
+            .orderBy(Materials.id)
+            .forUpdate()
+            .associate { it[Materials.id].value to (it[Materials.name] to it[Materials.trackingType]) }
+        merge.materialIds.firstOrNull { it !in materials }?.let { invalid("Material $it gibt es nicht.") }
+        if (materials.values.map { it.second }.distinct().size > 1) {
+            invalid("Nur Materialien derselben Erfassungsart können zusammengeführt werden.")
+        }
+        val variants = lockVariantsOf(merge.materialIds)
+
+        merge.variantNames.keys.firstOrNull { id -> variants.none { it.id == id } }?.let {
+            invalid("Die Variante $it gehört zu keinem der zusammengeführten Materialien.")
+        }
+        val names = variants.associate { it.id to (merge.variantNames[it.id] ?: it.name) }
+        if (names.values.any { it == null }) invalid("Hat ein Material mehrere Varianten, braucht jede einen Namen.")
+        if (names.values.toSet().size < names.size) invalid("Die Varianten eines Materials brauchen unterschiedliche Namen.")
+
+        val singleVariants = variants.groupBy { it.materialId }.filterValues { it.size == 1 }.mapValues { it.value.single().id }
+        requireKitsAfterMerge(targetId, sourceIds, materials.mapValues { it.value.first }, singleVariants.keys)
+
+        // "Any variant" of a material with a single variant meant exactly that one, and must not mean all variants
+        // of the merged material afterwards.
+        singleVariants.forEach { (materialId, variantId) ->
+            KitGroupOptions.update({ (KitGroupOptions.materialId eq materialId) and KitGroupOptions.variantId.isNull() }) {
+                it[KitGroupOptions.variantId] = variantId
+            }
+        }
+        // Names are unique per material and may be swapped or taken over, so they are cleared first.
+        val variantIds = variants.map { it.id }
+        MaterialVariants.update({ MaterialVariants.id inList variantIds }) { it[MaterialVariants.name] = null }
+        MaterialVariants.update({ MaterialVariants.materialId inList sourceIds }) {
+            it[MaterialVariants.materialId] = EntityID(targetId, Materials)
+        }
+        Materials.deleteWhere { Materials.id inList sourceIds }
+        Materials.update({ Materials.id eq targetId }) { it[Materials.name] = merge.name }
+        names.forEach { (id, name) ->
+            MaterialVariants.update({ MaterialVariants.id eq id }) { it[MaterialVariants.name] = name }
+        }
+        find(targetId)
+    }
+
+    /**
+     * Rejects merges that would change what kits mean: "any variant" of a source with several variants (except
+     * [singleVariantMaterials]) can't be expressed afterwards, and "any variant" of the target in a group that also
+     * lists a source would overlap with it. [materialNames] are the current names.
+     */
+    private fun requireKitsAfterMerge(
+        targetId: Uuid,
+        sourceIds: List<Uuid>,
+        materialNames: Map<Uuid, String>,
+        singleVariantMaterials: Set<Uuid>
+    ) {
+        val options = KitGroupOptions.innerJoin(KitGroups).innerJoin(Kits)
+            .select(KitGroupOptions.groupId, KitGroupOptions.materialId, KitGroupOptions.variantId, Kits.name)
+            .where { KitGroupOptions.materialId inList listOf(targetId) + sourceIds }
+            .toList()
+        fun Iterable<ResultRow>.kitNames() = map { it[Kits.name] }.distinct().sorted()
+        val anyVariant = options.filter { it[KitGroupOptions.variantId] == null }
+
+        for (sourceId in sourceIds.filter { it !in singleVariantMaterials }) {
+            val kits = anyVariant.filter { it[KitGroupOptions.materialId].value == sourceId }.kitNames()
+            if (kits.isNotEmpty()) {
+                conflict(
+                    "${materialNames.getValue(sourceId)} wird ${inKits(kits)} mit beliebiger Variante verwendet, was " +
+                        "sich nach dem Zusammenführen nicht mehr ausdrücken lässt. Wähle dort zuerst bestimmte " +
+                        "Varianten aus, oder führe die anderen Materialien in dieses zusammen."
+                )
+            }
+        }
+        if (targetId !in singleVariantMaterials) {
+            val groups = anyVariant.filter { it[KitGroupOptions.materialId].value == targetId }
+                .map { it[KitGroupOptions.groupId] }.toSet()
+            val kits = options
+                .filter { it[KitGroupOptions.groupId] in groups && it[KitGroupOptions.materialId].value != targetId }
+                .kitNames()
+            if (kits.isNotEmpty()) {
+                conflict(
+                    "${materialNames.getValue(targetId)} wird ${inKits(kits)} mit beliebiger Variante verwendet, " +
+                        "zusammen mit einem der anderen Materialien im selben Teil. Danach würden sich die " +
+                        "Materialien des Teils überschneiden. Entferne zuerst eines davon aus dem Teil."
+                )
+            }
+        }
+    }
+
     /** Locks the variants of a material (see [lockVariants]) and returns their names. */
     private fun lockVariantsOf(materialId: Uuid): Map<Uuid, String?> = MaterialVariants
         .select(MaterialVariants.id, MaterialVariants.name)
@@ -65,6 +164,18 @@ class MaterialService(private val db: Db) {
         .orderBy(MaterialVariants.id)
         .forUpdate()
         .associate { it[MaterialVariants.id].value to it[MaterialVariants.name] }
+
+    /** Locks the variants of several materials (see [lockVariants]) and returns them. */
+    private fun lockVariantsOf(materialIds: Collection<Uuid>): List<VariantRow> = MaterialVariants
+        .select(MaterialVariants.id, MaterialVariants.materialId, MaterialVariants.name)
+        .where { MaterialVariants.materialId inList materialIds }
+        .orderBy(MaterialVariants.id)
+        .forUpdate()
+        .map { VariantRow(it[MaterialVariants.id].value, it[MaterialVariants.materialId].value, it[MaterialVariants.name]) }
+
+    /** E.g. "im Set Jurte" or "in den Sets Jurte, Kohte". */
+    private fun inKits(names: List<String>) =
+        if (names.size == 1) "im Set ${names.single()}" else "in den Sets ${names.joinToString()}"
 
     private fun requireLocations(material: NewMaterial) {
         if (material is NewBulkMaterial) material.variants.mapNotNull { it.storageLocationId }.distinct().forEach(::requireLocation)
@@ -121,9 +232,7 @@ class MaterialService(private val db: Db) {
             .where { KitGroupOptions.variantId inList ids }
             .groupBy({ it[KitGroupOptions.variantId]!! }, { it[Kits.name] })
         kitsByVariant.entries.firstOrNull()?.let { (id, kits) ->
-            val names = kits.distinct().sorted()
-            val where = if (names.size == 1) "im Set ${names.single()}" else "in den Sets ${names.joinToString()}"
-            conflict("${label(id)} wird $where verwendet. Entferne sie zuerst daraus.")
+            conflict("${label(id)} wird ${inKits(kits.distinct().sorted())} verwendet. Entferne sie zuerst daraus.")
         }
         MaterialVariants.deleteWhere { MaterialVariants.id inList ids }
     }

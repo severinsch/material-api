@@ -1,5 +1,6 @@
 package routes
 
+import api.MaterialMerge
 import api.MaterialTrackingType
 import api.NewIndividualItem
 import api.NewMaterial
@@ -61,6 +62,19 @@ fun Route.materialRoutes(materialService: MaterialService) {
             put("/{id}") {
                 val id = call.uuidPathParameter()
                 call.respond(materialService.update(call.tenant, id, call.receive<NewMaterial>()))
+            }
+
+            /**
+             * Merge materials of the same type into the first one listed, whose variants they become. Its id, category
+             * and description stay; it gets the new `name`, and every variant the name given in `variantNames` (by
+             * variant id) or its current one. Items, stock, purchases, loans and kit options come along with their
+             * variants, the other materials are deleted. Responds with the merged material.
+             *
+             * Response: 400 application/json [api.ErrorResponse] Fewer than two or duplicate materials, an unknown material, different tracking types, a variant of another material in `variantNames`, or missing or duplicate variant names.
+             * Response: 409 application/json [api.ErrorResponse] The name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).
+             */
+            post("/merge") {
+                call.respond(materialService.merge(call.tenant, call.receive<MaterialMerge>()))
             }
 
             /**
