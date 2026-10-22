@@ -1,465 +1,445 @@
-# Plan: accounts, login and tenants
+# Plan: material variants and kit group amounts (Q8, Q9)
 
-The usability round (previous content of this file) is done; see git history and the progress log in REVIEW.md.
-This version includes the findings of an independent review of the first draft (2026-10-18).
+The accounts plan (previous content of this file) is done and deployed; see git history and the progress log in
+REVIEW.md. This plan answers the open domain questions Q8 and Q9 (REVIEW.md) and prepares FE-7/FE-8, which come
+next and build on it. It includes the findings of an independent review of the first draft (2026-10-22).
 
-Covers both repositories; frontend work is marked **(frontend)**, deployment work **(deploy)**.
+Covers both repositories; frontend work is marked **(frontend)**.
 
 Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
 
 ---
 
-## 0. Why now, and what waits for hitobito
+## 0. Problems
 
-The app is live at `material.dpsg-langenbach.de` without any authentication. Local accounts are needed permanently
-anyway (platform admin, people without hitobito access), and retrofitting a tenant column gets more expensive with
-every feature. What REVIEW.md §6 rightly wanted to avoid was coupling the data to hitobito's still unknown claims. This
-plan avoids that: tenants and users are our own entities with our own ids, and hitobito later becomes *one way to log
-in* plus a *mapping* from its groups/roles onto our tenants/roles.
-
-Built now: users, password login, sessions, tenants, memberships, roles, tenant isolation, admin UI.
-Later (section 7): the hitobito login and claim mapping.
+- **Q8:** a Jurte is built with an Einbein (1 Jurtenstange) or a Dreibein (3). A group has exactly one amount, so the
+  kit has to pick one, or there are two kits. Optional groups ("with or without windows") are the same problem with
+  the amounts 0 and 12, solved by a special flag.
+- **Q9:** ropes of 10, 15 and 20 m are three materials. Kits list all of them as equal options, every new length has
+  to be added to every kit, and the material list shows five rope rows where people think of "Seil". The same goes for
+  Kanister (10 L, 20 L) and Kohtenplanen with and without a 45 cm Latz, which are labeled K01… and K45 01….
 
 ---
 
 ## 1. Decisions
 
-Decided with the owner (2026-10-18):
+Decided with the owner (2026-10-22):
 
-- **Backend owns authentication.** Ktor checks passwords (and later does the OIDC code exchange with hitobito, holding
-  the client secret) and issues its own opaque session tokens. SvelteKit only holds the token in an httpOnly cookie and
-  forwards it as `Authorization: Bearer`. Every login method ends in the same internal session. Replaces the §6 idea of
-  validating hitobito access tokens on every request (they are opaque Doorkeeper tokens, so each request would cost a
-  call to hitobito, and local accounts would need a second mechanism).
-- **Tenant in the path.** API: `/tenants/{tenantId}/materials…`; frontend: `/{slug}/materials…`. Every page and request
-  is self-contained: a tab left open on Stamm A can't write into Stamm B after switching tenants in another tab (which
-  happens with a session- or cookie-stored "active tenant", mostly to admins). Links sent to an admin for support open
-  the right tenant. Users with a single tenant are redirected there from `/`.
-- **Tenant isolation by Postgres row-level security (RLS)**, the database-side equivalent of Hibernate's automatic
-  tenant filter: every tenant-owned table has a policy that only shows and accepts rows of the tenant set for the
-  current transaction. Services don't filter by tenant themselves, and forgetting a filter is impossible, including
-  in hand-written SQL. Without a tenant set, queries return nothing. Details in 2.3.
-- **Setup links for local accounts.** An admin creates an account and gets a single-use link to pass on; the user sets
-  their own password. The same mechanism is the admin-triggered password reset. No email.
-- **Roles per tenant:** `VIEWER` (read, report damage, lend to themselves; see REVIEW.md 2026-10-18 for the loan
-  rules), `EDITOR` (change inventory, loans, damage reports,
-  kits, locations; see the member list; expected to be Materialwart and Vorstand), `ADMIN` (also manage the tenant's
-  members). Plus a global **platform admin** flag with full access to every tenant (no separate "support access").
-- **Hitobito accounts and local accounts are separate accounts.** A hitobito account's memberships come only from
-  hitobito, a local account's only from admins. No merging, no mixed memberships (section 7).
-- **Tenants are soft deleted** (`deleted_at`), restorable by the platform admin. No hard delete for now.
-- **Passwords:** at least 12 characters, no further rules and no blocklist (low-value data, volunteers).
-- Redirecting old bookmarks isn't needed (no users yet); old top-level paths redirect into the tenant as a small
-  convenience (4.2).
+- **Q8: discrete amounts per group** ("Ausführungen"), not a min/max range. A group has one or more amounts, each with
+  a label, e.g. Mittelstange: Einbein = 1, Dreibein = 3. The packing list picks one per kit. All amounts of a group
+  share the group's material options. `is_optional` is replaced: an optional group is a group with an amount of 0
+  ("ohne" = 0, "mit" = 12).
+- **The packing list must hold the same kit several times with different choices** (2× Jurte with Einbein, 1× Jurte
+  with Dreibein).
+- **Q9: every material has variants** (V2 in the discussion). `materials` keeps what all variants share (name,
+  category, description, tracking type); the new `material_variants` holds what differs, and everything with stock
+  moves to the variant: bulk stock, individual items, purchases, loan lines. Most materials have exactly one,
+  unnamed variant, and the UI doesn't show variants for them.
+- **Variants of a material share the tracking type**; no mixing of bulk and individual variants.
+- **Identifiers of individual items are unique per variant**, not per material (K01 for the plain Kohtenplanen and
+  K45 01 for the ones with Latz; the same identifier in two variants is allowed).
+- **A kit option refers to a material (any variant) or to one specific variant.** No "minimum length" feature: a kit
+  that needs at least 15 m lists the variants 15 m and 20 m.
 
 Defaults chosen in this plan (cheap to change):
 
-- Usernames are global, lowercase `[a-z0-9._-]`, 3–100 characters (no collation issues, login needs no tenant).
-- Requests to a tenant the user isn't a member of, or to a deleted tenant, get 404, not 403.
-- Sessions expire after 30 days without use and after 180 days at most.
-- Only the platform admin can change a slug; old links then break.
-- 401 means exactly "no valid session". Wrong credentials inside a valid session (e.g. the current password when
-  changing it) are 400, so the frontend can safely end the session on every 401.
-- `reported_by` / `borrower` stay free text; the frontend prefills `reported_by` with the user's name. User references
-  (DB-6) and an audit trail are out of scope.
+- **UI names:** material variants are "Varianten"; the amounts of a kit group are "Ausführungen". Code: `variants` /
+  `MaterialVariant`, and `amounts` / `KitGroupAmount`, so the two never share a name.
+- **Display name of a variant:** material name and variant name separated by a space, `Seil 15 m`,
+  `Kohtenplane 45 cm Latz`; just `Seil` for a material with one unnamed variant. No parentheses, since many places
+  already append parentheses (group names, identifiers, places). Items: `Kohtenplane 45 cm Latz K45 01` if the
+  material has several variants, otherwise `Kohtenplane K01` as today. One helper per repository builds these names,
+  so the format can change in one place.
+- **Variant names:** a material with one variant may leave it unnamed; with two or more, every variant needs a
+  non-blank name, unique within the material. **Variants are sorted by name** (numeric collation: 10 m, 15 m, 20 m);
+  there is no manual order, so order never carries hidden meaning.
+- **Bulk storage location is per variant** (it lives in `bulk_stock`, which moves to the variant). The material
+  dialog shows one location for all variants by default and a switch "Lagerort je Variante", which is on
+  automatically when the variants' locations differ.
+- **Loans lend specific variants.** Whoever lends ropes knows which lengths left; "3 Seile, any length" isn't a loan
+  line. The rule "a quantity or specific items, not both" applies per variant.
+- **A material option in a kit includes variants added later.** Adding the variant "45 cm Latz" to Kohtenplane makes
+  every kit that uses "Kohtenplane" accept them, which is the point of the feature; a kit that must not accept them
+  switches to the specific variant. Since "any variant" shares one unit value, materials whose variants count
+  differently (Kanister 10 L / 20 L in a "Wasser" group) list their variants individually; the kit editor says so.
+- **Merging materials** (section 4.5) turns existing separate materials (Seil 10 m, Seil 15 m, Seil 20 m) into
+  variants of one material in one step, keeping items, purchases, loans and kit references with their exact meaning.
+- **Moving an individual item to another variant of its material** is allowed (fixing a wrong entry). Like a status
+  change, it isn't checked against quantity loans of the old variant; those may then exceed what's available, which
+  the loan dialog already tolerates for unchanged lines.
 
 ---
 
-## 2. Schema (migration `V2__accounts_and_tenants.sql`)
+## 2. Q8: kit group amounts
 
-### 2.1 New tables
+### 2.1 Schema (migration `V4__kit_group_amounts.sql`) — [ ]
 
 ```sql
-CREATE TYPE tenant_role AS ENUM ('VIEWER', 'EDITOR', 'ADMIN');
-
--- One inventory, usually a Stamm. Own ids; the hitobito group is mapped later via an extra column.
-CREATE TABLE tenants (
-    id         UUID PRIMARY KEY,
-    name       VARCHAR(100) NOT NULL,
-    slug       VARCHAR(50)  NOT NULL CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),  -- used in frontend URLs
-    deleted_at TIMESTAMPTZ,
-    created_at, updated_at
-);
--- Deleted tenants don't block names and slugs; restoring checks for conflicts.
-CREATE UNIQUE INDEX tenants_name_key ON tenants (name) WHERE deleted_at IS NULL;
-CREATE UNIQUE INDEX tenants_slug_key ON tenants (slug) WHERE deleted_at IS NULL;
-
-CREATE TABLE users (
-    id                UUID PRIMARY KEY,
-    display_name      VARCHAR(255) NOT NULL,
-    is_platform_admin BOOLEAN      NOT NULL DEFAULT FALSE,
-    disabled_at       TIMESTAMPTZ,
-    created_at, updated_at
-);
-
--- Login with username and password. Users without a row here log in via an external provider (later).
-CREATE TABLE password_logins (
-    user_id       UUID PRIMARY KEY REFERENCES users ON DELETE CASCADE,
-    username      VARCHAR(100) NOT NULL UNIQUE CHECK (username ~ '^[a-z0-9._-]{3,100}$'),
-    password_hash TEXT,          -- NULL until the user redeemed their setup link
-    created_at, updated_at
-);
-
-CREATE TABLE tenant_members (
-    tenant_id UUID        NOT NULL REFERENCES tenants ON DELETE CASCADE,
-    user_id   UUID        NOT NULL REFERENCES users ON DELETE CASCADE,
-    role      tenant_role NOT NULL,
-    created_at, updated_at,
-    PRIMARY KEY (tenant_id, user_id)
-);
-CREATE INDEX idx_tenant_members_user_id ON tenant_members (user_id);
-
--- Tokens are random 256-bit values given to the client once; only their SHA-256 is stored.
-CREATE TABLE sessions (
-    id           UUID PRIMARY KEY,
-    token_hash   BYTEA       NOT NULL UNIQUE,
-    user_id      UUID        NOT NULL REFERENCES users ON DELETE CASCADE,
-    login_method VARCHAR(20) NOT NULL,     -- 'PASSWORD', later 'HITOBITO' (lifetimes may differ)
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at   TIMESTAMPTZ NOT NULL      -- absolute limit; idle limit is checked against last_used_at
-);
-CREATE INDEX idx_sessions_user_id ON sessions (user_id);
-
--- Single-use links to set a password (new accounts and resets). At most one per user.
-CREATE TABLE setup_tokens (
-    user_id    UUID PRIMARY KEY REFERENCES password_logins ON DELETE CASCADE,
-    token_hash BYTEA       NOT NULL UNIQUE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- The amounts a group can be packed with, e.g. Einbein = 1 and Dreibein = 3 Jurtenstangen, or "ohne" = 0 and
+-- "mit" = 12 Fensterplanen. The packing list picks one per kit; the first one is the default.
+CREATE TABLE kit_group_amounts (
+    group_id       UUID         NOT NULL,
+    tenant_id      UUID         NOT NULL DEFAULT current_tenant_id(),
+    position       INTEGER      NOT NULL,
+    label          VARCHAR(100),             -- NULL only for a group's single amount (checked by the API)
+    required_units INTEGER      NOT NULL CHECK (required_units >= 0),
+    PRIMARY KEY (group_id, position),
+    CONSTRAINT kit_group_amounts_group_id_fkey FOREIGN KEY (group_id, tenant_id)
+        REFERENCES kit_groups (id, tenant_id) ON DELETE CASCADE,
+    CONSTRAINT kit_group_amounts_label_key UNIQUE (group_id, label)
 );
 ```
 
-`updated_at` triggers for all new tables with that column.
+- RLS enabled with the `tenant_isolation` policy (README convention; `TenantIsolationTest` checks it).
+- Existing groups: a non-optional group gets one amount (`NULL`, `required_units`); an optional group gets
+  `('ohne', 0)` at position 0 and `('mit', required_units)` at position 1, so it stays excluded by default as today.
+  **The INSERT copies `tenant_id` from `kit_groups`**: `current_tenant_id()` is NULL while Flyway runs, so relying on
+  the default fails on live data while empty-database tests pass.
+- Then drop `kit_groups.required_units` and `kit_groups.is_optional` (no row updates, so no trigger handling needed).
+- `MigrationTest`: groups with and without `is_optional` at V3, migrate, check the amounts and tenant ids.
 
-### 2.2 `tenant_id` on every tenant-owned table
+### 2.2 API — [ ]
 
-All of `storage_locations`, `materials`, `individual_items`, `bulk_stock`, `purchases`, `damage_reports`, `kits`,
-`kit_groups`, `kit_group_options`, `loans`, `loan_lines` get
-`tenant_id UUID NOT NULL DEFAULT nullif(current_setting('app.tenant_id', true), '')::uuid`, so inserts get the current
-tenant without the application setting it.
+```kotlin
+data class KitGroup(val name: String?, val amounts: List<KitGroupAmount>, val options: List<KitGroupOption>)
+data class KitGroupAmount(val label: String?, val requiredUnits: Int)
+```
 
-- Root tables reference `tenants (id) ON DELETE RESTRICT`.
-- Every foreign key between tenant-owned tables becomes composite and includes `tenant_id`, like the existing
-  `tracking_type` technique. RLS doesn't apply to foreign key checks, so these keys are what prevents referencing
-  another tenant's row (a kit option with a foreign material, a loan line with a foreign item, an item in a foreign
-  location). Required unique constraints on the referenced side:
-  - `materials`: `UNIQUE (id, tenant_id)` (kit options, loan lines) and `UNIQUE (id, tenant_id, tracking_type)`
-    (items, stock); the old `UNIQUE (id, tracking_type)` goes away.
-  - `bulk_stock`: `UNIQUE (material_id, tenant_id)` (purchases).
-  - `storage_locations`, `individual_items`, `kits`, `kit_groups`, `loans`: `UNIQUE (id, tenant_id)`.
-- Location references use `ON DELETE SET NULL (storage_location_id)` (Postgres 15+), otherwise `tenant_id` would be
-  nulled too. Nullable composite keys in `loan_lines` work as before (MATCH SIMPLE skips them when a column is null).
-- **Constraint names:** all constraints are named explicitly, keeping the names used in `constraintMessages`
-  (`configure/ErrorHandling.kt`), e.g. `purchases_material_id_fkey`, `materials_name_key`. Otherwise Postgres'
-  generated names change and every specific error message silently falls back to the generic one.
-- Unique names become per tenant: `UNIQUE (tenant_id, name)` on `materials`, `storage_locations`, `kits`.
-- Indexes on `tenant_id` of the root tables for list queries (RLS adds `tenant_id = …` to every query).
-- Exposed: `tenant_id` isn't mapped in `Tables.kt`, like `created_at`; the database fills and checks it.
+`NewKitGroup.amounts: List<NewKitGroupAmount>` replaces `requiredUnits`/`isOptional`. Validation (German messages):
+at least one amount; at least one amount above 0; with two or more amounts every label is non-blank and unique; labels
+at most 100 characters; `requiredUnits >= 0`. Breaking change; backend and frontend are deployed together.
 
-### 2.3 Row-level security
+### 2.3 Packing list **(frontend)** — [ ]
 
-- The migration creates a `NOLOGIN` role `material_app` (if it doesn't exist), grants it the needed privileges on all
-  application tables and grants the role to the migrating user.
-- `ENABLE ROW LEVEL SECURITY` on every tenant-owned table, with one policy each:
-  `USING (tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)` and the same `WITH CHECK`.
-- `Db` gets two entry points; every application transaction starts with `SET LOCAL ROLE material_app`, the owner role
-  is only used by Flyway:
-  - `query(block)`: no tenant set, for auth and platform code. Tenant tables appear empty there (fails closed).
-  - `tenantQuery(tenant, block)`: additionally `SELECT set_config('app.tenant_id', ?, true)`. Both settings are
-    transaction-local, so pooled connections can't carry a tenant over.
-- `ALTER DEFAULT PRIVILEGES` grants `material_app` access to tables created by later migrations. Convention for
-  every later migration (documented in the README next to the migration rules): a new tenant-owned table gets
-  `tenant_id` with the default, composite foreign keys and the policy. A test enforces it: every table with a
-  `tenant_id` column has RLS enabled and a policy, and `material_app` can access every application table.
-- One database user in compose as before; no passwords in migrations. Creating the role needs `CREATEROLE`, which the
-  `POSTGRES_USER` of the official image (superuser) and the Testcontainers user have.
-- Startup check: after `SET ROLE`, the role must be neither superuser nor `BYPASSRLS` (otherwise policies are ignored,
-  e.g. with a misconfigured role); refuse to start otherwise.
-- Platform admin operations never read tenant data across tenants (soft delete only touches `tenants`). If that is
-  ever needed, it runs once per tenant through `tenantQuery`.
+- **Lines instead of kits:** the packing list is a list of lines, each `kit + quantity + chosen amount per group`
+  (index into `amounts`, default 0). The same kit can appear in several lines. FE-8 later adds pinned options to the
+  line.
+- **Kit cards:** groups with one amount look as today. A group with exactly two amounts where one is 0 keeps today's
+  look ("12× Fensterplane", badge "optional"). Other groups list their amounts with the default marked
+  ("Mittelstange: Einbein 1× (Standard) · Dreibein 3× Jurtenstange"). Choices are no longer made on the card, since a
+  card can stand for several lines.
+  - Kits without choices: the footer keeps the quantity buttons.
+  - Kits with choices: "Zur Packliste" adds a line with the default choices (or increments an existing line with
+    default choices); the footer shows how many are on the list and "Ausführung in der Packliste wählen" (on phones
+    the list is below all kits).
+- **Lines in "Ausgewählte Sets":** quantity buttons, remove, and one select per group with several amounts
+  ("Mittelstange: Einbein ▾", "Fenster: ohne ▾"). An action "Weitere mit anderer Ausführung" adds a copy of the line
+  with quantity 1. Identical lines are allowed while editing (merging while the user changes a select would make
+  lines jump), but the summary, copied text and print combine them ("3× Jurte (Einbein)").
+- **Line label** for summary, copy, print and shortages: `Jurte (Mittelstange: Einbein, Fenster: mit)`, listing only
+  groups with several amounts.
+- **URL format:** `kit=<kit id>*<quantity>[*<group>-<amount>.<group>-<amount>…]`, listing only non-default choices,
+  one `kit` parameter per line in order. No compatibility with the old format (no links were ever shared); old values
+  are simply ignored by the parser like any malformed value.
+- **Allocation** (`allocate.ts`): a selection carries the amount index per group; units are
+  `amounts[choice].requiredUnits * quantity`, groups with 0 units are skipped. The allocator returns assignments
+  `(line, group, variant, pieces)` (in step 1 still per material) plus shortages per line and group; needs and the
+  per-kit breakdown are derived from them, so FE-7 and FE-8 can build on the same output. "14× für Jurte (Einbein)"
+  stays correct with two Jurte lines.
 
-### 2.4 Existing data
+### 2.4 Kit editor **(frontend)** — [ ]
 
-If any tenant-owned data exists, the migration creates one tenant (`name 'Standard'`, `slug 'standard'`) and assigns
-all rows to it (add the column nullable, `UPDATE`, then `SET NOT NULL` and the default). The `updated_at` triggers are
-disabled during the migration so the rows keep their real modification times. On an empty database no tenant is
-created. The platform admin renames the tenant afterwards.
-
-### 2.5 Bootstrap and recovery
-
-- On startup, if no platform admin exists, the API creates the user `admin` (platform admin, no password) and logs a
-  setup link at WARN level, renewed on every start until the password is set. If the username `admin` is taken by
-  someone else, it refuses to start with a clear message.
-- Recovery: with `ADMIN_SETUP_LINK_FOR=<username>` set, the API logs a new setup link for that platform admin on
-  startup (for a forgotten password when no other platform admin exists).
-- Configurable (`auth.bootstrap`), off in tests.
+- The "Einheiten" field becomes an "Ausführungen" list. With one amount it looks as today (just the units field, no
+  label). "Ausführung hinzufügen" adds rows of label + units; then all rows show a label field, and the help text
+  says that the first one is the default in the packing list.
+- The "Optional" checkbox stays as a shortcut: checking it inserts `ohne / 0` as the first amount (prefilling "mit"
+  as the label of the existing amount if it had none); unchecking removes the 0 amount. It is checked iff the group
+  has an amount of 0.
 
 ---
 
-## 3. Backend
+## 3. Q9: material variants — schema (migration `V5__material_variants.sql`) — [ ]
 
-### 3.1 Authentication — [x]
+### 3.1 New table
 
-- `auth/Passwords.kt`: Argon2id via Bouncy Castle (pure Java, works on the Alpine image), OWASP parameters
-  (19 MiB, 2 iterations, 1 lane), configurable so tests can use cheap ones. PHC string format, so parameters can be
-  raised later. Unknown usernames, users with a pending setup and disabled users are verified against a dummy hash and
-  get the same generic 401.
-- **Memory:** each hash allocates 19 MiB on the 256 MB heap. A semaphore allows 2 hashes at a time; further login
-  attempts fail fast with 503 instead of queuing.
-- `auth/Tokens.kt`: `SecureRandom` 32-byte tokens, base64url; SHA-256 for storage.
-- Throttling (in memory, single instance): per (username, client IP) a growing delay after 5 failures, and a limit
-  per client IP. Throttling per username alone would let anyone keep a known username such as `admin` locked out. The
-  client IP comes from the frontend (see 4.1); the API is only reachable from it, so it can trust the header.
-- `configure/Security.kt`: Ktor `Authentication` with a bearer provider that resolves the session, checks expiry and
-  `disabled_at`, and updates `last_used_at` at most once per hour. Principal: `UserPrincipal(userId, sessionId,
-  displayName, isPlatformAdmin)`.
-- `services/AuthService.kt`: login, logout, me, profile, password change, setup links. Expired sessions and setup
-  tokens are deleted periodically.
+```sql
+-- What differs between otherwise equal materials, e.g. the lengths of a rope or Kohtenplanen with and without Latz.
+-- Every material has at least one variant; stock, items, purchases and loans belong to a variant. A material with
+-- a single variant usually leaves it unnamed, and the UI doesn't show variants for it.
+CREATE TABLE material_variants (
+    id            UUID PRIMARY KEY,
+    tenant_id     UUID                   NOT NULL DEFAULT current_tenant_id(),
+    material_id   UUID                   NOT NULL,
+    tracking_type material_tracking_type NOT NULL,
+    name          VARCHAR(100),          -- NULL only for a material's single variant (checked by the API)
+    created_at, updated_at,
+    CONSTRAINT material_variants_material_id_fkey FOREIGN KEY (material_id, tenant_id, tracking_type)
+        REFERENCES materials (id, tenant_id, tracking_type) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT material_variants_name_key UNIQUE (material_id, name),
+    CONSTRAINT material_variants_id_tenant_id_key UNIQUE (id, tenant_id),
+    CONSTRAINT material_variants_id_tenant_id_tracking_type_key UNIQUE (id, tenant_id, tracking_type),
+    CONSTRAINT material_variants_id_material_id_tenant_id_key UNIQUE (id, material_id, tenant_id)
+);
+```
 
-Endpoints (no tenant in path):
+- `tracking_type` is repeated on the variant so the composite keys keep bulk stock on bulk variants and items on
+  individual variants (the technique already used between `materials` and `bulk_stock`/`individual_items`), and all
+  variants of a material share the material's type.
+- `(id, material_id, tenant_id)` is the target of the kit option key (3.2), so a merge that moves a variant to another
+  material carries its kit options along (`ON UPDATE CASCADE`).
+- RLS policy and `updated_at` trigger. Lookups by `material_id` use `material_variants_name_key`, whose first column
+  it is; no extra index.
 
-| | | |
+### 3.2 Existing tables
+
+| Table | Before | After |
 |---|---|---|
-| `POST /auth/login` | `{username, password}` → `{token, expiresAt}` | 401 generic, 503 when hashing is busy |
-| `POST /auth/logout` | ends the current session | 204 |
-| `GET /auth/me` | `{id, displayName, username?, isPlatformAdmin, tenants: [{id, name, slug, role, isMember}]}` | platform admins get all tenants as `ADMIN`; `isMember` tells real memberships apart |
-| `PUT /auth/me` | `{displayName}` | |
-| `PUT /auth/me/password` | `{currentPassword, newPassword}` | 400 on wrong current password; ends the other sessions |
-| `POST /auth/setup/inspect` | `{token}` → `{displayName, username}` for the setup page | 404 if invalid or expired |
-| `POST /auth/setup` | `{token, password}` → `{token, expiresAt}` | see setup links below |
+| `bulk_stock` | PK `material_id` | PK `variant_id`, `UNIQUE (variant_id, tenant_id)` (target for purchases), FK `(variant_id, tenant_id, tracking_type)` → variants `ON DELETE CASCADE`; location FK unchanged incl. `ON DELETE SET NULL (storage_location_id)` |
+| `individual_items` | `material_id`, `UNIQUE (material_id, identifier)` | `variant_id`, `UNIQUE (variant_id, identifier)`, FK `(variant_id, tenant_id, tracking_type)` → variants, `RESTRICT` |
+| `purchases` | `material_id` → `bulk_stock` | `variant_id` → `bulk_stock (variant_id, tenant_id)`, `RESTRICT` |
+| `loan_lines` | `material_id` + `quantity` | `variant_id` + `quantity` (CHECK updated), FK `(variant_id, tenant_id)` → variants, `RESTRICT` |
+| `kit_group_options` | `material_id`, PK `(group_id, material_id)` | `material_id NOT NULL` plus nullable `variant_id` (NULL = any variant); FK `(variant_id, material_id, tenant_id)` → `material_variants (id, material_id, tenant_id)` `ON UPDATE CASCADE ON DELETE RESTRICT`; key `UNIQUE NULLS NOT DISTINCT (group_id, material_id, variant_id)` instead of the PK |
 
-The token is always in a body, never in a path, so it doesn't end up in access or error logs.
+- Constraint names follow the existing pattern (`individual_items_variant_id_identifier_key`,
+  `purchases_variant_id_fkey`, `loan_lines_variant_id_fkey`, `kit_group_options_variant_id_fkey`, …) and
+  `constraintMessages` in `ErrorHandling.kt` is updated, including messages for deleting a variant or a material
+  whose variants are still referenced. `MigrationTest` checks that every name in `constraintMessages` exists.
+- Indexes for foreign key columns no unique constraint covers (`loan_lines.variant_id`, `purchases.variant_id`,
+  `kit_group_options (variant_id, material_id)`).
 
-**Setup links:** valid 7 days for new accounts, 24 hours for resets. Redeeming is one atomic statement
-(`DELETE FROM setup_tokens WHERE token_hash = ? AND expires_at > now() RETURNING user_id`), rejected for disabled
-users, sets the password, ends all existing sessions of the user and logs in. All setup tokens of a user are deleted
-whenever their memberships, platform admin flag or disabled state change, so a link can never be used with more
-privileges than the user had when it was issued.
+### 3.3 Data migration
 
-Everything except login, setup and the OpenAPI document requires authentication (401).
+1. One variant per material: `gen_random_uuid()` as id (deliberately not the material's id: if both were equal, code
+   that mixes up material and variant ids would pass every test on migrated data), `name NULL`, **`tenant_id` and
+   `tracking_type` copied from the material** (see 2.1 on `current_tenant_id()` during migrations).
+2. Fill the new `variant_id` columns through the material → variant mapping, set `NOT NULL` where applicable, drop
+   the old columns and constraints, add the new ones.
+3. Existing kit options keep `material_id` with `variant_id NULL` (with a single variant, "any variant" means the same
+   as before).
+4. The `updated_at` triggers of the updated tables (`individual_items`, `bulk_stock`, `purchases`) are disabled by
+   name during the migration and re-enabled afterwards (not `DISABLE TRIGGER ALL`, which would also disable the
+   foreign key checks).
 
-### 3.2 Tenant scoping and permissions — [x]
+`MigrationTest`: the existing V1 → latest tests keep passing; new: data in every touched table at V4, migrate to V5,
+check that every row kept its material (via its variant) and tenant, counts and identifiers are unchanged,
+`updated_at` unchanged, deleting a location still only nulls the reference; an empty database migrates too.
 
-- `TenantId` value class (`@JvmInline value class TenantId(val value: Uuid)`).
-- All domain routes move into `route("/tenants/{tenantId}") { … }`. A route-scoped plugin resolves the membership (or
-  platform admin), answers 404 for non-members and deleted tenants, and stores `TenantAccess(tenantId, role)` in the
-  call attributes. Services receive the `TenantId` and run their transactions through `db.tenantQuery`; the queries
-  themselves stay as they are (RLS filters, the default fills `tenant_id`). `References.kt` then automatically treats
-  another tenant's ids as non-existent (400 "gibt es nicht").
-- Permissions: `READ`, `REPORT_DAMAGE`, `BORROW`, `EDIT`, `VIEW_MEMBERS`, `MANAGE_MEMBERS`, derived from the role in
-  one place (`VIEWER`: read, report damage, borrow; `EDITOR`: + edit, view members; `ADMIN`: + manage members). The hitobito mapping
-  later only has to produce a role.
-- **Every route declares its permission explicitly**; there is no default. At startup the routing tree is checked and
-  the application refuses to start if a route below `/tenants/{tenantId}` has no declaration. The permission matrix
-  test is generated from the same declarations, so a new route can't be forgotten in either place.
-- Platform routes (`/tenants` management, `/users`) live outside the tenant subtree and require the platform admin
-  flag, so a tenant `ADMIN` can never reach them through tenant permissions.
-- **Viewer damage reports:** with `REPORT_DAMAGE` but without `EDIT`, the service accepts only new, unresolved reports
-  without resolution notes, and an `itemStatus` of at most `ACTIVE → IN_REPAIR`. (Today `NewDamageReport.itemStatus`
-  can set any status, so a viewer could otherwise decommission items.) The route passes the permission into the
-  service.
-
-### 3.3 Tenants, users and members — [x]
-
-Platform admin:
-
-- `GET /tenants` (including deleted ones, marked), `POST /tenants`, `PUT /tenants/{tenantId}` (name, slug),
-  `DELETE /tenants/{tenantId}` (soft delete), `POST /tenants/{tenantId}/restore` (409 if name or slug are taken
-  meanwhile).
-- `GET /users`, `PUT /users/{userId}` (display name, username, platform admin flag, disabled), `DELETE /users/{userId}`,
-  `POST /users/{userId}/setup-link`, `PUT /tenants/{t}/members/{userId}` for users of other tenants.
-- The last enabled platform admin can't remove their flag, be disabled or be deleted (409).
-
-Tenant members (`VIEW_MEMBERS` to read, `MANAGE_MEMBERS` to change):
-
-- `GET /tenants/{t}/members` → `[{userId, displayName, username, role, setupPending, loginMethod}]`
-- `POST /tenants/{t}/members` `{displayName, username, role}` → creates a local user with membership, returns the
-  member and a setup link token.
-- `PUT /tenants/{t}/members/{userId}` `{role, displayName?, username?}`.
-- `DELETE /tenants/{t}/members/{userId}` removes the membership. Users are never deleted automatically; a user without
-  memberships stays (can log in, sees "no access") until the platform admin deletes them.
-- `POST /tenants/{t}/members/{userId}/setup-link` → new setup link (replaces an older one; the current password keeps
-  working until the link is redeemed). Only for users with a password login.
-
-Rules:
-
-- Tenant admins may only rename, reset or change users that are members of their tenant *only* and aren't platform
-  admins; otherwise an admin of tenant A could take over an account with access to tenant B. Platform admins are never
-  affected by tenant-admin actions.
-- Adding an existing user (a member of another tenant) is platform-admin only, for the same reason.
-- The last enabled `ADMIN` of a tenant can't be demoted or removed (409), also not indirectly by disabling or deleting
-  the user. The check locks the tenant row (`FOR UPDATE`) so two admins demoting each other at once can't both
-  succeed. A new tenant starts without admins until the platform admin adds one.
-- Hitobito members (later) are read-only in all member endpoints.
-
-### 3.4 Tests — [x]
-
-- `TestSupport`: `apiTest` creates a tenant and an `EDITOR` via the services, logs in and configures the client with
-  the bearer token and `/tenants/{id}/` as base path. Fixture paths become relative (`post("locations")`), since a
-  leading slash replaces the base path. Helpers for further users, roles and a second tenant; `truncateAll` includes
-  `tenants` and `users`; cheap Argon2 parameters, bootstrap off.
-- Auth: login success/failure, the same 401 for unknown/pending/disabled users, expired and idle sessions, logout,
-  password change ends other sessions, setup links (single use, expiry, invalidated by membership changes, end
-  sessions), throttling, hashing semaphore, 401 without token.
-- Permission matrix (generated, see 3.2): every route × `VIEWER`/`EDITOR`/`ADMIN`/platform admin/non-member/deleted
-  tenant → expected status, including the viewer damage report restrictions.
-- Isolation (table-driven over all resources): tenant A's data is invisible to B in lists and aggregates, by-id
-  GET/PUT/DELETE give 404, references to A's ids in B's bodies give 400. Plain SQL tests: a cross-tenant reference is
-  rejected by the composite foreign keys; a transaction without tenant sees no rows; the application role isn't
-  superuser or `BYPASSRLS`; every table with `tenant_id` has RLS and a policy (catalog query, see 2.3).
-- Member management: escalation rules, last-admin rules (including concurrency), username rules and conflicts.
-- Migration: Flyway up to V1, insert data into every table, migrate to V2, check the tenant assignment, constraints
-  and unchanged `updated_at`. The specific constraint error messages still appear (existing tests cover them).
-- `openapi.json` updated (bearer security scheme; check the inference picks up `authenticate`, otherwise declare it in
-  the OpenAPI config).
+**Dry run on real data:** with the owner's consent, restore the latest production backup into a local container and
+run V4 and V5 against it, comparing per-table row counts and material counts before and after. This is the riskiest
+step; synthetic data doesn't replace it.
 
 ---
 
-## 4. Frontend **(frontend)**
+## 4. Q9: backend — [ ]
 
-### 4.1 Session handling — [x]
+### 4.1 Models
 
-- `hooks.server.ts` `handle`: reads the cookie, loads `/auth/me` into `locals.user`, redirects page requests without a
-  session to `/login?redirectTo=…` (except `/login`, `/setup`). Doing this in the hook rather than a layout load
-  also covers `+server.ts` routes and parallel child loads.
-- `/login`: form action calls `POST /auth/login`, sets the cookie (httpOnly, `SameSite=Lax`, `Secure` outside
-  localhost, `path: '/'`, `maxAge` matching `expiresAt`), redirects to `redirectTo`. `redirectTo` is only accepted
-  if it resolves to the same origin and starts with a single `/` (no `//host`, `/\host`, absolute URLs), otherwise
-  `/`; checked in load and action, with unit tests. `/logout`: form action (POST).
-- API proxy:
-  - forwards only an allowlist of paths (`tenants/**`, `users/**`, `auth/me`, `auth/me/password`); login, setup and
-    Swagger are not reachable through it (the token must never reach page JavaScript, and login must go through the
-    rate-limited form actions);
-  - adds `Authorization: Bearer <token>` from the cookie and the client IP (adapter-node `ADDRESS_HEADER` /
-    `XFF_DEPTH` from nginx's header) for the API's throttling;
-  - rejects unsafe methods whose `Origin` doesn't match (SvelteKit's own CSRF check only covers form content types);
-  - clears the cookie on 401.
-- Session expiry while editing: `mutate` shows an error toast with a login link (opening it in a new tab keeps the
-  dialog's input) instead of navigating away; loads redirect to login.
-- `/setup`: the link has the token in the URL fragment (`/setup#<token>`), which browsers never send to servers, so it
-  isn't in nginx or Cloudflare logs or referrers. The page inspects the token, shows "Hallo <name>, dein
-  Benutzername ist <username>", sets the password and logs in.
-- `/account`: display name, password change, own tenants, logout.
-- Headers: `Content-Security-Policy: frame-ancestors 'none'` (clickjacking of admin pages), `Referrer-Policy:
-  same-origin`.
+```kotlin
+sealed interface Material {          // counts are sums over the variants
+    val id; val name; val category; val description
+    val availableCount; val damagedCount; val loanedCount
+}
+data class BulkMaterial(…, val variants: List<BulkVariant>)              // loses location/locationDetail
+data class IndividualMaterial(…, val variants: List<IndividualVariant>)
+// Plain classes (no sealed interface): the lists are concretely typed, which keeps the OpenAPI schema simple.
+data class BulkVariant(val id, val name: String?, val availableCount, val damagedCount, val loanedCount,
+    val location: StorageLocation?, val locationDetail: String?)
+data class IndividualVariant(val id, val name: String?, val availableCount, val damagedCount, val loanedCount)
 
-### 4.2 Tenant routes — [x]
+sealed interface NewMaterial { name; category; description }
+data class NewBulkMaterial(…, val variants: List<NewBulkVariant>, val removedVariantIds: List<Uuid> = emptyList())
+data class NewBulkVariant(val id: Uuid? = null, val name: String? = null, val availableCount: Int,
+    val damagedCount: Int = 0, val storageLocationId: Uuid? = null, val locationDetail: String? = null,
+    val expectedAvailableCount: Int? = null)
+data class NewIndividualMaterial(…, val variants: List<NewIndividualVariant> = listOf(NewIndividualVariant()),
+    val removedVariantIds: List<Uuid> = emptyList())
+data class NewIndividualVariant(val id: Uuid? = null, val name: String? = null)
 
-- All current pages move below `src/routes/[tenant]/`; the layout resolves the slug from `locals.user.tenants`
-  (404 if unknown) and provides a tenant-bound API client, so call sites don't repeat the tenant id (e.g. a client
-  whose paths have the `/tenants/{tenantId}` prefix stripped at type level; fall back to passing the parameter if the
-  types get unwieldy).
-- Reserved slugs: every top-level route name (`login`, `logout`, `setup`, `account`, `admin`, `api`, plus the old page
-  names `materials`, `kits`, `loans`, `locations`, `overview`) is rejected by the backend. A frontend test compares
-  the list with the top-level route directories.
-- `/`: redirect to the only tenant, otherwise to the last used one (remembered in a cookie, convenience only),
-  otherwise a tenant picker. No tenant at all: a "no access yet, ask your admin" page.
-- Old top-level paths (`/materials/…`, `/kits`, …) redirect to the same page in the only or last used tenant.
-- Removed from a tenant while using it: redirect to `/` with a toast instead of a bare 404.
-- Navigation: tenant name, and a switcher if there is more than one; user menu (account, members, admin, logout).
-- Role-aware UI: viewers don't see edit/delete/create actions, can report damage (without the resolve option and only
-  with the "in repair" toggle). The backend enforces everything regardless.
-- Damage dialog prefills "Gemeldet von" with the user's name.
+data class IndividualItem(…, val materialId: Uuid, val variantId: Uuid, …)  // materialId stays, read-only, for grouping
+data class NewIndividualItem(val variantId: Uuid, …)                        // replaces materialId
+data class Purchase(…, val materialId: Uuid, val variantId: Uuid, …); NewPurchase(val variantId: Uuid, …)
+data class LoanQuantity(val variantId: Uuid, val quantity: Int)
+data class KitGroupOption(val materialId: Uuid, val variantId: Uuid?, val unitValue: Int, val priority: Int)
+```
 
-### 4.3 Administration — [x]
+- **Variant list on writes:** `PUT /materials/{id}` takes the full variant list: entries with `id` update that
+  variant, entries without `id` are created, and variants in `removedVariantIds` are deleted (409 with a specific
+  message if they have items, purchases, loans or kit references). An existing variant that is neither listed nor
+  removed gives 409 "Das Material wurde inzwischen geändert. Lade die Seite neu.", so a variant another editor just
+  added is never deleted unnoticed (the same idea as `expectedAvailableCount`). `id`s on create, or ids of another
+  material's variants, are rejected (400). One request keeps the dialog atomic.
+- **Validation:** at least one variant; names as in section 1; `expectedAvailableCount` per bulk variant (409 as
+  today if the stock changed meanwhile, e.g. by a purchase).
+- **Kit options:** `variantId`, if given, must belong to `materialId` (400). Within a group, a material appears
+  either as one "any variant" option or as options for distinct specific variants (15 m and 20 m for "at least
+  15 m"), not both (400, "überschneiden sich").
+- **Items:** `variantId` may change on update, only to another variant of the same material (section 1); the
+  identifier must be free in the target variant. Changing the material stays forbidden.
+- **Loans:** "a quantity or specific items, not both" per variant.
+- Query parameters stay material based (`GET /items?materialId=`, `GET /purchases?materialId=` return those of all
+  variants); no `variantId` filters unless the frontend needs them.
 
-- `/[tenant]/members`: editors read, admins manage: list with roles and "Einrichtung ausstehend", create account
-  (shows the setup link with copy button and expiry), change role / name / username, new setup link, remove.
-- `/admin` (platform admins): tenants (create, rename, slug, delete, restore), users (rename, disable, platform admin
-  flag, add to a tenant, setup link, delete).
+### 4.2 Services
 
----
+- `Availability.kt` works per variant: `availableCounts`, `loanedCounts`, `lockStock` take variant ids; locks are taken
+  on `material_variants` rows in id order. Material counts are sums. `materialName` becomes the variant display name.
+- `MaterialService`: create/update with the variant list (bulk stock row per bulk variant), counts per variant,
+  `merge` (4.5).
+- `ItemService` (sorted by variant name, then identifier), `PurchaseService`, `LoanService` (`checkLines`, `pieces`,
+  `itemName` per variant), `KitService` (options sorted by priority, material, variant; amounts), `References.kt`
+  (`requireVariant(id, type)`): switch to variants. Messages use the display name helper.
+- `Tables.kt`: `MaterialVariants`, changed columns, `KitGroupAmounts`.
 
-## 5. Deployment **(deploy)** — [ ]
+### 4.3 Docs
 
-- Backend and frontend are deployed together (all API paths change).
-- Before: tag the current images (`:pre-auth`) and take a database backup. Rollback = restore the dump and run the
-  old tags; V2 can't be reverted otherwise.
-- Dry run of the migration against a restored copy of the production database.
-- After the first start: open the setup link from `docker compose logs material-api`, set the admin password, rename
-  the `standard` tenant, create accounts.
-- nginx: pass the client IP (`X-Forwarded-For`), `limit_req` for `POST` to `/login` and `/setup` per IP (a `map` on
-  the method).
-- vps-deployments README: replace "There is no authentication yet", document bootstrap, recovery and rollback.
-- README of both repositories: roles, bootstrap, configuration.
+README: the "Kit" section (amounts, options referring to a material or a variant, one unit value for "any variant")
+and "Hybrid Tracking" (variants; items unique per variant). REVIEW.md: Q8/Q9 answered with a pointer to this plan;
+progress log entries.
 
----
+### 4.4 Merging materials
 
-## 6. Suggested order
+`POST /materials/merge` (EDIT) with `{ materialIds: [<target>, <source>…], name, variantNames: { <variantId>: "<name>" } }`:
 
-Work on a branch `accounts` in both repositories; `main` stays deployable until step 5.
+- The first material is the target and keeps its id, category and description; it gets `name`. The variants of all
+  other materials move to it, and those materials are deleted. Items, stock, purchases and loans point to variants
+  and come along unchanged; kit options pointing to a specific variant follow through the cascading key (3.1).
+- **Kit options keep their exact meaning:** before moving, every option with `variant_id NULL` on a material that has
+  a single variant is rewritten to that variant, for the target as well as the sources ("Seil 10 m" meant exactly
+  that rope; after the merge it must not mean "any Seil"). A material with several variants already means "any
+  variant, including ones added later", so its "any" options stay; if that material is a *source*, such options
+  can't be expressed afterwards and the merge is rejected (409, naming the kits).
+- All materials must have the same tracking type (400). After the merge every variant needs a unique name, taken from
+  `variantNames` or its current name (400 otherwise).
+- One transaction; locks all involved materials' variant rows.
+- The response is the merged material. The frontend shows the affected kits in the preview (computed from the kits it
+  already loaded).
 
-1. Schema migration with RLS, `Db.tenantQuery`, tenant scoping of the existing services and routes; isolation and
-   migration tests. No authentication yet: the tenant plugin only checks that the tenant exists (and isn't deleted),
-   tests create tenants directly in the database and use `/tenants/{id}/` as base path. Temporary, replaced in step 2.
-2. Authentication, sessions, permissions, bootstrap; auth and permission tests.
-3. Tenants, users and members endpoints with their rules.
-4. Frontend 4.1 and 4.2 (the app is usable again), then 4.3.
-5. Deployment, only together with the owner.
+### 4.5 Tests
 
-Each step ends with all tests green, the plan's status markers updated and a progress log entry in REVIEW.md. After
-steps 1–3 and after step 4, an independent review (as in earlier rounds), whose findings are fixed before moving on.
-
----
-
-## 6a. Notes for the implementing agent
-
-- **Sources of truth:** this plan, the Flyway migrations (schema), the code, README.md (conventions such as the
-  OpenAPI comment quirks and migration rules) and REVIEW.md (decisions and history).
-- **Language:** everything users see is German: backend error and validation messages (as in `ErrorHandling.kt` and
-  `api/Models.kt`), frontend texts. Code, comments and docs are English.
-- **Style:** match the surrounding code (Exposed DSL, immutable data classes, KDoc on routes for the OpenAPI
-  document, comment density). New dependencies only where the plan names them (Bouncy Castle, `ktor-server-auth`).
-- **API contract:** after API changes `UPDATE_OPENAPI=1 ./gradlew clean test` (clean build, see README), commit
-  `openapi.json`, then `bun run api:generate` in material-frontend.
-- **Verification:** backend `./gradlew test` (needs Docker for Testcontainers); frontend `bun run check`, `bun run
-  lint`, `bun run test`, `bun run build`, and clicking through all pages against the local stack
-  (`docker compose up -d` in material-api) with each role.
-- **Verify early (small spikes before building on them):** attaching permission declarations to Ktor routes and
-  walking the routing tree at startup; whether the OpenAPI inference picks up `authenticate`; `SET LOCAL ROLE` and
-  `set_config` through Exposed with HikariCP; RLS together with the composite foreign keys on Postgres 18. If one of
-  them doesn't work as planned, stop and propose an alternative to the owner instead of silently deviating.
-- **Not without the owner:** pushing images, changing the VPS or vps-deployments, merging to `main`. Commit on the
-  branch per step.
+- Materials: variant create/update/remove, the "neither listed nor removed" conflict, name rules, deleting referenced
+  variants (409 messages), `expectedAvailableCount` per variant, counts per variant and summed, foreign variant ids
+  rejected.
+- Items: identifiers unique per variant (same identifier in two variants allowed), moving an item between variants
+  (counts follow).
+- Purchases and loans: per variant stock and availability, the quantity-or-items rule per variant, messages with
+  variant names.
+- Kits: amounts validation and round trip; options by material or variant; the overlap rule; variant of another
+  material rejected.
+- Merge: data moves, single-variant "any" options rewritten for target and sources, multi-variant target keeps "any",
+  multi-variant source with "any" options rejected, every other 400/409 case.
+- `MigrationTest` for V4 and V5, `TenantIsolationTest` covers the new tables (catalog test) plus cross-tenant
+  variant references in bodies, `PermissionTest` covers the merge route (generated), `OpenApiTest` with the updated
+  `openapi.json`.
 
 ---
 
-## 7. Later: hitobito login (not now)
+## 5. Q9: frontend **(frontend)** — [ ]
 
-Waiting for the DPSG platform. The design above leaves room for it without changes to existing tables:
+### 5.1 Hierarchy and the confusion with items
 
-- **Separate accounts:** a hitobito login creates its own user, identified by `external_identities (user_id,
-  provider, subject, UNIQUE (provider, subject))`, without a password login. Someone who had a local account before
-  simply gets a new one; the admin deletes the old one (nothing references users).
-- **Memberships of hitobito users come only from hitobito** and are replaced at every login; they are read-only in the
-  UI. Local users' memberships are managed by admins only. So there is never a hitobito and a manual role for the same
-  user and tenant. (If hitobito users ever need extra access that hitobito doesn't grant, revisit this then.) The
-  platform admin flag can be set on either kind of account.
-- `tenants.hitobito_group_id` (nullable, unique) maps a Stamm group to a tenant.
-- Endpoints `GET /auth/oidc/hitobito/start` (authorization URL with state, nonce, PKCE if supported) and
-  `POST /auth/oidc/hitobito/callback {code, state}` → the same `{token, expiresAt}` as the password login. The backend
-  exchanges the code with the client secret, reads the profile with the `with_roles` scope, creates the user on first
-  login and syncs memberships. The frontend adds a button and a callback route that sets the cookie (and the proxy
-  doesn't forward these endpoints).
-- A configurable mapping from hitobito role classes to `VIEWER`/`EDITOR`/`ADMIN`, and from groups (roles in groups
-  below a Stamm layer count for that Stamm) to tenants. Users whose roles map to no tenant get the "no access" page.
-- Role changes in hitobito take effect at the next login; possibly shorter sessions for hitobito users
-  (`sessions.login_method`) or a re-sync via refresh token. Decide when the token lifetimes are known.
-- Can be developed before the DPSG release against upstream hitobito or a mock OIDC server (e.g.
-  `navikt/mock-oauth2-server` in Testcontainers); only the claim mapping depends on the DPSG plugin.
+The material list today expands individual materials into their items. With variants there are two levels below a
+material, and they must not look alike. Rule: **variants are a breakdown of the counts, items are the physical
+things.**
 
-**Letter projects:** they may later need the same hitobito login for separating templates by organisation. Two options
-then: each app integrates hitobito itself following this pattern (small per app, nothing extra to run), or a central
-broker (Keycloak, Authentik, Zitadel) holds local accounts and federates hitobito for all apps. With two or three
-small apps on the 4 GB VPS the first is lighter; the second becomes attractive with more apps. Both fit this design:
-a broker would simply be the OIDC provider instead of hitobito.
+- **Material list:** one row per material with summed counts. A material with several variants shows a muted line
+  under its name: `10 m: 4 · 15 m: 6 · 20 m: 2` (available counts). The expand chevron keeps its meaning "show items"
+  and stays on individual materials only. Search matches variant names. Location column: the distinct locations of
+  the variants (bulk) or items (individual), as today.
+- **Item table** (list expansion and material page): with several variants, grouped by variant with a heading row per
+  variant (`45 cm Latz · 8 verfügbar`), so the hierarchy reads Material → Variante → Gegenstände. With one variant,
+  unchanged.
+- **Material page:** with several variants a "Varianten" table (name, Bestand, Ausgeliehen, Verfügbar, Beschädigt,
+  and for bulk materials Lagerort) below the summed count tiles. Purchases get a "Variante" column. Damage reports and
+  other item names use the display name helper.
+
+### 5.2 Editing
+
+- **Material dialog:** below name/category/description a "Varianten" section.
+  - One variant: looks like today's dialog (bulk: stock, damaged, location; individual: nothing), plus a link
+    "Varianten anlegen" that switches to the list.
+  - Several variants: one row (card on phones) per variant: name, and for bulk stock and damaged. Location: one
+    shared Lagerort and Platz by default, switch "Lagerort je Variante" (section 1).
+  - Switching from one to several variants asks for a name for the existing variant too.
+  - Removing a variant with stock asks for confirmation ("Variante 15 m mit 4 Stück entfernen?") and sends it in
+    `removedVariantIds`; the API's 409 for referenced variants is shown as usual.
+- **Items:** the add-items dialog has a variant select (preselected when opened from a variant's heading); the edit
+  dialog allows moving an item to another variant. `lib/identifiers.ts` suggests the next free identifier per variant.
+- **Purchases:** the purchase dialog has a variant select if there are several.
+- **Merge:** in the material list, editors select materials (checkboxes appear in a selection mode) and choose
+  "Zusammenführen". The dialog: target (first selected, changeable), name prefilled with the common prefix
+  ("Seil 10 m", "Seil 15 m", "Seil 20 m" → "Seil"), variant names prefilled with the remainders ("10 m", …), a
+  preview of the result, and the kits that use the materials with a note that they keep using exactly the same
+  variants. Materials of different tracking types can't be selected together.
+
+### 5.3 Loans
+
+The loan dialog lists variants as separate rows (`Seil 15 m`), grouped under the material if it has several.
+`picking` and `quantities` are keyed by variant; picking items works per variant. `loanContents` (and
+`loans.test.ts`) and the loans and overview pages (item names and links, `overview/+page.svelte`) use the display
+names.
+
+### 5.4 Locations
+
+`routes/[tenant]/locations/[id]` lists bulk materials by their variants' locations: a variant stored there appears
+as `Seil 15 m`; the load filters on variants instead of `material.location`.
+
+### 5.5 Kits and packing list
+
+- **Kit editor:** the material picker offers, for a material with several variants, "Seil (beliebige Variante)"
+  followed by the single variants (indented, searchable by "Seil 15"). Materials with one variant appear once; an
+  option that points to a specific variant of a material that has only that variant left still renders (as the
+  material). `groupError` mirrors the API's overlap rule. Help text: "beliebige Variante" counts every variant with
+  the same units; list variants individually if they count differently.
+- **Kit cards:** an option for a material with several variants reads `6× Seil (beliebig)`, availability summed.
+- **Allocation:** stock is per variant. A material option is expanded into its variants (same unit value and
+  priority), taking the variant with the most remaining stock first. Groups whose options cover fewer variants are
+  allocated first (generalizing today's "single option first"), so a specific "Seil 20 m" isn't used up by a group
+  that takes any rope. The output stays the assignments of 2.3, now per variant, plus whether the piece was assigned
+  through an "any" option.
+- **Needs** are keyed by material and variant-or-any:
+  - pieces for a specific variant: `2× Seil 20 m`, available = that variant's stock;
+  - pieces through an "any" option: `4× Seil (beliebig)`, available = the material's stock minus what the specific
+    lines of that material take, with the places of the variants used. If both exist, the specific lines are listed
+    directly before the "beliebig" line, which says what it excludes: `4× Seil (beliebig, außer den 2× 20 m)`.
+  - `placeOf` works per variant; `describeShortage` names variants and "beliebig" options.
+- **Expect more FE-7 misses:** expanded options make groups overlap more often, so the greedy allocator's misses
+  become more common. FE-7 should follow right after this plan, ideally before Q9 is deployed (owner's call).
+
+### 5.6 Shared helpers and tests
+
+- `format.ts`: `variantName(material, variant)` and `itemName(material, variant, item)`; the lookups the pages build
+  today (`materials.get(id)`) get a variant counterpart (variant id → material and variant).
+- Unit tests: `allocate.test.ts` (amount choices, several lines of one kit, "any" over variants, specific before any,
+  any and specific of the same material in the needs), `packing.test.ts` (new URL format, combined lines
+  in the summary), `loans.test.ts`, name helpers.
 
 ---
+
+## 6. Order
+
+Two branches, so Q8 can ship on its own and V5 isn't applied anywhere until Q9 is final.
+
+1. **Q8** on branch `kit-amounts` in both repositories: V4, API, tests; frontend 2.3 and 2.4 (allocator output
+   already as assignments). Commit per repository. Deployable on its own (owner's call).
+2. **Q9 schema and backend** on branch `variants` (based on `kit-amounts`): 3, 4.1–4.3, 4.5 without merge. The frontend
+   doesn't compile against the new API until step 3, which is fine on the branch.
+3. **Q9 frontend** (5 without merge).
+4. **Merge** backend (4.4) and frontend (5.2).
+5. Independent review of everything, fixes, progress log.
+6. Deployment, only together with the owner: dry run on a restored backup first (3.3), backend and frontend
+   together, backup before (V4 and V5 can't be reverted otherwise); afterwards the owner merges the demo rope and
+   Kohtenplane materials through the UI.
+
+Each step ends with all tests green, the status markers updated and a progress log entry in REVIEW.md.
+
+## 7. Notes for the implementing agent
+
+- **Sources of truth:** this plan, the migrations, the code, README.md (conventions: tenant-owned tables, OpenAPI
+  comment quirks, migration rules) and REVIEW.md.
+- **Language:** user-facing texts German (API messages, frontend), code and docs English.
+- **Style:** match the surrounding code (Exposed DSL, validation in model init blocks, KDoc on routes, Svelte 5
+  runes, existing components). No new dependencies.
+- **API contract:** `UPDATE_OPENAPI=1 ./gradlew clean test`, commit `openapi.json`, then `bun run api:generate` in
+  material-frontend.
+- **Verification:** backend `./gradlew test`; frontend `bun run check`, `bun run lint`, `bun run test`, `bun run
+  build`, and the flows against a local stack (`docker compose up -d` here) with a viewer and an editor: material
+  with variants (bulk and individual), items per variant, purchase, loan, kit with amounts and "any variant" options,
+  packing list with two lines of one kit, merge. Report what could not be clicked through in a browser.
+- **Not without the owner:** merging to `main`, deploying, touching the live instance's data or its backups.
 
 ## 8. Not planned (possible later)
 
-- Hard deletion of tenants and their data.
-- Sharing or lending material between tenants, Bezirk/Diözese views across tenants.
-- Audit trail (`created_by` / `updated_by`), user references for `reported_by` / `borrower` (DB-6).
-- Two-factor authentication, email (invites, password reset by the user), password blocklist.
+- FE-7 (exact allocation) and FE-8 (pinning an option per kit), next.
+- Splitting a variant off into its own material (the reverse of merging).
+- A manual order of variants; numeric variant attributes (length, volume) and "at least 15 m" options.
+- "Any variant" lines in loans.
