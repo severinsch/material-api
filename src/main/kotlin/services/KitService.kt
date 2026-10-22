@@ -2,10 +2,12 @@ package services
 
 import api.Kit
 import api.KitGroup
+import api.KitGroupAmount
 import api.KitGroupOption
 import api.NewKit
 import database.Db
 import database.TenantId
+import database.KitGroupAmounts
 import database.KitGroupOptions
 import database.KitGroups
 import database.Kits
@@ -55,8 +57,12 @@ class KitService(private val db: Db) {
             it[KitGroups.kitId] = kitId
             it[position] = index
             it[name] = group.name
-            it[requiredUnits] = group.requiredUnits
-            it[isOptional] = group.isOptional
+        }
+        KitGroupAmounts.batchInsert(group.amounts.withIndex()) { (position, amount) ->
+            this[KitGroupAmounts.groupId] = groupId
+            this[KitGroupAmounts.position] = position
+            this[KitGroupAmounts.label] = amount.label
+            this[KitGroupAmounts.requiredUnits] = amount.requiredUnits
         }
         KitGroupOptions.batchInsert(group.options) { option ->
             this[KitGroupOptions.groupId] = groupId
@@ -74,9 +80,17 @@ class KitService(private val db: Db) {
             .where { KitGroups.kitId inList kitRows.map { it[Kits.id] } }
             .orderBy(KitGroups.position)
             .toList()
+        val groupIds = groupRows.map { it[KitGroups.id] }
+        val amountsByGroup = KitGroupAmounts
+            .selectAll()
+            .where { KitGroupAmounts.groupId inList groupIds }
+            .orderBy(KitGroupAmounts.position)
+            .groupBy({ it[KitGroupAmounts.groupId].value }) {
+                KitGroupAmount(label = it[KitGroupAmounts.label], requiredUnits = it[KitGroupAmounts.requiredUnits])
+            }
         val optionsByGroup = KitGroupOptions
             .selectAll()
-            .where { KitGroupOptions.groupId inList groupRows.map { it[KitGroups.id] } }
+            .where { KitGroupOptions.groupId inList groupIds }
             .orderBy(KitGroupOptions.priority to SortOrder.ASC, KitGroupOptions.materialId to SortOrder.ASC)
             .groupBy({ it[KitGroupOptions.groupId].value }) {
                 KitGroupOption(
@@ -88,8 +102,7 @@ class KitService(private val db: Db) {
         val groupsByKit = groupRows.groupBy({ it[KitGroups.kitId].value }) {
             KitGroup(
                 name = it[KitGroups.name],
-                requiredUnits = it[KitGroups.requiredUnits],
-                isOptional = it[KitGroups.isOptional],
+                amounts = amountsByGroup[it[KitGroups.id].value].orEmpty(),
                 options = optionsByGroup[it[KitGroups.id].value].orEmpty()
             )
         }

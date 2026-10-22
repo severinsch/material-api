@@ -40,10 +40,12 @@ Answered 2026-10-13.
 
 Raised 2026-10-19 while entering demo data; not addressed yet.
 
-- [ ] **Q8** Groups with a variable amount. A Jurte is built either with an *Einbein* (1 Jurtenstange) or a
+- [x] **Q8** Groups with a variable amount. A Jurte is built either with an *Einbein* (1 Jurtenstange) or a
   *Dreibein* (3), chosen by what it's used for; nothing else differs. This is a real use for the minimum/maximum
   units dropped in DB-5b. Today the kit has to pick one (the demo Jurte uses 3 and says so in its description), or
   there are two kits.
+  - *Answer:* Discrete amounts per group ("Ausführungen"), chosen per line of the packing list; optional groups are
+    groups with an amount of 0. See PLAN.md, sections 1 and 2.
 - [ ] **Q9** Ropes of different lengths. Lengths are stored as separate bulk materials (Seil 10 m, 15 m, 20 m), but
   for most kits any length works, so the kit lists all of them as equal options of one group. Works, but every kit
   repeats the list, and a new length has to be added to every kit. Possibly a material "family" or category that a
@@ -694,3 +696,60 @@ From the owner's first test round:
   returning a loan, which they can't reopen (403); now only editors get it. Accepted: after an account is deleted,
   its loans show the name as of the last change to the loan, which can predate a later rename (documented on
   `Loans.borrower`).
+
+### 2026-10-22: Kit group amounts (Q8, PLAN.md step 1)
+
+Both repositories, branch `kit-amounts`:
+
+- **Schema (2.1):** V4 adds `kit_group_amounts` (tenant default, composite key to `kit_groups`, RLS policy) and
+  drops `kit_groups.required_units`/`is_optional`. A group keeps its amount (label NULL); an optional group becomes
+  `ohne` = 0 (position 0, so it stays excluded by default) and `mit` = its units. The INSERT copies `tenant_id` from
+  the group. `MigrationTest`: a V3 database with two tenants and optional and non-optional groups; the V1 → latest
+  test covers the new table too. `TenantIsolationTest` counts 12 tenant tables and checks the new composite key.
+- **API (2.2):** `KitGroup.amounts: List<KitGroupAmount>` (label, requiredUnits) in order, replacing
+  `requiredUnits`/`isOptional`; `NewKitGroupAmount` validated in init blocks as planned. A single amount may still
+  carry a label (the API keeps it; the frontend sends none). README "Kit" section updated, `openapi.json`
+  regenerated.
+- **Allocation (2.3):** `allocate` takes lines (`kit`, `quantity`, `choices` per group index) and returns
+  `assignments` (`line`, `groupIndex`, `materialId`, `pieces`, `missing`) plus `shortages` per line and group;
+  `needsOf` derives the needs with a breakdown per line. Missing pieces are assignments on the preferred option
+  marked `missing`, so the needs are a pure sum of the assignments (FE-7/FE-8 can replace the strategy and keep the
+  output). Groups with 0 units are skipped.
+- **Packing list (2.3):** state is a list of lines; URL `kit=<id>*<qty>[*<group>-<amount>.…]`, one parameter per
+  line, only non-default choices. Kit cards list amounts ("Mittelstange: Einbein 1× (Standard) · Dreibein 3×
+  Jurtenstange"), keep today's look with the badge "optional" for 0/n groups, and have quantity buttons only for
+  kits without choices; others get "Zur Packliste" (adds to the default line) and "n auf der Packliste ·
+  Ausführung in der Packliste wählen". "Ausgewählte Sets" shows per line the quantity, remove, one select per group
+  with several amounts, and "Weitere mit anderer Ausführung". Line labels like `Jurte (Mittelstange: Einbein,
+  Fenster: mit)` in the summary, copied text, print, shortages and the "für …" breakdown.
+- **Kit editor (2.4):** one amount looks as before; "Ausführung hinzufügen" switches to rows of label + units (move
+  up, remove) with the note that the first is preselected; the "Optional" checkbox inserts `ohne` = 0 first (naming
+  a single unnamed amount `mit`) and removes the 0 amounts when unchecked. Client validation mirrors the API.
+- **Decisions beyond the plan:**
+  - Identical lines are combined *before* allocating, not only for the summary, so shortages and the per-line
+    breakdown never list the same label twice. The edit list itself keeps them separate.
+  - The URL parser drops invalid choices one by one (as the old parser did with group indices) and keeps the line
+    with the default for that group. An old-format value like `jurte*2*2` therefore becomes 2 Jurten with default
+    amounts instead of being dropped entirely; harmless since no links were shared.
+  - Groups without a name are labelled by their preferred material in line labels and selects ("Fensterplane: mit").
+  - Cards of groups with several options *and* several amounts list the options with their unit value instead of a
+    piece count, since the pieces depend on the chosen amount.
+  - Unchecking "Optional" removes every amount of 0; if nothing remains, one empty amount of 1 is left.
+- **Dry run on the synced dump** (`synced-backup/scout_material-2026-10-22.dump`, at V3): restored into a throwaway
+  `postgres:18-alpine` container (role `material_app` created first, so the ACLs restore), V4 applied by starting
+  the API against it. 26 groups before and after; 29 amounts: the 23 non-optional groups got one row (label NULL,
+  same units, 182 in total), the 3 optional ones `ohne`/0 at position 0 and `mit`/their units at position 1 (42 in
+  total), every row with its group's tenant. All other tables kept their row counts; `material_app` can access the
+  new table and sees the rows with the tenant set (0 without). Container removed afterwards.
+- Verified: `UPDATE_OPENAPI=1 ./gradlew clean test` (69 tests); frontend `bun run check`, `eslint .`, `prettier`
+  on all tracked files, `bun run test` (34 tests), `bun run build`. Over HTTP against a throwaway stack (API +
+  `bun run dev`): created and updated a kit with Einbein/Dreibein, an optional window group and a plain group
+  through the frontend proxy, read it back, got the German 400 for duplicate labels; the kits page rendered with
+  two lines of the same kit (`kit=<id>*2&kit=<id>*1*0-1.1-1`): card text, selects, labels in summary and print, the
+  breakdown "60× für Jurte (…Einbein…), 30× für Jurte (…Dreibein…)", the shortage on the Dreibein line; identical
+  lines combined to "3× Jurte (…)"; the kit editor rendered the amount rows and the Optional state.
+  `bun run lint` as a whole fails only on the local, git-ignored `.claude/settings.local.json` (not in
+  `.prettierignore`).
+- Not verified: nothing was clicked in a browser (extension not connected): changing a select, "Weitere mit anderer
+  Ausführung", the card buttons, the URL update while editing, and the editor's Optional shortcut and amount rows
+  are untested interactively.

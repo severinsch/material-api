@@ -4945,6 +4945,24 @@
                     }
                 }
             },
+            "KitGroupAmount": {
+                "type": "object",
+                "title": "KitGroupAmount",
+                "required": [
+                    "requiredUnits"
+                ],
+                "properties": {
+                    "label": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "requiredUnits": {
+                        "type": "integer"
+                    }
+                }
+            },
             "KitGroupOption": {
                 "type": "object",
                 "title": "KitGroupOption",
@@ -4970,8 +4988,7 @@
                 "type": "object",
                 "title": "KitGroup",
                 "required": [
-                    "requiredUnits",
-                    "isOptional",
+                    "amounts",
                     "options"
                 ],
                 "properties": {
@@ -4981,11 +4998,11 @@
                             "null"
                         ]
                     },
-                    "requiredUnits": {
-                        "type": "integer"
-                    },
-                    "isOptional": {
-                        "type": "boolean"
+                    "amounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitGroupAmount"
+                        }
                     },
                     "options": {
                         "type": "array",
@@ -5025,6 +5042,24 @@
                     }
                 }
             },
+            "NewKitGroupAmount": {
+                "type": "object",
+                "title": "NewKitGroupAmount",
+                "required": [
+                    "requiredUnits"
+                ],
+                "properties": {
+                    "label": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "requiredUnits": {
+                        "type": "integer"
+                    }
+                }
+            },
             "NewKitGroupOption": {
                 "type": "object",
                 "title": "NewKitGroupOption",
@@ -5048,7 +5083,7 @@
                 "type": "object",
                 "title": "NewKitGroup",
                 "required": [
-                    "requiredUnits",
+                    "amounts",
                     "options"
                 ],
                 "properties": {
@@ -5058,11 +5093,11 @@
                             "null"
                         ]
                     },
-                    "requiredUnits": {
-                        "type": "integer"
-                    },
-                    "isOptional": {
-                        "type": "boolean"
+                    "amounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewKitGroupAmount"
+                        }
                     },
                     "options": {
                         "type": "array",

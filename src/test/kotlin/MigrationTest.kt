@@ -12,7 +12,7 @@ class MigrationTest {
 
     private val tenantTables = listOf(
         "storage_locations", "materials", "individual_items", "bulk_stock", "purchases", "damage_reports", "kits",
-        "kit_groups", "kit_group_options", "loans", "loan_lines",
+        "kit_groups", "kit_group_options", "kit_group_amounts", "loans", "loan_lines",
     )
 
     @BeforeTest
@@ -61,7 +61,7 @@ class MigrationTest {
             assertEquals(rows, assigned, table)
         }
         val changed = TestDatabase.query(
-            tenantTables.filter { it !in listOf("kit_group_options", "loan_lines") }
+            tenantTables.filter { it !in listOf("kit_group_options", "kit_group_amounts", "loan_lines") }
                 .joinToString(" UNION ALL ") { "SELECT '$it' FROM $it WHERE updated_at <> $past" },
             url
         )
@@ -69,6 +69,45 @@ class MigrationTest {
         // Deleting a location only nulls the reference, not tenant_id (part of the composite foreign key).
         TestDatabase.execute("DELETE FROM storage_locations", url)
         assertEquals(listOf(listOf(tenant)), TestDatabase.query("SELECT tenant_id FROM bulk_stock", url))
+    }
+
+    @Test
+    fun `groups get their amount, optional groups an amount of 0 as default`() {
+        TestDatabase.migrate(url, target = "3")
+        val (north, south, jurte, kohte) = List(4) { Uuid.random() }
+        val (pegs, windows, poles) = List(3) { Uuid.random() }
+        TestDatabase.execute(
+            """
+            INSERT INTO tenants (id, name, slug)
+            VALUES ('$north', 'Stamm Nord', 'nord'), ('$south', 'Stamm Süd', 'sued');
+            INSERT INTO kits (id, name, tenant_id) VALUES ('$jurte', 'Jurte', '$north'), ('$kohte', 'Kohte', '$south');
+            INSERT INTO kit_groups (id, kit_id, position, required_units, is_optional, tenant_id)
+            VALUES ('$pegs', '$jurte', 0, 30, FALSE, '$north'), ('$windows', '$jurte', 1, 12, TRUE, '$north'),
+                   ('$poles', '$kohte', 0, 2, FALSE, '$south');
+            """,
+            url
+        )
+
+        TestDatabase.migrate(url)
+
+        val amounts = TestDatabase.query(
+            "SELECT group_id, position, label, required_units, tenant_id FROM kit_group_amounts", url
+        ).map { row -> row.map { it?.toString() } }.toSet()
+        assertEquals(
+            setOf(
+                listOf("$pegs", "0", null, "30", "$north"),
+                listOf("$windows", "0", "ohne", "0", "$north"),
+                listOf("$windows", "1", "mit", "12", "$north"),
+                listOf("$poles", "0", null, "2", "$south"),
+            ),
+            amounts
+        )
+        val oldColumns = TestDatabase.query(
+            "SELECT column_name FROM information_schema.columns " +
+                "WHERE table_name = 'kit_groups' AND column_name IN ('required_units', 'is_optional')",
+            url
+        )
+        assertEquals(emptyList(), oldColumns)
     }
 
     @Test

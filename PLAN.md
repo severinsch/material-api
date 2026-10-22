@@ -72,7 +72,7 @@ Defaults chosen in this plan (cheap to change):
 
 ## 2. Q8: kit group amounts
 
-### 2.1 Schema (migration `V4__kit_group_amounts.sql`) — [ ]
+### 2.1 Schema (migration `V4__kit_group_amounts.sql`) — [x]
 
 ```sql
 -- The amounts a group can be packed with, e.g. Einbein = 1 and Dreibein = 3 Jurtenstangen, or "ohne" = 0 and
@@ -98,7 +98,7 @@ CREATE TABLE kit_group_amounts (
 - Then drop `kit_groups.required_units` and `kit_groups.is_optional` (no row updates, so no trigger handling needed).
 - `MigrationTest`: groups with and without `is_optional` at V3, migrate, check the amounts and tenant ids.
 
-### 2.2 API — [ ]
+### 2.2 API — [x]
 
 ```kotlin
 data class KitGroup(val name: String?, val amounts: List<KitGroupAmount>, val options: List<KitGroupOption>)
@@ -109,7 +109,7 @@ data class KitGroupAmount(val label: String?, val requiredUnits: Int)
 at least one amount; at least one amount above 0; with two or more amounts every label is non-blank and unique; labels
 at most 100 characters; `requiredUnits >= 0`. Breaking change; backend and frontend are deployed together.
 
-### 2.3 Packing list **(frontend)** — [ ]
+### 2.3 Packing list **(frontend)** — [x]
 
 - **Lines instead of kits:** the packing list is a list of lines, each `kit + quantity + chosen amount per group`
   (index into `amounts`, default 0). The same kit can appear in several lines. FE-8 later adds pinned options to the
@@ -137,7 +137,7 @@ at most 100 characters; `requiredUnits >= 0`. Breaking change; backend and front
   per-kit breakdown are derived from them, so FE-7 and FE-8 can build on the same output. "14× für Jurte (Einbein)"
   stays correct with two Jurte lines.
 
-### 2.4 Kit editor **(frontend)** — [ ]
+### 2.4 Kit editor **(frontend)** — [x]
 
 - The "Einheiten" field becomes an "Ausführungen" list. With one amount it looks as today (just the units field, no
   label). "Ausführung hinzufügen" adds rows of label + units; then all rows show a label field, and the help text
@@ -214,9 +214,11 @@ CREATE TABLE material_variants (
 check that every row kept its material (via its variant) and tenant, counts and identifiers are unchanged,
 `updated_at` unchanged, deleting a location still only nulls the reference; an empty database migrates too.
 
-**Dry run on real data:** with the owner's consent, restore the latest production backup into a local container and
-run V4 and V5 against it, comparing per-table row counts and material counts before and after. This is the riskiest
-step; synthetic data doesn't replace it.
+**Dry run on production data:** the owner synced a production dump (test data only, nothing real) to
+`synced-backup/scout_material-2026-10-22.dump` (git-ignored locally via `.git/info/exclude`, never commit it).
+Restore it into a local container and run V4 and V5 against it, comparing per-table row counts and material counts
+before and after. Losing this data wouldn't matter (the owner could re-enter it), but it is the best realistic
+test data there is, and the owner wants to keep it on production.
 
 ---
 
@@ -393,7 +395,7 @@ as `Seil 15 m`; the load filters on variants instead of `material.location`.
     directly before the "beliebig" line, which says what it excludes: `4× Seil (beliebig, außer den 2× 20 m)`.
   - `placeOf` works per variant; `describeShortage` names variants and "beliebig" options.
 - **Expect more FE-7 misses:** expanded options make groups overlap more often, so the greedy allocator's misses
-  become more common. FE-7 should follow right after this plan, ideally before Q9 is deployed (owner's call).
+  become more common. FE-7 comes after this plan (owner's decision).
 
 ### 5.6 Shared helpers and tests
 
@@ -407,18 +409,19 @@ as `Seil 15 m`; the load filters on variants instead of `material.location`.
 
 ## 6. Order
 
-Two branches, so Q8 can ship on its own and V5 isn't applied anywhere until Q9 is final.
+Two branches, `kit-amounts` and `variants` (based on it). The owner decided (2026-10-22) to deploy everything
+together once done and tested locally; FE-7 and the other open items wait until afterwards.
 
 1. **Q8** on branch `kit-amounts` in both repositories: V4, API, tests; frontend 2.3 and 2.4 (allocator output
-   already as assignments). Commit per repository. Deployable on its own (owner's call).
+   already as assignments). Commit per repository.
 2. **Q9 schema and backend** on branch `variants` (based on `kit-amounts`): 3, 4.1–4.3, 4.5 without merge. The frontend
    doesn't compile against the new API until step 3, which is fine on the branch.
 3. **Q9 frontend** (5 without merge).
 4. **Merge** backend (4.4) and frontend (5.2).
 5. Independent review of everything, fixes, progress log.
-6. Deployment, only together with the owner: dry run on a restored backup first (3.3), backend and frontend
+6. Deployment, only together with the owner: dry run on the synced dump first (3.3), backend and frontend
    together, backup before (V4 and V5 can't be reverted otherwise); afterwards the owner merges the demo rope and
-   Kohtenplane materials through the UI.
+   Kohtenplane materials through the UI (also worth trying locally on the restored dump before).
 
 Each step ends with all tests green, the status markers updated and a progress log entry in REVIEW.md.
 

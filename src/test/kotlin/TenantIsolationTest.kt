@@ -88,7 +88,7 @@ class TenantIsolationTest {
     }
 
     @Test
-    fun `composite foreign keys reject references across tenants`() = apiTest {
+    fun `composite foreign keys reject references across tenants`() = apiTest { context ->
         val material = createIndividual()
         val item = createItem(material, "1")
         val location = createLocation()
@@ -100,7 +100,7 @@ class TenantIsolationTest {
             """
             INSERT INTO loans (id, borrower, tenant_id) VALUES ('$loan', 'Stamm Ost', '$other');
             INSERT INTO kits (id, name, tenant_id) VALUES ('$kit', 'Jurte', '$other');
-            INSERT INTO kit_groups (id, kit_id, position, required_units, tenant_id) VALUES ('$group', '$kit', 0, 1, '$other');
+            INSERT INTO kit_groups (id, kit_id, position, tenant_id) VALUES ('$group', '$kit', 0, '$other');
             INSERT INTO materials (id, name, tracking_type, tenant_id) VALUES ('$bulk', 'Hering', 'BULK', '$other');
             """
         )
@@ -112,6 +112,9 @@ class TenantIsolationTest {
             "INSERT INTO kit_group_options (group_id, material_id, tenant_id) VALUES ('$group', '${material.id}', '$other')",
             "INSERT INTO bulk_stock (material_id, storage_location_id, tenant_id) " +
                 "VALUES ('$bulk', '${location.id}', '$other')",
+            // The other way round: a row of this tenant in the other tenant's group.
+            "INSERT INTO kit_group_amounts (group_id, position, required_units, tenant_id) " +
+                "VALUES ('$group', 0, 1, '${context.tenant}')",
         )
         for (insert in crossTenant) {
             val e = assertFailsWith<SQLException>(insert) { TestDatabase.execute(insert) }
@@ -162,7 +165,7 @@ class TenantIsolationTest {
               AND c.relname <> 'tenant_members'
             """
         )
-        assertEquals(11, tables.size)
+        assertEquals(12, tables.size)
         for ((table, rowSecurity, default, hasPolicy) in tables) {
             assertEquals(true, rowSecurity, "row-level security on $table")
             assertEquals("current_tenant_id()", default, "default of $table.tenant_id")
@@ -197,8 +200,11 @@ class TenantIsolationTest {
         assertEquals(emptySet(), missing.keys)
     }
 
-    private fun kitOf(materialId: Uuid) =
-        NewKit("Jurte", groups = listOf(NewKitGroup(requiredUnits = 1, options = listOf(NewKitGroupOption(materialId)))))
+    private fun kitOf(materialId: Uuid): NewKit {
+        val amounts = listOf(NewKitGroupAmount(requiredUnits = 1))
+        val group = NewKitGroup(amounts = amounts, options = listOf(NewKitGroupOption(materialId)))
+        return NewKit("Jurte", groups = listOf(group))
+    }
 
     private fun loanOf(itemIds: List<Uuid> = emptyList(), materials: List<LoanQuantity> = emptyList()) =
         NewLoan("Stamm Nord", LocalDate(2026, 10, 1), itemIds = itemIds, materials = materials)

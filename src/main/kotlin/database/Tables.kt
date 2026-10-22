@@ -139,8 +139,14 @@ object KitGroups : UuidTable("kit_groups") {
     val kitId = reference("kit_id", Kits, onDelete = ReferenceOption.CASCADE)
     val position = integer("position")
     val name = varchar("name", 255).nullable()
+}
+
+object KitGroupAmounts : Table("kit_group_amounts") {
+    val groupId = reference("group_id", KitGroups, onDelete = ReferenceOption.CASCADE)
+    val position = integer("position")
+    val label = varchar("label", 100).nullable()
     val requiredUnits = integer("required_units")
-    val isOptional = bool("is_optional")
+    override val primaryKey = PrimaryKey(groupId, position)
 }
 
 object KitGroupOptions : Table("kit_group_options") {

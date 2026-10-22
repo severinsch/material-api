@@ -103,7 +103,10 @@ number of units, filled by one or more interchangeable materials.
 * A `Kohtenblatt` is worth `1.00` unit.
 * Options with a lower priority value are used first.
 * A fixed material ("8x Fenster") is simply a group with a single option worth 1 unit.
-* A group can be optional, which is all-or-nothing (e.g. a Jurte with or without windows).
+* A group can have several amounts ("Ausführungen"), each with a label: a Jurte's "Mittelstange" needs 1
+  Jurtenstange as "Einbein" or 3 as "Dreibein". The packing list picks one per kit, the first one by default. All
+  amounts share the group's options.
+* An optional group is a group with an amount of 0, e.g. "ohne" = 0 and "mit" = 12 Fensterplanen.
 
 ## API Documentation
 

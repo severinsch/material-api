@@ -274,32 +274,61 @@ data class NewKit(
 }
 
 /**
- * A slot in a kit that needs [requiredUnits] units, filled by one or more interchangeable materials.
- * A fixed material ("8x Fenster") is a group with a single option of unit value 1 and no name.
- * Optional groups are all-or-nothing: packed completely or not at all.
+ * A slot in a kit that needs a number of units, filled by one or more interchangeable materials.
+ * A fixed material ("8x Fenster") is a group with a single amount, a single option of unit value 1 and no name.
  */
 @Serializable
 data class KitGroup(
     val name: String?,
-    val requiredUnits: Int,
-    val isOptional: Boolean,
+    /** In display order; the packing list uses one of them per kit, the first one by default. */
+    val amounts: List<KitGroupAmount>,
     val options: List<KitGroupOption>
+)
+
+/**
+ * The number of units a group can be packed with ("Ausführung"), e.g. Einbein = 1 and Dreibein = 3 Jurtenstangen.
+ * An optional group has an amount of 0 ("ohne" = 0, "mit" = 12 Fensterplanen). [label] is null only for a group's
+ * single amount.
+ */
+@Serializable
+data class KitGroupAmount(
+    val label: String?,
+    val requiredUnits: Int
 )
 
 @Serializable
 data class NewKitGroup(
     val name: String? = null,
-    val requiredUnits: Int,
-    val isOptional: Boolean = false,
+    val amounts: List<NewKitGroupAmount>,
     val options: List<NewKitGroupOption>
 ) {
     init {
         name?.let { requireText(it, "Der Name eines Teils", maxLength = 255) }
-        requirePositive(requiredUnits, "Die Anzahl der Einheiten")
+        require(amounts.isNotEmpty()) { "Jedes Teil braucht mindestens eine Ausführung." }
+        require(amounts.any { it.requiredUnits > 0 }) { "Mindestens eine Ausführung eines Teils braucht Einheiten." }
+        if (amounts.size > 1) {
+            require(amounts.all { it.label != null }) {
+                "Hat ein Teil mehrere Ausführungen, braucht jede eine Bezeichnung."
+            }
+            require(amounts.distinctBy { it.label }.size == amounts.size) {
+                "Die Ausführungen eines Teils brauchen unterschiedliche Bezeichnungen."
+            }
+        }
         require(options.isNotEmpty()) { "Jedes Teil braucht mindestens ein Material." }
         require(options.distinctBy { it.materialId }.size == options.size) {
             "Ein Material kann in einem Teil nur einmal vorkommen."
         }
+    }
+}
+
+@Serializable
+data class NewKitGroupAmount(
+    val label: String? = null,
+    val requiredUnits: Int
+) {
+    init {
+        label?.let { requireText(it, "Die Bezeichnung einer Ausführung", maxLength = 100) }
+        requireNonNegative(requiredUnits, "Die Anzahl der Einheiten")
     }
 }
 
