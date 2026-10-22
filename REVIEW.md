@@ -895,9 +895,59 @@ Frontend commit `cc7fd03` on `variants`.
 - Needs the browser pass: selection mode (checkboxes, disabled ones, phone layout), the dialog (prefill, switching
   the target, name errors, preview, kit notes), a real submit incl. the 409 toast.
 
+### 2026-10-22: Fixes from the independent review of steps 1–4
+
+Backend commit `f633e2e`, frontend commit `8a98910`, both on `variants`. All findings were confirmed against the
+code before fixing.
+
+- **Merge dialog promised what the API rejects:** `kitsAfterMerge` has a third category `blocked` that mirrors
+  `requireKitsAfterMerge` (a source with several variants used with "any variant"; "any variant" of a target with
+  several variants in a group that also lists a source) and phrases it with the API's messages, one per material.
+  The dialog shows them in a destructive alert ("Zusammenführen nicht möglich") and disables "Zusammenführen"
+  (`FormDialog` got `submitDisabled`); blocked kits aren't listed as "same" or "widened". Switching the target
+  updates it.
+- **Stale variant ids:** in `PUT /materials/{id}` an id that is no variant at all (removed meanwhile) is a 409 "Das
+  Material wurde inzwischen geändert. Lade die Seite neu."; a variant of another material stays a 400. In the merge,
+  unknown materials and unknown variant ids are a 409 "Die Materialien wurden inzwischen geändert. Lade die Seite
+  neu." (beyond the finding: the missing material is the more likely stale case, since merging deletes the sources;
+  it was a 400 with a raw UUID before). Another tenant's ids are invisible, so they get these 409s too
+  (`TenantIsolationTest` adjusted; the PUT still changes nothing).
+- **Variants with items:** the material dialog gets the items (both pages load them, all statuses); variants with
+  items can't be removed (disabled button with a title, plus one hint line under the variants). The confirmation is
+  only for bulk stock now, since an individual variant without items loses nothing.
+- **Packing list place:** `variantsToFind` in `kits/packing.ts` (+ test): a specific variant whose pieces are all
+  missing is located at that variant, not at all variants of its material.
+- **Unnamed variants** read "ohne Namen" in the removal confirmation and the "Wird beim Speichern entfernt" list,
+  like the API's label.
+- **Purchases:** with several variants the variant starts empty and is required ("Wähle eine Variante aus.",
+  `SelectField` got `invalid`/`describedby`); a single variant is still chosen implicitly.
+- **Deadlocks and serialization failures** (40P01, 40001) map to 409 "Jemand anderes hat gleichzeitig dieselben Daten
+  geändert. Versuche es noch einmal." (`databaseError`, formerly `constraintViolation`). Exposed retries every
+  `SQLException` up to 3 times (its default), so this only shows when all attempts failed. Tested as a unit test of
+  the mapping (`ErrorHandlingTest`); a real deadlock test would need three deadlocks in a row through Exposed's
+  retries, too timing-dependent.
+- **Maintainability:** `variantsError` and `variantOf` in `format.ts` (+ tests), used by both dialogs and by
+  ItemDialog, ItemTable, PurchaseDialog and the material page; the client messages are now the API's ("Hat ein
+  Material mehrere Varianten, braucht jede einen Namen." instead of "Gib jeder Variante einen Namen."). One
+  `lockVariantsOf(materialIds)` instead of two overloads (same query, lock order unchanged: variants by id).
+  `NewIndividualMaterial.variants` is required (a body without it is a 400 now, not "create a variant"); the frontend
+  always sent it. READMEs mention merging (backend: "Hybrid Tracking"; frontend: features).
+- Verified: `UPDATE_OPENAPI=1 ./gradlew clean test` (93 tests: the 409s for a removed variant in PUT, for unknown
+  materials/variants in the merge, the mapping of 40P01/40001, the required variants); frontend `bun run check`
+  (0/0), `bun run test` (65), eslint, prettier on tracked files, `bun run build`. Over HTTP against a throwaway stack
+  (committed backend from `git archive`, Postgres on 55432, dev server): both merge 409s, with `kitsAfterMerge`
+  (run with bun on the fetched kits and materials) predicting exactly the API's messages for both target choices,
+  and "same" without `blocked` for a merge that then succeeded; the stale PUT (changing and removing a removed
+  variant) and the stale merge gave the 409s, a foreign material's variant still the 400; a variant whose only item
+  is LOST was rejected with 409 and is in both item lists the dialog uses; list, material and kits pages rendered.
+  Stack removed afterwards.
+- Needs the browser pass: the disabled merge button and the alert while switching the target; the disabled remove
+  buttons and their hint in the material dialog (a `title` on a disabled button may not show in every browser); the
+  required variant select in the purchase dialog.
+
 ### 2026-10-22: Status and next steps (handoff)
 
-Steps 1–4 of PLAN.md are implemented on the branches `variants` (based on `kit-amounts`) in both repositories, not
-merged, not deployed. Next: step 5, the independent review of `main..variants` in both repositories and its fixes;
-then the owner's browser pass (the "Needs the browser pass" lists above); then deployment together with the owner
-(PLAN.md step 6). The owner decided to deploy everything together; FE-7, FE-8 and FE-9 follow afterwards.
+Steps 1–5 of PLAN.md are done on the branches `variants` (based on `kit-amounts`) in both repositories, not
+merged, not deployed: implemented, independently reviewed, review findings fixed (entry above). Next: the owner's
+browser pass (the "Needs the browser pass" lists above); then deployment together with the owner (PLAN.md step
+6). The owner decided to deploy everything together; FE-7, FE-8 and FE-9 follow afterwards.

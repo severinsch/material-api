@@ -420,7 +420,7 @@ together once done and tested locally; FE-7 and the other open items wait until 
    doesn't compile against the new API until step 3, which is fine on the branch.
 3. **Q9 frontend** (5 without merge).
 4. **Merge** backend (4.4) and frontend (5.2).
-5. Independent review of everything, fixes, progress log.
+5. Independent review of everything, fixes, progress log. — [x]
 6. Deployment, only together with the owner: dry run on the synced dump first (3.3), backend and frontend
    together, backup before (V4 and V5 can't be reverted otherwise); afterwards the owner merges the demo rope and
    Kohtenplane materials through the UI (also worth trying locally on the restored dump before).
