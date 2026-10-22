@@ -34,10 +34,10 @@ fun Route.loanRoutes(loanService: LoanService) {
             }
 
             /**
-             * Record a loan: quantities of materials (`materials`), specific items (`itemIds`), or both. Without the
-             * permission EDIT only for the user themselves (`borrowerId`).
+             * Record a loan: quantities of material variants (`materials`), specific items (`itemIds`), or both. Without
+             * the permission EDIT only for the user themselves (`borrowerId`).
              *
-             * Response: 400 application/json [api.ErrorResponse] Invalid loan, unknown item or material, or the borrower isn't a member.
+             * Response: 400 application/json [api.ErrorResponse] Invalid loan, unknown item or variant, or the borrower isn't a member.
              * Response: 409 application/json [api.ErrorResponse] Something isn't available (inactive, lent out, out of stock).
              */
             post {

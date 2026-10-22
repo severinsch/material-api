@@ -16,7 +16,7 @@ class KitApiTest {
         val roof = NewKitGroup(
             name = "Dach",
             amounts = units(6),
-            options = listOf(NewKitGroupOption(kohtenblatt.id, priority = 1), NewKitGroupOption(halbdach.id, 3))
+            options = listOf(NewKitGroupOption(kohtenblatt.id, priority = 1), NewKitGroupOption(halbdach.id, unitValue = 3))
         )
         val pegs = NewKitGroup(amounts = units(30), options = listOf(NewKitGroupOption(hering.id)))
         val kit: Kit = post("kits") { setBody(NewKit("Jurte", groups = listOf(roof, pegs))) }
@@ -112,6 +112,67 @@ class KitApiTest {
 
         val empty = post("kits") { setBody("""{"name": "Jurte", "groups": []}""") }.expectError(HttpStatusCode.BadRequest)
         assertEquals("Ein Set braucht mindestens ein Teil.", empty)
+    }
+
+    @Test
+    fun `options refer to a material or to one of its variants`() = apiTest {
+        val seil = createBulk(
+            "Seil",
+            NewBulkVariant(name = "10 m", availableCount = 4),
+            NewBulkVariant(name = "15 m", availableCount = 6),
+            NewBulkVariant(name = "20 m", availableCount = 2)
+        )
+        val (_, fifteenMeters, twentyMeters) = seil.variants
+        val hering = createBulk("Hering")
+        // At least 15 m: the two longer variants. Any variant of Hering.
+        val longRopes = NewKitGroup(
+            amounts = units(2),
+            options = listOf(NewKitGroupOption(seil.id, twentyMeters.id), NewKitGroupOption(seil.id, fifteenMeters.id))
+        )
+        val pegs = NewKitGroup(amounts = units(30), options = listOf(NewKitGroupOption(hering.id)))
+        val kit: Kit = post("kits") { setBody(NewKit("Jurte", groups = listOf(longRopes, pegs))) }
+            .expect(HttpStatusCode.Created)
+
+        assertEquals(
+            setOf(KitGroupOption(seil.id, fifteenMeters.id, 1, 0), KitGroupOption(seil.id, twentyMeters.id, 1, 0)),
+            kit.groups[0].options.toSet()
+        )
+        assertEquals(listOf(KitGroupOption(hering.id, null, 1, 0)), kit.groups[1].options)
+        assertEquals(kit, get("kits/${kit.id}").expect<Kit>(HttpStatusCode.OK))
+    }
+
+    @Test
+    fun `options of a group don't overlap and variants belong to their material`() = apiTest {
+        val seil = createBulk("Seil", NewBulkVariant(name = "10 m", availableCount = 4), NewBulkVariant(name = "15 m", availableCount = 6))
+        val (tenMeters, fifteenMeters) = seil.variants
+        val hering = createBulk("Hering")
+        // As JSON: the request models reject overlapping options when they are created.
+        suspend fun messageFor(vararg options: Pair<Uuid, Uuid?>) = post("kits") {
+            val json = options.joinToString { (material, variant) ->
+                """{"materialId": "$material"${variant?.let { """, "variantId": "$it"""" }.orEmpty()}}"""
+            }
+            setBody("""{"name": "Jurte", "groups": [{"amounts": [{"requiredUnits": 1}], "options": [$json]}]}""")
+        }.expectError(HttpStatusCode.BadRequest)
+
+        val overlapping = "Die Materialien eines Teils überschneiden sich: Nimm ein Material entweder einmal mit " +
+            "beliebiger Variante auf oder mit unterschiedlichen, bestimmten Varianten."
+        assertEquals(overlapping, messageFor(seil.id to null, seil.id to tenMeters.id))
+        assertEquals(overlapping, messageFor(seil.id to tenMeters.id, seil.id to tenMeters.id))
+        assertEquals(overlapping, messageFor(seil.id to null, seil.id to null))
+
+        assertEquals(
+            "Die Variante ${tenMeters.id} gehört nicht zu Material ${hering.id}.",
+            messageFor(hering.id to tenMeters.id)
+        )
+        val unknown = Uuid.random()
+        assertEquals("Variante $unknown gibt es nicht.", messageFor(seil.id to unknown))
+
+        // The same material in another group is fine.
+        val groups = listOf(
+            NewKitGroup(amounts = units(1), options = listOf(NewKitGroupOption(seil.id))),
+            NewKitGroup(amounts = units(1), options = listOf(NewKitGroupOption(seil.id, fifteenMeters.id))),
+        )
+        post("kits") { setBody(NewKit("Jurte", groups = groups)) }.expect<Kit>(HttpStatusCode.Created)
     }
 
     private fun units(requiredUnits: Int) = listOf(NewKitGroupAmount(requiredUnits = requiredUnits))

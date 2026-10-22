@@ -692,7 +692,7 @@
         },
         "/tenants/{tenantId}/materials": {
             "post": {
-                "summary": "Create a material. `trackingType` decides whether it's a bulk or an individual material.",
+                "summary": "Create a material with its variants (none of them with an `id`). `trackingType` decides whether it's a bulk\nor an individual material.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -746,7 +746,17 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid material or unknown location.",
+                        "description": "Invalid material or variants, or unknown location.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -773,7 +783,7 @@
                 ]
             },
             "get": {
-                "summary": "Get all materials.",
+                "summary": "Get all materials with their variants.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -852,7 +862,7 @@
         },
         "/tenants/{tenantId}/materials/{id}": {
             "put": {
-                "summary": "Replace a material. Its `trackingType` can't be changed.",
+                "summary": "Replace a material including its variants. Variants with an `id` are changed, those without are created,\nand those in `removedVariantIds` are deleted. Every existing variant must be listed or removed. Its\n`trackingType` can't be changed.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -916,7 +926,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid material or unknown location.",
+                        "description": "Invalid material or variants, a variant of another material, or unknown location.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -926,7 +936,7 @@
                         }
                     },
                     "409": {
-                        "description": "The tracking type differs, the name is taken, or the stock",
+                        "description": "The tracking type differs, the name is taken, an existing variant is neither listed nor removed, a removed variant is still in use, or a stock differs from `expectedAvailableCount` or would drop below the pieces lent out.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -953,7 +963,7 @@
                 ]
             },
             "delete": {
-                "summary": "Delete a material. Only possible while nothing references it (items, purchases, kits, loans).",
+                "summary": "Delete a material with its variants. Only possible while nothing references them (items, purchases, kits,\nloans).",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1102,7 +1112,7 @@
         },
         "/tenants/{tenantId}/items": {
             "post": {
-                "summary": "Create an individual item.",
+                "summary": "Create an individual item of a variant.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1156,7 +1166,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid item, or the material isn't an individual one.",
+                        "description": "Invalid item, or the variant isn't one of an individual material.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1208,7 +1218,7 @@
                     {
                         "name": "materialId",
                         "in": "query",
-                        "description": "Only return items of this material.",
+                        "description": "Only return items of this material (of all its variants).",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1269,7 +1279,7 @@
         },
         "/tenants/{tenantId}/items/{id}": {
             "put": {
-                "summary": "Replace an individual item. Its `materialId` can't be changed.",
+                "summary": "Replace an individual item. It can move to another variant of its material (`variantId`), not to another\nmaterial.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1333,7 +1343,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid item.",
+                        "description": "Invalid item, or a variant of another material.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1576,7 +1586,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid or no items, or a material isn't an individual one.",
+                        "description": "Invalid or no items, or a variant isn't one of an individual material.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1618,7 +1628,7 @@
         },
         "/tenants/{tenantId}/purchases": {
             "post": {
-                "summary": "Record a purchase. Its quantity is added to the material's available stock.",
+                "summary": "Record a purchase of a variant. Its quantity is added to the variant's available stock.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1672,7 +1682,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid purchase, or the material isn't a bulk material.",
+                        "description": "Invalid purchase, or the variant isn't one of a bulk material.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1714,7 +1724,7 @@
                     {
                         "name": "materialId",
                         "in": "query",
-                        "description": "Only return purchases of this material.",
+                        "description": "Only return purchases of this material (of all its variants).",
                         "schema": {
                             "type": "string",
                             "format": "uuid"
@@ -1775,7 +1785,7 @@
         },
         "/tenants/{tenantId}/purchases/{id}": {
             "put": {
-                "summary": "Replace a purchase. Its `materialId` can't be changed. The stock changes by the difference of the quantities.",
+                "summary": "Replace a purchase. Its `variantId` can't be changed. The stock changes by the difference of the quantities.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -2392,7 +2402,7 @@
         },
         "/tenants/{tenantId}/kits": {
             "post": {
-                "summary": "Create a kit.",
+                "summary": "Create a kit. An option refers to a material (any variant) or to one of its variants (`variantId`).",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -2446,7 +2456,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid kit or unknown material.",
+                        "description": "Invalid kit, overlapping options, unknown material or variant, or a variant of another material.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2824,7 +2834,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid loan, unknown item or material, or the borrower isn't a member.",
+                        "description": "Invalid loan, unknown item or variant, or the borrower isn't a member.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4413,6 +4423,46 @@
                     }
                 }
             },
+            "BulkVariant": {
+                "type": "object",
+                "title": "BulkVariant",
+                "required": [
+                    "id",
+                    "availableCount",
+                    "damagedCount",
+                    "loanedCount"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "loanedCount": {
+                        "type": "integer"
+                    },
+                    "location": {
+                        "$ref": "#/components/schemas/StorageLocation2"
+                    },
+                    "locationDetail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
             "BulkMaterial": {
                 "type": "object",
                 "title": "BulkMaterial",
@@ -4422,7 +4472,8 @@
                     "name",
                     "availableCount",
                     "damagedCount",
-                    "loanedCount"
+                    "loanedCount",
+                    "variants"
                 ],
                 "properties": {
                     "trackingType": {
@@ -4459,14 +4510,42 @@
                     "loanedCount": {
                         "type": "integer"
                     },
-                    "location": {
-                        "$ref": "#/components/schemas/StorageLocation2"
+                    "variants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BulkVariant"
+                        }
+                    }
+                }
+            },
+            "IndividualVariant": {
+                "type": "object",
+                "title": "IndividualVariant",
+                "required": [
+                    "id",
+                    "availableCount",
+                    "damagedCount",
+                    "loanedCount"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
                     },
-                    "locationDetail": {
+                    "name": {
                         "type": [
                             "string",
                             "null"
                         ]
+                    },
+                    "availableCount": {
+                        "type": "integer"
+                    },
+                    "damagedCount": {
+                        "type": "integer"
+                    },
+                    "loanedCount": {
+                        "type": "integer"
                     }
                 }
             },
@@ -4479,7 +4558,8 @@
                     "name",
                     "availableCount",
                     "damagedCount",
-                    "loanedCount"
+                    "loanedCount",
+                    "variants"
                 ],
                 "properties": {
                     "trackingType": {
@@ -4515,6 +4595,12 @@
                     },
                     "loanedCount": {
                         "type": "integer"
+                    },
+                    "variants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IndividualVariant"
+                        }
                     }
                 }
             },
@@ -4537,31 +4623,21 @@
                     }
                 }
             },
-            "NewBulkMaterial": {
+            "NewBulkVariant": {
                 "type": "object",
-                "title": "NewBulkMaterial",
+                "title": "NewBulkVariant",
                 "required": [
-                    "trackingType",
-                    "name",
                     "availableCount"
                 ],
                 "properties": {
-                    "trackingType": {
-                        "type": "string",
-                        "enum": [
-                            "BULK"
-                        ]
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "category": {
+                    "id": {
                         "type": [
                             "string",
                             "null"
-                        ]
+                        ],
+                        "format": "uuid"
                     },
-                    "description": {
+                    "name": {
                         "type": [
                             "string",
                             "null"
@@ -4589,6 +4665,70 @@
                     "expectedAvailableCount": {
                         "type": [
                             "integer",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "NewBulkMaterial": {
+                "type": "object",
+                "title": "NewBulkMaterial",
+                "required": [
+                    "trackingType",
+                    "name",
+                    "variants"
+                ],
+                "properties": {
+                    "trackingType": {
+                        "type": "string",
+                        "enum": [
+                            "BULK"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "variants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewBulkVariant"
+                        }
+                    },
+                    "removedVariantIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "NewIndividualVariant": {
+                "type": "object",
+                "title": "NewIndividualVariant",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
                             "null"
                         ]
                     }
@@ -4622,6 +4762,19 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "variants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewIndividualVariant"
+                        }
+                    },
+                    "removedVariantIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
                     }
                 }
             },
@@ -4650,6 +4803,7 @@
                 "required": [
                     "id",
                     "materialId",
+                    "variantId",
                     "identifier",
                     "condition",
                     "status",
@@ -4662,6 +4816,10 @@
                         "format": "uuid"
                     },
                     "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "variantId": {
                         "type": "string",
                         "format": "uuid"
                     },
@@ -4720,12 +4878,12 @@
                 "type": "object",
                 "title": "NewIndividualItem",
                 "required": [
-                    "materialId",
+                    "variantId",
                     "identifier",
                     "condition"
                 ],
                 "properties": {
-                    "materialId": {
+                    "variantId": {
                         "type": "string",
                         "format": "uuid"
                     },
@@ -4784,6 +4942,7 @@
                 "required": [
                     "id",
                     "materialId",
+                    "variantId",
                     "quantity"
                 ],
                 "properties": {
@@ -4792,6 +4951,10 @@
                         "format": "uuid"
                     },
                     "materialId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "variantId": {
                         "type": "string",
                         "format": "uuid"
                     },
@@ -4823,11 +4986,11 @@
                 "type": "object",
                 "title": "NewPurchase",
                 "required": [
-                    "materialId",
+                    "variantId",
                     "quantity"
                 ],
                 "properties": {
-                    "materialId": {
+                    "variantId": {
                         "type": "string",
                         "format": "uuid"
                     },
@@ -4976,6 +5139,13 @@
                         "type": "string",
                         "format": "uuid"
                     },
+                    "variantId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
                     "unitValue": {
                         "type": "integer"
                     },
@@ -5071,6 +5241,13 @@
                         "type": "string",
                         "format": "uuid"
                     },
+                    "variantId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uuid"
+                    },
                     "unitValue": {
                         "type": "integer"
                     },
@@ -5136,11 +5313,11 @@
                 "type": "object",
                 "title": "LoanQuantity",
                 "required": [
-                    "materialId",
+                    "variantId",
                     "quantity"
                 ],
                 "properties": {
-                    "materialId": {
+                    "variantId": {
                         "type": "string",
                         "format": "uuid"
                     },

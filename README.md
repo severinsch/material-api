@@ -85,12 +85,22 @@ convention for all tables with a `tenant_id` column.
 
 Materials are separated into "Individual" and "Bulk" materials.
 For each individual material there is a list of items of this "kind", each with a condition (NEW…POOR) and a
-status (ACTIVE, IN_REPAIR, LOST, DECOMMISSIONED). Bulk materials have a single stock row with quantities, and an
+status (ACTIVE, IN_REPAIR, LOST, DECOMMISSIONED). Bulk materials have a stock row with quantities, and an
 optional purchase history.
 
-The database enforces that individual items only belong to individual materials and stock only to bulk materials.
-Materials, items and records with history (damage reports, purchases, loans, kit recipes) can't be deleted while
-referenced; items are retired via their status instead.
+Every material has one or more **variants**, which hold what differs between otherwise equal materials: ropes of
+10, 15 and 20 m are the material "Seil" with three variants, Kohtenplanen with and without Latz one material with two.
+The material keeps what all variants share (name, category, description, tracking type); stock, location of bulk
+stock, items, purchases and loans belong to a variant, and the material's counts are sums. Most materials have a
+single, unnamed variant, which clients don't show. With several variants, each needs a name, unique within the
+material; variants are sorted by name, numbers by value. All variants of a material share its tracking type.
+Identifiers of items are unique per variant (K01… for the plain Kohtenplanen, K45 01… for those with Latz), and an
+item can move to another variant of its material. Materials are written together with their complete variant list
+(`PUT /materials/{id}` creates, changes and removes variants in one request).
+
+The database enforces that individual items only belong to individual variants and stock only to bulk variants.
+Materials, variants, items and records with history (damage reports, purchases, loans, kit recipes) can't be deleted
+while referenced; items are retired via their status instead.
 
 The API combines the separately tracked materials into one response type in some endpoints.
 
@@ -107,6 +117,11 @@ number of units, filled by one or more interchangeable materials.
   Jurtenstange as "Einbein" or 3 as "Dreibein". The packing list picks one per kit, the first one by default. All
   amounts share the group's options.
 * An optional group is a group with an amount of 0, e.g. "ohne" = 0 and "mit" = 12 Fensterplanen.
+* An option refers to a material, meaning any of its variants including ones added later, or to one specific
+  variant: a group that needs ropes of at least 15 m lists the variants "15 m" and "20 m". "Any variant" counts every
+  variant with the same unit value, so variants that count differently (Kanister 10 L and 20 L in a "Wasser" group)
+  are listed individually. Within a group, a material appears either once as "any variant" or with distinct
+  variants.
 
 ## API Documentation
 

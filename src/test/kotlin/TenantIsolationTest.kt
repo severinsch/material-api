@@ -19,7 +19,7 @@ class TenantIsolationTest {
         val bulk = createBulk(location = location)
         val individual = createIndividual()
         val item = createItem(individual, "1")
-        val purchase: Purchase = post("purchases") { setBody(NewPurchase(bulk.id, 5)) }.expect(HttpStatusCode.Created)
+        val purchase: Purchase = post("purchases") { setBody(NewPurchase(bulk.variantId, 5)) }.expect(HttpStatusCode.Created)
         val damage: DamageReport = post("damages") { setBody(NewDamageReport(item.id, "Riss")) }
             .expect(HttpStatusCode.Created)
         val kit: Kit = post("kits") { setBody(kitOf(bulk.id)) }.expect(HttpStatusCode.Created)
@@ -31,9 +31,9 @@ class TenantIsolationTest {
         val otherItem = other.createItem(other.createIndividual(), "1")
         val resources = listOf(
             Triple("locations", location.id, ApiJson.encodeToString(NewStorageLocation("Garage"))),
-            Triple("materials", bulk.id, ApiJson.encodeToString<NewMaterial>(NewBulkMaterial("Hering", availableCount = 1))),
-            Triple("items", item.id, ApiJson.encodeToString(NewIndividualItem(otherItem.materialId, "1", ItemCondition.GOOD))),
-            Triple("purchases", purchase.id, ApiJson.encodeToString(NewPurchase(otherBulk.id, 1))),
+            Triple("materials", bulk.id, ApiJson.encodeToString<NewMaterial>(stockUpdate(otherBulk, 1))),
+            Triple("items", item.id, ApiJson.encodeToString(NewIndividualItem(otherItem.variantId, "1", ItemCondition.GOOD))),
+            Triple("purchases", purchase.id, ApiJson.encodeToString(NewPurchase(otherBulk.variantId, 1))),
             Triple("damages", damage.id, ApiJson.encodeToString(NewDamageReport(otherItem.id, "Riss"))),
             Triple("kits", kit.id, ApiJson.encodeToString(kitOf(otherBulk.id))),
             Triple("loans", loan.id, ApiJson.encodeToString(loanOf(itemIds = listOf(otherItem.id)))),
@@ -50,7 +50,7 @@ class TenantIsolationTest {
 
         // Names are unique per tenant only (both have a "Hering"), and aggregates only count the tenant's own data.
         assertEquals(0, other.getMaterial(otherBulk.id).loanedCount)
-        other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(otherBulk.id, 3)))) }
+        other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(otherBulk.variantId, 3)))) }
             .expect<Loan>(HttpStatusCode.Created)
         assertEquals(0, getMaterial(bulk.id).loanedCount)
     }
@@ -64,19 +64,31 @@ class TenantIsolationTest {
 
         val other = context.clientFor(TenantRole.EDITOR, TestDatabase.createTenant("Stamm West"))
         val otherIndividual = other.createIndividual()
+        val otherItem = other.createItem(otherIndividual, "1")
         val requests = listOf(
             other.post("materials") {
-                setBody<NewMaterial>(NewBulkMaterial("Hering", availableCount = 1, storageLocationId = location.id))
+                val variant = NewBulkVariant(availableCount = 1, storageLocationId = location.id)
+                setBody<NewMaterial>(NewBulkMaterial("Hering", variants = listOf(variant)))
             },
-            other.post("items") { setBody(NewIndividualItem(individual.id, "1", ItemCondition.GOOD)) },
+            // This tenant's variant listed as one of the other tenant's material.
+            other.put("materials/${otherIndividual.id}") {
+                val variants = listOf(
+                    NewIndividualVariant(otherIndividual.variantId, "A"),
+                    NewIndividualVariant(individual.variantId, "B")
+                )
+                setBody<NewMaterial>(NewIndividualMaterial("Kohtenblatt", variants = variants))
+            },
+            other.post("items") { setBody(NewIndividualItem(individual.variantId, "2", ItemCondition.GOOD)) },
+            other.put("items/${otherItem.id}") { setBody(NewIndividualItem(individual.variantId, "1", ItemCondition.GOOD)) },
             other.post("items") {
-                setBody(NewIndividualItem(otherIndividual.id, "1", ItemCondition.GOOD, storageLocationId = location.id))
+                setBody(NewIndividualItem(otherIndividual.variantId, "2", ItemCondition.GOOD, storageLocationId = location.id))
             },
-            other.post("purchases") { setBody(NewPurchase(bulk.id, 1)) },
+            other.post("purchases") { setBody(NewPurchase(bulk.variantId, 1)) },
             other.post("damages") { setBody(NewDamageReport(item.id, "Riss")) },
             other.post("kits") { setBody(kitOf(bulk.id)) },
+            other.post("kits") { setBody(kitOf(otherIndividual.id, variantId = individual.variantId)) },
             other.post("loans") { setBody(loanOf(itemIds = listOf(item.id))) },
-            other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(bulk.id, 1)))) },
+            other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(bulk.variantId, 1)))) },
         )
         requests.forEach { assertEquals(HttpStatusCode.BadRequest, it.status, it.bodyAsText()) }
     }
@@ -95,23 +107,32 @@ class TenantIsolationTest {
 
         // Rows of another tenant, inserted as table owner: only the foreign keys stand in the way, not the policies.
         val other = TestDatabase.createTenant("Stamm West")
-        val (loan, kit, group, bulk) = List(4) { Uuid.random() }
+        val (loan, kit, group, bulk, bulkVariant) = List(5) { Uuid.random() }
         TestDatabase.execute(
             """
             INSERT INTO loans (id, borrower, tenant_id) VALUES ('$loan', 'Stamm Ost', '$other');
             INSERT INTO kits (id, name, tenant_id) VALUES ('$kit', 'Jurte', '$other');
             INSERT INTO kit_groups (id, kit_id, position, tenant_id) VALUES ('$group', '$kit', 0, '$other');
             INSERT INTO materials (id, name, tracking_type, tenant_id) VALUES ('$bulk', 'Hering', 'BULK', '$other');
+            INSERT INTO material_variants (id, material_id, tracking_type, tenant_id)
+            VALUES ('$bulkVariant', '$bulk', 'BULK', '$other');
             """
         )
         val crossTenant = listOf(
-            "INSERT INTO individual_items (id, material_id, identifier, tenant_id) " +
-                "VALUES ('${Uuid.random()}', '${material.id}', '2', '$other')",
+            "INSERT INTO material_variants (id, material_id, tracking_type, tenant_id) " +
+                "VALUES ('${Uuid.random()}', '${material.id}', 'INDIVIDUAL', '$other')",
+            "INSERT INTO individual_items (id, variant_id, identifier, tenant_id) " +
+                "VALUES ('${Uuid.random()}', '${material.variantId}', '2', '$other')",
             "INSERT INTO loan_lines (id, loan_id, individual_item_id, tenant_id) " +
                 "VALUES ('${Uuid.random()}', '$loan', '${item.id}', '$other')",
+            "INSERT INTO loan_lines (id, loan_id, variant_id, quantity, tenant_id) " +
+                "VALUES ('${Uuid.random()}', '$loan', '${material.variantId}', 1, '$other')",
             "INSERT INTO kit_group_options (group_id, material_id, tenant_id) VALUES ('$group', '${material.id}', '$other')",
-            "INSERT INTO bulk_stock (material_id, storage_location_id, tenant_id) " +
-                "VALUES ('$bulk', '${location.id}', '$other')",
+            // The other tenant's material with this tenant's variant.
+            "INSERT INTO kit_group_options (group_id, material_id, variant_id, tenant_id) " +
+                "VALUES ('$group', '$bulk', '${material.variantId}', '$other')",
+            "INSERT INTO bulk_stock (variant_id, storage_location_id, tenant_id) " +
+                "VALUES ('$bulkVariant', '${location.id}', '$other')",
             // The other way round: a row of this tenant in the other tenant's group.
             "INSERT INTO kit_group_amounts (group_id, position, required_units, tenant_id) " +
                 "VALUES ('$group', 0, 1, '${context.tenant}')",
@@ -165,7 +186,7 @@ class TenantIsolationTest {
               AND c.relname <> 'tenant_members'
             """
         )
-        assertEquals(12, tables.size)
+        assertEquals(13, tables.size)
         for ((table, rowSecurity, default, hasPolicy) in tables) {
             assertEquals(true, rowSecurity, "row-level security on $table")
             assertEquals("current_tenant_id()", default, "default of $table.tenant_id")
@@ -200,9 +221,9 @@ class TenantIsolationTest {
         assertEquals(emptySet(), missing.keys)
     }
 
-    private fun kitOf(materialId: Uuid): NewKit {
+    private fun kitOf(materialId: Uuid, variantId: Uuid? = null): NewKit {
         val amounts = listOf(NewKitGroupAmount(requiredUnits = 1))
-        val group = NewKitGroup(amounts = amounts, options = listOf(NewKitGroupOption(materialId)))
+        val group = NewKitGroup(amounts = amounts, options = listOf(NewKitGroupOption(materialId, variantId)))
         return NewKit("Jurte", groups = listOf(group))
     }
 

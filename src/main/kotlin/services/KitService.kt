@@ -49,8 +49,15 @@ class KitService(private val db: Db) {
         if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Set", id)
     }
 
-    private fun requireOptionMaterials(kit: NewKit) =
-        requireMaterials(kit.groups.flatMap { group -> group.options.map { it.materialId } }.toSet())
+    /** Rejects unknown materials and variants, and variants that don't belong to the option's material. */
+    private fun requireOptionMaterials(kit: NewKit) {
+        val options = kit.groups.flatMap { it.options }
+        requireMaterials(options.map { it.materialId }.toSet())
+        val variantMaterials = requireVariants(options.mapNotNull { it.variantId }.toSet())
+        options.firstOrNull { it.variantId != null && variantMaterials[it.variantId] != it.materialId }?.let {
+            invalid("Die Variante ${it.variantId} gehört nicht zu Material ${it.materialId}.")
+        }
+    }
 
     private fun insertGroups(kitId: EntityID<Uuid>, kit: NewKit) = kit.groups.forEachIndexed { index, group ->
         val groupId = KitGroups.insertAndGetId {
@@ -67,6 +74,7 @@ class KitService(private val db: Db) {
         KitGroupOptions.batchInsert(group.options) { option ->
             this[KitGroupOptions.groupId] = groupId
             this[KitGroupOptions.materialId] = option.materialId
+            this[KitGroupOptions.variantId] = option.variantId
             this[KitGroupOptions.unitValue] = option.unitValue
             this[KitGroupOptions.priority] = option.priority
         }
@@ -91,10 +99,15 @@ class KitService(private val db: Db) {
         val optionsByGroup = KitGroupOptions
             .selectAll()
             .where { KitGroupOptions.groupId inList groupIds }
-            .orderBy(KitGroupOptions.priority to SortOrder.ASC, KitGroupOptions.materialId to SortOrder.ASC)
+            .orderBy(
+                KitGroupOptions.priority to SortOrder.ASC,
+                KitGroupOptions.materialId to SortOrder.ASC,
+                KitGroupOptions.variantId to SortOrder.ASC_NULLS_FIRST
+            )
             .groupBy({ it[KitGroupOptions.groupId].value }) {
                 KitGroupOption(
                     materialId = it[KitGroupOptions.materialId].value,
+                    variantId = it[KitGroupOptions.variantId]?.value,
                     unitValue = it[KitGroupOptions.unitValue],
                     priority = it[KitGroupOptions.priority]
                 )

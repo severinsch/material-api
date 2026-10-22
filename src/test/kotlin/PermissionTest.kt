@@ -110,7 +110,7 @@ class PermissionTest {
         val viewer = context.createUser(TenantRole.VIEWER)
         val other = context.createUser(TenantRole.VIEWER)
         val asViewer = context.client(viewer.token)
-        val loan = NewLoan(lentAt = LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(bulk.id, 2)), borrowerId = viewer.id)
+        val loan = NewLoan(lentAt = LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(bulk.variantId, 2)), borrowerId = viewer.id)
 
         val own: Loan = asViewer.post("loans") { setBody(loan) }.expect(HttpStatusCode.Created)
         assertEquals(viewer.displayName, own.borrower)
@@ -128,7 +128,7 @@ class PermissionTest {
             asViewer.put("loans/$id") { setBody(loan) }.expectError(HttpStatusCode.NotFound)
         }
 
-        asViewer.put("loans/${own.id}") { setBody(loan.copy(materials = listOf(LoanQuantity(bulk.id, 3)))) }
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(materials = listOf(LoanQuantity(bulk.variantId, 3)))) }
             .expect<Loan>(HttpStatusCode.OK)
         asViewer.put("loans/${own.id}") { setBody(loan.copy(borrowerId = other.id)) }.expectError(HttpStatusCode.Forbidden)
         asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = LocalDate(2026, 10, 3))) }

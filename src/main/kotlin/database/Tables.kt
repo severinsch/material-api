@@ -88,8 +88,15 @@ object Materials : UuidTable("materials") {
     val category = varchar("category", 100).nullable()
 }
 
+/** Every material has at least one variant; stock, items, purchases and loans belong to a variant. */
+object MaterialVariants : UuidTable("material_variants") {
+    val materialId = reference("material_id", Materials, onDelete = ReferenceOption.CASCADE)
+    val trackingType = pgEnum<MaterialTrackingType>("tracking_type", "material_tracking_type")
+    val name = varchar("name", 100).nullable()
+}
+
 object IndividualItems : UuidTable("individual_items") {
-    val materialId = reference("material_id", Materials)
+    val variantId = reference("variant_id", MaterialVariants)
     val trackingType = pgEnum<MaterialTrackingType>("tracking_type", "material_tracking_type")
         .default(MaterialTrackingType.INDIVIDUAL)
     val identifier = varchar("identifier", 100)
@@ -102,19 +109,19 @@ object IndividualItems : UuidTable("individual_items") {
 }
 
 object BulkStock : Table("bulk_stock") {
-    val materialId = reference("material_id", Materials)
+    val variantId = reference("variant_id", MaterialVariants, onDelete = ReferenceOption.CASCADE)
     val trackingType = pgEnum<MaterialTrackingType>("tracking_type", "material_tracking_type")
         .default(MaterialTrackingType.BULK)
     val quantityAvailable = integer("quantity_available")
     val quantityDamaged = integer("quantity_damaged")
     val storageLocationId = optReference("storage_location_id", StorageLocations)
     val locationDetail = varchar("location_detail", 255).nullable()
-    override val primaryKey = PrimaryKey(materialId)
+    override val primaryKey = PrimaryKey(variantId)
 }
 
 object Purchases : UuidTable("purchases") {
-    // The schema references bulk_stock (BULK materials only); Exposed can only wrap ids of id tables.
-    val materialId = reference("material_id", Materials)
+    // The schema references bulk_stock (BULK variants only); Exposed can only wrap ids of id tables.
+    val variantId = reference("variant_id", MaterialVariants)
     val quantity = integer("quantity")
     val unitPrice = decimal("unit_price", 10, 2).nullable()
     val purchaseDate = date("purchase_date").nullable()
@@ -152,9 +159,10 @@ object KitGroupAmounts : Table("kit_group_amounts") {
 object KitGroupOptions : Table("kit_group_options") {
     val groupId = reference("group_id", KitGroups, onDelete = ReferenceOption.CASCADE)
     val materialId = reference("material_id", Materials)
+    /** Null for any variant of the material, including ones added later. */
+    val variantId = optReference("variant_id", MaterialVariants)
     val unitValue = integer("unit_value")
     val priority = integer("priority")
-    override val primaryKey = PrimaryKey(groupId, materialId)
 }
 
 object Loans : UuidTable("loans") {
@@ -170,6 +178,6 @@ object Loans : UuidTable("loans") {
 object LoanLines : UuidTable("loan_lines") {
     val loanId = reference("loan_id", Loans, onDelete = ReferenceOption.CASCADE)
     val individualItemId = optReference("individual_item_id", IndividualItems)
-    val materialId = optReference("material_id", Materials)
+    val variantId = optReference("variant_id", MaterialVariants)
     val quantity = integer("quantity").nullable()
 }

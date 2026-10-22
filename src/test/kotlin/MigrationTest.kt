@@ -11,8 +11,8 @@ class MigrationTest {
     private val url = TestDatabase.url("migration_test")
 
     private val tenantTables = listOf(
-        "storage_locations", "materials", "individual_items", "bulk_stock", "purchases", "damage_reports", "kits",
-        "kit_groups", "kit_group_options", "kit_group_amounts", "loans", "loan_lines",
+        "storage_locations", "materials", "material_variants", "individual_items", "bulk_stock", "purchases",
+        "damage_reports", "kits", "kit_groups", "kit_group_options", "kit_group_amounts", "loans", "loan_lines",
     )
 
     @BeforeTest
@@ -108,6 +108,114 @@ class MigrationTest {
             url
         )
         assertEquals(emptyList(), oldColumns)
+    }
+
+    @Test
+    fun `every material gets one unnamed variant that takes over its stock, items, purchases and loans`() {
+        TestDatabase.migrate(url, target = "4")
+        val (north, south, location) = List(3) { Uuid.random() }
+        val (bulk, individual, southBulk) = List(3) { Uuid.random() }
+        val (kit, group, loan, southLoan) = List(4) { Uuid.random() }
+        val (item, purchase) = List(2) { Uuid.random() }
+        val past = "'2020-01-01 00:00:00+00'"
+        TestDatabase.execute(
+            """
+            INSERT INTO tenants (id, name, slug) VALUES ('$north', 'Stamm Nord', 'nord'), ('$south', 'Stamm Süd', 'sued');
+            INSERT INTO storage_locations (id, name, tenant_id) VALUES ('$location', 'Keller', '$north');
+            INSERT INTO materials (id, name, tracking_type, tenant_id, updated_at)
+            VALUES ('$bulk', 'Hering', 'BULK', '$north', $past), ('$individual', 'Kohtenblatt', 'INDIVIDUAL', '$north', $past),
+                   ('$southBulk', 'Hering', 'BULK', '$south', $past);
+            INSERT INTO bulk_stock (material_id, quantity_available, quantity_damaged, storage_location_id, location_detail,
+                                    tenant_id, updated_at)
+            VALUES ('$bulk', 10, 2, '$location', 'Regal 1', '$north', $past), ('$southBulk', 5, 0, NULL, NULL, '$south', $past);
+            INSERT INTO individual_items (id, material_id, identifier, tenant_id, updated_at)
+            VALUES ('$item', '$individual', 'K01', '$north', $past), ('${Uuid.random()}', '$individual', 'K02', '$north', $past);
+            INSERT INTO purchases (id, material_id, quantity, tenant_id, updated_at)
+            VALUES ('$purchase', '$bulk', 5, '$north', $past), ('${Uuid.random()}', '$southBulk', 3, '$south', $past);
+            INSERT INTO kits (id, name, tenant_id) VALUES ('$kit', 'Jurte', '$north');
+            INSERT INTO kit_groups (id, kit_id, position, tenant_id) VALUES ('$group', '$kit', 0, '$north');
+            INSERT INTO kit_group_options (group_id, material_id, tenant_id)
+            VALUES ('$group', '$individual', '$north'), ('$group', '$bulk', '$north');
+            INSERT INTO loans (id, borrower, tenant_id) VALUES ('$loan', 'Stamm Ost', '$north'), ('$southLoan', 'Stamm Ost', '$south');
+            INSERT INTO loan_lines (id, loan_id, individual_item_id, material_id, quantity, tenant_id)
+            VALUES ('${Uuid.random()}', '$loan', '$item', NULL, NULL, '$north'),
+                   ('${Uuid.random()}', '$loan', NULL, '$bulk', 4, '$north'),
+                   ('${Uuid.random()}', '$southLoan', NULL, '$southBulk', 2, '$south');
+            """,
+            url
+        )
+
+        TestDatabase.migrate(url)
+
+        // One unnamed variant per material, with the material's tenant and type, and an id of its own.
+        val variants = TestDatabase.query(
+            "SELECT material_id, tenant_id, tracking_type, name, id = material_id FROM material_variants", url
+        ).map { row -> row.map { it?.toString() } }.toSet()
+        assertEquals(
+            setOf(
+                listOf("$bulk", "$north", "BULK", null, "false"),
+                listOf("$individual", "$north", "INDIVIDUAL", null, "false"),
+                listOf("$southBulk", "$south", "BULK", null, "false"),
+            ),
+            variants
+        )
+        // Every row kept its material (now through its variant), its tenant and its data.
+        val rows = TestDatabase.query(
+            """
+            SELECT 'stock', v.material_id, b.tenant_id,
+                   format('%s/%s/%s/%s', b.quantity_available, b.quantity_damaged, b.storage_location_id, b.location_detail)
+            FROM bulk_stock b JOIN material_variants v ON v.id = b.variant_id
+            UNION ALL
+            SELECT 'item', v.material_id, i.tenant_id, i.identifier
+            FROM individual_items i JOIN material_variants v ON v.id = i.variant_id
+            UNION ALL
+            SELECT 'purchase', v.material_id, p.tenant_id, p.quantity::text
+            FROM purchases p JOIN material_variants v ON v.id = p.variant_id
+            UNION ALL
+            SELECT 'loan', coalesce(v.material_id, i.id), l.tenant_id, coalesce(l.quantity::text, 'item')
+            FROM loan_lines l LEFT JOIN material_variants v ON v.id = l.variant_id
+                              LEFT JOIN individual_items i ON i.id = l.individual_item_id
+            UNION ALL
+            SELECT 'option', o.material_id, o.tenant_id, coalesce(o.variant_id::text, 'any variant')
+            FROM kit_group_options o
+            """,
+            url
+        ).map { row -> row.map { it?.toString() } }.toSet()
+        assertEquals(
+            setOf(
+                listOf("stock", "$bulk", "$north", "10/2/$location/Regal 1"),
+                listOf("stock", "$southBulk", "$south", "5/0//"),
+                listOf("item", "$individual", "$north", "K01"),
+                listOf("item", "$individual", "$north", "K02"),
+                listOf("purchase", "$bulk", "$north", "5"),
+                listOf("purchase", "$southBulk", "$south", "3"),
+                listOf("loan", "$item", "$north", "item"),
+                listOf("loan", "$bulk", "$north", "4"),
+                listOf("loan", "$southBulk", "$south", "2"),
+                listOf("option", "$individual", "$north", "any variant"),
+                listOf("option", "$bulk", "$north", "any variant"),
+            ),
+            rows
+        )
+        val changed = TestDatabase.query(
+            listOf("materials", "material_variants", "bulk_stock", "individual_items", "purchases")
+                .joinToString(" UNION ALL ") { "SELECT '$it' FROM $it WHERE updated_at <> $past" },
+            url
+        )
+        assertEquals(emptyList(), changed, "tables with changed updated_at")
+        val oldColumns = TestDatabase.query(
+            "SELECT table_name FROM information_schema.columns WHERE column_name = 'material_id' " +
+                "AND table_name IN ('bulk_stock', 'individual_items', 'purchases', 'loan_lines')",
+            url
+        )
+        assertEquals(emptyList(), oldColumns)
+        // Deleting a location still only nulls the reference.
+        TestDatabase.execute("DELETE FROM storage_locations", url)
+        assertEquals(
+            setOf(listOf("$north", null), listOf("$south", null)),
+            TestDatabase.query("SELECT tenant_id, storage_location_id FROM bulk_stock", url)
+                .map { row -> row.map { it?.toString() } }.toSet()
+        )
     }
 
     @Test

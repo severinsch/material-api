@@ -148,7 +148,7 @@ at most 100 characters; `requiredUnits >= 0`. Breaking change; backend and front
 
 ---
 
-## 3. Q9: material variants — schema (migration `V5__material_variants.sql`) — [ ]
+## 3. Q9: material variants — schema (migration `V5__material_variants.sql`) — [x]
 
 ### 3.1 New table
 
@@ -222,9 +222,9 @@ test data there is, and the owner wants to keep it on production.
 
 ---
 
-## 4. Q9: backend — [ ]
+## 4. Q9: backend — [ ] (all but the merge, 4.4, done in step 2)
 
-### 4.1 Models
+### 4.1 Models — [x]
 
 ```kotlin
 sealed interface Material {          // counts are sums over the variants
@@ -271,7 +271,7 @@ data class KitGroupOption(val materialId: Uuid, val variantId: Uuid?, val unitVa
 - Query parameters stay material based (`GET /items?materialId=`, `GET /purchases?materialId=` return those of all
   variants); no `variantId` filters unless the frontend needs them.
 
-### 4.2 Services
+### 4.2 Services — [x] (without `merge`)
 
 - `Availability.kt` works per variant: `availableCounts`, `loanedCounts`, `lockStock` take variant ids; locks are taken
   on `material_variants` rows in id order. Material counts are sums. `materialName` becomes the variant display name.
@@ -282,13 +282,13 @@ data class KitGroupOption(val materialId: Uuid, val variantId: Uuid?, val unitVa
   (`requireVariant(id, type)`): switch to variants. Messages use the display name helper.
 - `Tables.kt`: `MaterialVariants`, changed columns, `KitGroupAmounts`.
 
-### 4.3 Docs
+### 4.3 Docs — [x]
 
 README: the "Kit" section (amounts, options referring to a material or a variant, one unit value for "any variant")
 and "Hybrid Tracking" (variants; items unique per variant). REVIEW.md: Q8/Q9 answered with a pointer to this plan;
 progress log entries.
 
-### 4.4 Merging materials
+### 4.4 Merging materials — [ ]
 
 `POST /materials/merge` (EDIT) with `{ materialIds: [<target>, <source>…], name, variantNames: { <variantId>: "<name>" } }`:
 
@@ -306,7 +306,7 @@ progress log entries.
 - The response is the merged material. The frontend shows the affected kits in the preview (computed from the kits it
   already loaded).
 
-### 4.5 Tests
+### 4.5 Tests — [x] (without merge)
 
 - Materials: variant create/update/remove, the "neither listed nor removed" conflict, name rules, deleting referenced
   variants (409 messages), `expectedAvailableCount` per variant, counts per variant and summed, foreign variant ids

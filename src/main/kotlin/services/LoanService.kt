@@ -81,22 +81,22 @@ class LoanService(private val db: Db) {
 
     /**
      * Checks that everything lent exists and, for an open loan, is available: specific items must be active and on no
-     * other open loan, and the pieces per material (quantities plus specific available items) must not exceed what
+     * other open loan, and the pieces per variant (quantities plus specific available items) must not exceed what
      * other open loans leave. Parts of an open loan that don't change aren't checked again, so it stays editable when
      * e.g. one of its items was damaged while lent out.
      */
     private fun checkLines(loan: NewLoan, existing: Loan?) {
         val previous = existing?.takeIf { it.returnedAt == null }
         val items = IndividualItems
-            .select(IndividualItems.id, IndividualItems.materialId, IndividualItems.status, isAvailableItem)
+            .select(IndividualItems.id, IndividualItems.variantId, IndividualItems.status, isAvailableItem)
             .where { IndividualItems.id inList (loan.itemIds + previous?.itemIds.orEmpty()) }
             .forUpdate()
             .associateBy { it[IndividualItems.id].value }
         loan.itemIds.forEach { if (it !in items) invalid("Gegenstand $it gibt es nicht.") }
-        requireMaterials(loan.materials.map(LoanQuantity::materialId))
-        val itemMaterials = loan.itemIds.map { items.getValue(it)[IndividualItems.materialId].value }.toSet()
-        loan.materials.firstOrNull { it.materialId in itemMaterials }?.let {
-            invalid("Gib für ${materialName(it.materialId)} entweder eine Anzahl oder bestimmte Gegenstände an.")
+        requireVariants(loan.materials.map(LoanQuantity::variantId))
+        val itemVariants = loan.itemIds.map { items.getValue(it)[IndividualItems.variantId].value }.toSet()
+        loan.materials.firstOrNull { it.variantId in itemVariants }?.let {
+            invalid("Gib für ${variantName(it.variantId)} entweder eine Anzahl oder bestimmte Gegenstände an.")
         }
         if (loan.returnedAt != null) return
 
@@ -118,31 +118,23 @@ class LoanService(private val db: Db) {
 
         val before = previous?.let { pieces(it.itemIds, it.materials, items) }.orEmpty()
         val increased = pieces(loan.itemIds, loan.materials, items).filter { (id, n) -> n > (before[id] ?: 0) }
-        lockMaterials(increased.keys)
+        lockVariants(increased.keys)
         val available = availableCounts(increased.keys)
         val loaned = loanedCounts(increased.keys, exceptLoan = existing?.id)
-        increased.forEach { (materialId, wanted) ->
-            val free = maxOf(0, (available[materialId] ?: 0) - (loaned[materialId] ?: 0))
-            if (wanted > free) conflict("Von ${materialName(materialId)} sind nur $free verfügbar, nicht $wanted.")
+        increased.forEach { (variantId, wanted) ->
+            val free = maxOf(0, (available[variantId] ?: 0) - (loaned[variantId] ?: 0))
+            if (wanted > free) conflict("Von ${variantName(variantId)} sind nur $free verfügbar, nicht $wanted.")
         }
     }
 
-    /** Pieces per material that count against availability: [quantities], and those of [itemIds] that are available. */
+    /** Pieces per variant that count against availability: [quantities], and those of [itemIds] that are available. */
     private fun pieces(itemIds: List<Uuid>, quantities: List<LoanQuantity>, items: Map<Uuid, ResultRow>): Map<Uuid, Int> {
-        val pieces = quantities.associate { it.materialId to it.quantity }.toMutableMap()
+        val pieces = quantities.associate { it.variantId to it.quantity }.toMutableMap()
         itemIds.map(items::getValue).filter { it[isAvailableItem] }.forEach {
-            pieces.merge(it[IndividualItems.materialId].value, 1, Int::plus)
+            pieces.merge(it[IndividualItems.variantId].value, 1, Int::plus)
         }
         return pieces
     }
-
-    // Names for conflict messages, which are shown to users.
-
-    private fun itemName(id: Uuid): String = IndividualItems.innerJoin(Materials)
-        .select(Materials.name, IndividualItems.identifier)
-        .where { IndividualItems.id eq id }
-        .single()
-        .let { "${it[Materials.name]} ${it[IndividualItems.identifier]}" }
 
     private fun insertLines(loanId: EntityID<Uuid>, loan: NewLoan) {
         LoanLines.batchInsert(loan.itemIds) { itemId ->
@@ -151,7 +143,7 @@ class LoanService(private val db: Db) {
         }
         LoanLines.batchInsert(loan.materials) { line ->
             this[LoanLines.loanId] = loanId
-            this[LoanLines.materialId] = line.materialId
+            this[LoanLines.variantId] = line.variantId
             this[LoanLines.quantity] = line.quantity
         }
     }
@@ -179,7 +171,7 @@ class LoanService(private val db: Db) {
                 note = row[Loans.note],
                 itemIds = lines.mapNotNull { it[LoanLines.individualItemId]?.value },
                 materials = lines.mapNotNull { line ->
-                    line[LoanLines.materialId]?.let { LoanQuantity(it.value, line[LoanLines.quantity]!!) }
+                    line[LoanLines.variantId]?.let { LoanQuantity(it.value, line[LoanLines.quantity]!!) }
                 }
             )
         }

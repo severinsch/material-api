@@ -46,10 +46,13 @@ Raised 2026-10-19 while entering demo data; not addressed yet.
   there are two kits.
   - *Answer:* Discrete amounts per group ("Ausführungen"), chosen per line of the packing list; optional groups are
     groups with an amount of 0. See PLAN.md, sections 1 and 2.
-- [ ] **Q9** Ropes of different lengths. Lengths are stored as separate bulk materials (Seil 10 m, 15 m, 20 m), but
+- [x] **Q9** Ropes of different lengths. Lengths are stored as separate bulk materials (Seil 10 m, 15 m, 20 m), but
   for most kits any length works, so the kit lists all of them as equal options of one group. Works, but every kit
   repeats the list, and a new length has to be added to every kit. Possibly a material "family" or category that a
   group can refer to.
+  - *Answer:* Every material has variants that hold stock, items, purchases and loans; a kit option refers to a
+    material (any variant) or to one variant. Existing materials can be merged into variants of one. See PLAN.md,
+    sections 1, 3 and 4.
 
 ---
 
@@ -753,3 +756,67 @@ Both repositories, branch `kit-amounts`:
 - Not verified: nothing was clicked in a browser (extension not connected): changing a select, "Weitere mit anderer
   Ausführung", the card buttons, the URL update while editing, and the editor's Optional shortcut and amount rows
   are untested interactively.
+
+### 2026-10-22: Material variants, schema and backend (Q9, PLAN.md step 2)
+
+Backend only, branch `variants`; the frontend doesn't compile against the new API until step 3. The merge endpoint
+(4.4) is step 4.
+
+- **Schema (3):** V5 adds `material_variants` (tenant default, RLS policy, `updated_at` trigger, composite key to
+  `materials` incl. `tracking_type`, the planned unique keys) and moves `bulk_stock` (new PK `variant_id`, location key
+  kept with `ON DELETE SET NULL (storage_location_id)`), `individual_items` (identifiers unique per variant),
+  `purchases` (→ `bulk_stock (variant_id, tenant_id)`) and `loan_lines` (CHECK recreated) from `material_id` to
+  `variant_id`. `kit_group_options` keeps `material_id` and gets a nullable `variant_id` with the key
+  `(variant_id, material_id, tenant_id)` → variants `ON UPDATE CASCADE ON DELETE RESTRICT` and
+  `UNIQUE NULLS NOT DISTINCT (group_id, material_id, variant_id)` instead of the PK. Each material gets one unnamed
+  variant with a new id, `tenant_id`, `tracking_type`, `created_at` and `updated_at` copied; the three `updated_at`
+  triggers of the updated tables are disabled by name while filling the columns. Indexes for the new foreign key
+  columns. `MigrationTest`: a V4 database with two tenants and data in every touched table → variants, every row's
+  material (through its variant), tenant and data, `updated_at`, old columns gone, location deletion; the V1 → latest
+  test covers `material_variants` too. `TenantIsolationTest` counts 13 tables, checks cross-tenant variants in the
+  composite keys (variants, items, quantity loan lines, kit options) and in request bodies (items incl. moving one,
+  purchases, loans, kit options, a foreign variant listed in a material update).
+- **API (4.1–4.3):** as planned: `BulkMaterial`/`IndividualMaterial` with `variants` (`BulkVariant` with stock and
+  location, `IndividualVariant`), counts summed; `NewBulkMaterial`/`NewIndividualMaterial` with the full variant list
+  and `removedVariantIds`; `variantId` on items (plus read-only `materialId`), purchases (plus `materialId`), loan
+  quantities and kit options (nullable = any variant). `GET /items` and `GET /purchases` keep the `materialId` filter
+  (all variants). Availability, locks (`lockVariants`) and stock checks work per variant; messages use one helper
+  (`services/Names.kt`). README "Hybrid Tracking" and "Kit" sections updated, `openapi.json` regenerated.
+- **Decisions beyond the plan:**
+  - Display names include the variant name only if the material has several variants, also for a single *named*
+    variant (the plan's item rule applied to variants as well), since clients don't show variants then.
+  - Variants are sorted in Kotlin (`variantNameOrder`: numbers by value, text case-insensitively, the unnamed one
+    first), not with an ICU collation in the schema. Items are sorted by material, variant (same order), identifier.
+  - Removing a referenced variant is checked by `MaterialService` with messages naming the variant ("Die Variante
+    15 m hat Einkäufe…", "…wird in den Sets Jurte, Kohte verwendet…"). The constraint messages keep the material
+    wording, since deleting a material (which cascades to its variants) is the path that reaches them.
+  - Ids in `removedVariantIds` that aren't the material's own variants are rejected (400) like listed ones, not
+    ignored. On create, ids and `removedVariantIds` are rejected. Listing a variant and removing it is a 400.
+  - When several variants are renamed, their names are cleared first, so swapping names works despite the unique key.
+  - A purchase can't move to another variant (400), like it couldn't move to another material.
+  - Kit options: one overlap rule replaces "Ein Material kann in einem Teil nur einmal vorkommen": per material
+    either a single "any variant" option or distinct variants ("Die Materialien eines Teils überschneiden sich…").
+    `NewKitGroupOption` takes `variantId` as second parameter, as in the plan's `KitGroupOption`.
+  - `material_variants_material_id_fkey` has `ON UPDATE CASCADE` as planned, although only the kit option key's
+    cascade matters for the merge (it moves variants by updating `material_variants.material_id`).
+  - The 409 description of `PUT /materials/{id}` is on one line: the generator keeps only the first line (the old
+    text was cut off in `openapi.json`).
+- **Dry run on the synced dump** (`synced-backup/scout_material-2026-10-22.dump`, at V3): restored into a throwaway
+  `postgres:18-alpine` container (role `material_app` created first), V4 and V5 applied by starting the API against
+  it (Flyway, 42 ms). Row counts before and after are identical: storage_locations 3, materials 28, individual_items
+  82, bulk_stock 19, purchases 2, damage_reports 4, kits 4, kit_groups 26, kit_group_options 45, loans 2, loan_lines
+  9, tenants 2, users 2, tenant_members 1; new: material_variants 28 (one unnamed per material, tenant and type of the
+  material, no id equal to its material's), kit_group_amounts 29, all kit options "any variant", loan lines 5
+  quantities and 4 items. Per material (28 rows), computed by SQL before and after: available, damaged, loaned,
+  location, place, number of purchases, identifiers and number of kit options identical; `updated_at` of items,
+  stock, purchases and materials unchanged. The new API (started against the copy, with a session row inserted for
+  the platform admin there) returned the same available/damaged/loaned/location for all 28 materials; items, kits,
+  loans and purchases answered 200 for both tenants; adding a variant to "Seil 10 m" through `PUT` worked.
+  `material_app` sees the 28 variants with the tenant set and none without; deleting a location (rolled back) nulled
+  it in 7 stock rows and kept their tenant. Container removed afterwards.
+- Verified: `UPDATE_OPENAPI=1 ./gradlew clean test` (84 tests, 15 new: `VariantApiTest` for variant create, update,
+  removal and its conflicts, name and id validation, name swaps, per-variant stock checks, identifiers and moving
+  items, purchases and loans per variant; `KitApiTest` for options by material or variant and the overlap rule;
+  `MigrationTest` V4 → V5).
+- Not verified: nothing against the frontend (step 3); no concurrency tests for the variant locks. The merge (4.4)
+  isn't implemented.

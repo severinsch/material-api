@@ -16,7 +16,7 @@ class MaterialApiTest {
 
         val material = getMaterial(created.id) as BulkMaterial
         assertEquals(40, material.availableCount)
-        assertEquals(keller, material.location)
+        assertEquals(keller, material.variants.single().location)
     }
 
     @Test
@@ -53,26 +53,27 @@ class MaterialApiTest {
     fun `the type of a material can't be changed`() = apiTest {
         val material = createIndividual()
 
-        put("materials/${material.id}") { setBody<NewMaterial>(NewBulkMaterial("Renamed", availableCount = 1)) }
-            .expectError(HttpStatusCode.Conflict)
+        val bulk = NewBulkMaterial("Renamed", variants = listOf(NewBulkVariant(material.variantId, availableCount = 1)))
+        put("materials/${material.id}") { setBody<NewMaterial>(bulk) }.expectError(HttpStatusCode.Conflict)
         assertEquals("Kohtenblatt", getMaterial(material.id).name)
 
-        val renamed = put("materials/${material.id}") { setBody<NewMaterial>(NewIndividualMaterial("Renamed")) }
-            .expect<Material>(HttpStatusCode.OK)
+        val individual = NewIndividualMaterial("Renamed", variants = listOf(NewIndividualVariant(material.variantId)))
+        val renamed = put("materials/${material.id}") { setBody<NewMaterial>(individual) }.expect<Material>(HttpStatusCode.OK)
         assertEquals("Renamed", renamed.name)
     }
 
     @Test
     fun `items can only belong to individual materials and stay there`() = apiTest {
         val bulk = createBulk()
-        val message = post("items") { setBody(NewIndividualItem(bulk.id, "1", ItemCondition.GOOD)) }
+        val message = post("items") { setBody(NewIndividualItem(bulk.variantId, "1", ItemCondition.GOOD)) }
             .expectError(HttpStatusCode.BadRequest)
         assertEquals("Hering wird nicht einzeln erfasst.", message)
 
         val item = createItem(createIndividual("Kohtenblatt"), "1")
         val other = createIndividual("Jurtenhalbdach")
-        put("items/${item.id}") { setBody(NewIndividualItem(other.id, "1", ItemCondition.GOOD)) }
+        val moved = put("items/${item.id}") { setBody(NewIndividualItem(other.variantId, "1", ItemCondition.GOOD)) }
             .expectError(HttpStatusCode.BadRequest)
+        assertEquals("Das Material eines Gegenstands kann nicht geändert werden.", moved)
     }
 
     @Test
@@ -94,7 +95,7 @@ class MaterialApiTest {
         val material = createBulk(location = keller)
 
         assertEquals(HttpStatusCode.NoContent, delete("locations/${keller.id}").status)
-        assertNull((getMaterial(material.id) as BulkMaterial).location)
+        assertNull((getMaterial(material.id) as BulkMaterial).variants.single().location)
     }
 
     @Test
@@ -117,7 +118,8 @@ class MaterialApiTest {
     fun `several items can be created at once with unique identifiers`() = apiTest {
         val material = createIndividual()
         createItem(material, "2")
-        fun itemsOf(vararg identifiers: String) = identifiers.map { NewIndividualItem(material.id, it, ItemCondition.NEW) }
+        fun itemsOf(vararg identifiers: String) =
+            identifiers.map { NewIndividualItem(material.variantId, it, ItemCondition.NEW) }
 
         val message = post("items/batch") { setBody(itemsOf("1", "2", "3", "3")) }.expectError(HttpStatusCode.Conflict)
         assertEquals("Kohtenblatt 2, 3 gibt es schon.", message)
@@ -130,9 +132,9 @@ class MaterialApiTest {
         post("items/batch") { setBody(emptyList<NewIndividualItem>()) }.expectError(HttpStatusCode.BadRequest)
         // Renaming an item to a taken identifier is rejected, keeping its own identifier isn't.
         val item = created.first()
-        put("items/${item.id}") { setBody(NewIndividualItem(material.id, "2", ItemCondition.GOOD)) }
+        put("items/${item.id}") { setBody(NewIndividualItem(material.variantId, "2", ItemCondition.GOOD)) }
             .expectError(HttpStatusCode.Conflict)
-        put("items/${item.id}") { setBody(NewIndividualItem(material.id, "1", ItemCondition.GOOD)) }
+        put("items/${item.id}") { setBody(NewIndividualItem(material.variantId, "1", ItemCondition.GOOD)) }
             .expect<IndividualItem>(HttpStatusCode.OK)
     }
 
@@ -141,11 +143,11 @@ class MaterialApiTest {
         val bulk = createBulk()
         val individual = createIndividual()
 
-        post("purchases") { setBody(NewPurchase(bulk.id, quantity = 20, unitPrice = 0.5)) }
+        post("purchases") { setBody(NewPurchase(bulk.variantId, quantity = 20, unitPrice = 0.5)) }
             .expect<Purchase>(HttpStatusCode.Created)
-        post("purchases") { setBody("""{"materialId": "${bulk.id}", "quantity": 1, "unitPrice": 0.333}""") }
+        post("purchases") { setBody("""{"variantId": "${bulk.variantId}", "quantity": 1, "unitPrice": 0.333}""") }
             .expectError(HttpStatusCode.BadRequest)
-        post("purchases") { setBody(NewPurchase(individual.id, quantity = 1)) }
+        post("purchases") { setBody(NewPurchase(individual.variantId, quantity = 1)) }
             .expectError(HttpStatusCode.BadRequest)
 
         val purchases: List<Purchase> = get("purchases?materialId=${bulk.id}").expect(HttpStatusCode.OK)
@@ -157,21 +159,20 @@ class MaterialApiTest {
         val hering = createBulk(available = 10)
         suspend fun stock() = getMaterial(hering.id).availableCount
 
-        val purchase: Purchase = post("purchases") { setBody(NewPurchase(hering.id, quantity = 50)) }
+        val purchase: Purchase = post("purchases") { setBody(NewPurchase(hering.variantId, quantity = 50)) }
             .expect(HttpStatusCode.Created)
         assertEquals(60, stock())
-        put("purchases/${purchase.id}") { setBody(NewPurchase(hering.id, quantity = 40)) }.expect<Purchase>(HttpStatusCode.OK)
+        put("purchases/${purchase.id}") { setBody(NewPurchase(hering.variantId, quantity = 40)) }
+            .expect<Purchase>(HttpStatusCode.OK)
         assertEquals(50, stock())
 
         // Pegs got lost after the purchase, so it can't be undone completely.
-        put("materials/${hering.id}") { setBody<NewMaterial>(NewBulkMaterial("Hering", availableCount = 30)) }
-            .expect<Material>(HttpStatusCode.OK)
+        put("materials/${hering.id}") { setBody(stockUpdate(hering, 30)) }.expect<Material>(HttpStatusCode.OK)
         val message = delete("purchases/${purchase.id}").expectError(HttpStatusCode.Conflict)
         assertEquals("Von Hering sind 30 im Bestand. Es können nicht 40 abgezogen werden.", message)
         assertEquals(30, stock())
 
-        put("materials/${hering.id}") { setBody<NewMaterial>(NewBulkMaterial("Hering", availableCount = 45)) }
-            .expect<Material>(HttpStatusCode.OK)
+        put("materials/${hering.id}") { setBody(stockUpdate(hering, 45)) }.expect<Material>(HttpStatusCode.OK)
         assertEquals(HttpStatusCode.NoContent, delete("purchases/${purchase.id}").status)
         assertEquals(5, stock())
         delete("purchases/${purchase.id}").expectError(HttpStatusCode.NotFound)
@@ -180,36 +181,35 @@ class MaterialApiTest {
     @Test
     fun `the stock can't drop below the pieces lent out`() = apiTest {
         val hering = createBulk(available = 20)
-        val purchase: Purchase = post("purchases") { setBody(NewPurchase(hering.id, quantity = 100)) }
+        val purchase: Purchase = post("purchases") { setBody(NewPurchase(hering.variantId, quantity = 100)) }
             .expect(HttpStatusCode.Created)
         post("loans") {
-            setBody(NewLoan("Stamm Nord", LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(hering.id, 65))))
+            setBody(NewLoan("Stamm Nord", LocalDate(2026, 10, 1), materials = listOf(LoanQuantity(hering.variantId, 65))))
         }.expect<Loan>(HttpStatusCode.Created)
 
         val message = delete("purchases/${purchase.id}").expectError(HttpStatusCode.Conflict)
         assertEquals("Von Hering sind 120 im Bestand, davon 65 ausgeliehen. Es können nicht 100 abgezogen werden.", message)
-        put("purchases/${purchase.id}") { setBody(NewPurchase(hering.id, quantity = 45)) }.expect<Purchase>(HttpStatusCode.OK)
+        put("purchases/${purchase.id}") { setBody(NewPurchase(hering.variantId, quantity = 45)) }
+            .expect<Purchase>(HttpStatusCode.OK)
         assertEquals(65, getMaterial(hering.id).availableCount)
 
-        val tooLow = put("materials/${hering.id}") { setBody<NewMaterial>(NewBulkMaterial("Hering", availableCount = 60)) }
-            .expectError(HttpStatusCode.Conflict)
+        val tooLow = put("materials/${hering.id}") { setBody(stockUpdate(hering, 60)) }.expectError(HttpStatusCode.Conflict)
         assertEquals("Von Hering sind 65 ausgeliehen, der Bestand kann nicht kleiner sein.", tooLow)
     }
 
     @Test
     fun `editing a material doesn't overwrite stock changed in the meantime`() = apiTest {
         val hering = createBulk(available = 10)
-        post("purchases") { setBody(NewPurchase(hering.id, quantity = 50)) }.expect<Purchase>(HttpStatusCode.Created)
+        post("purchases") { setBody(NewPurchase(hering.variantId, quantity = 50)) }.expect<Purchase>(HttpStatusCode.Created)
 
-        val stale = NewBulkMaterial("Hering", availableCount = 10, expectedAvailableCount = 10)
-        val message = put("materials/${hering.id}") { setBody<NewMaterial>(stale) }.expectError(HttpStatusCode.Conflict)
+        val message = put("materials/${hering.id}") { setBody(stockUpdate(hering, 10, expected = 10)) }
+            .expectError(HttpStatusCode.Conflict)
         assertEquals(
             "Der Bestand von Hering wurde inzwischen auf 60 geändert, z. B. durch einen Einkauf. " +
                 "Lade die Seite neu und bearbeite das Material erneut.",
             message
         )
-        put("materials/${hering.id}") { setBody<NewMaterial>(stale.copy(availableCount = 58, expectedAvailableCount = 60)) }
-            .expect<Material>(HttpStatusCode.OK)
+        put("materials/${hering.id}") { setBody(stockUpdate(hering, 58, expected = 60)) }.expect<Material>(HttpStatusCode.OK)
         assertEquals(58, getMaterial(hering.id).availableCount)
     }
 }

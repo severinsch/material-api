@@ -33,9 +33,9 @@ fun Route.kitRoutes(kitService: KitService) {
 
         requires(Permission.EDIT) {
             /**
-             * Create a kit.
+             * Create a kit. An option refers to a material (any variant) or to one of its variants (`variantId`).
              *
-             * Response: 400 application/json [api.ErrorResponse] Invalid kit or unknown material.
+             * Response: 400 application/json [api.ErrorResponse] Invalid kit, overlapping options, unknown material or variant, or a variant of another material.
              * Response: 409 application/json [api.ErrorResponse] The name is taken.
              */
             post {

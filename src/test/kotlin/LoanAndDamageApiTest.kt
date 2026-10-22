@@ -38,11 +38,11 @@ class LoanAndDamageApiTest {
         val bulk = createBulk()
         val member = context.createUser(TenantRole.VIEWER)
         val stranger = context.createUser(role = null)
-        val loan = NewLoan(lentAt = lentAt, materials = listOf(LoanQuantity(bulk.id, 1)), borrowerId = member.id)
+        val loan = NewLoan(lentAt = lentAt, materials = listOf(LoanQuantity(bulk.variantId, 1)), borrowerId = member.id)
 
         val message = post("loans") { setBody(loan.copy(borrowerId = stranger.id)) }.expectError(HttpStatusCode.BadRequest)
         assertEquals("Die ausleihende Person ist kein Mitglied dieses Stamms.", message)
-        post("loans") { setBody("""{"lentAt": "$lentAt", "materials": [{"materialId": "${bulk.id}", "quantity": 1}]}""") }
+        post("loans") { setBody("""{"lentAt": "$lentAt", "materials": [{"variantId": "${bulk.variantId}", "quantity": 1}]}""") }
             .expectError(HttpStatusCode.BadRequest)
 
         // The name given is ignored for members.
@@ -73,7 +73,7 @@ class LoanAndDamageApiTest {
 
         // Adding a damaged item is still rejected.
         put("items/${other.id}") {
-            setBody(NewIndividualItem(material.id, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR))
+            setBody(NewIndividualItem(material.variantId, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR))
         }.expect<IndividualItem>(HttpStatusCode.OK)
         val message = put("loans/${created.id}") { setBody(loan.copy(itemIds = listOf(item.id, other.id))) }
             .expectError(HttpStatusCode.Conflict)
@@ -113,7 +113,7 @@ class LoanAndDamageApiTest {
     @Test
     fun `bulk loans are limited by the stock`() = apiTest {
         val hering = createBulk(available = 50)
-        fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, materials = listOf(LoanQuantity(hering.id, quantity)))
+        fun loanOf(quantity: Int) = NewLoan("Stamm Nord", lentAt, materials = listOf(LoanQuantity(hering.variantId, quantity)))
 
         post("loans") { setBody(loanOf(30)) }.expect<Loan>(HttpStatusCode.Created)
         val message = post("loans") { setBody(loanOf(21)) }.expectError(HttpStatusCode.Conflict)
@@ -128,7 +128,7 @@ class LoanAndDamageApiTest {
         val material = createIndividual()
         val (k1, k2) = listOf("1", "2", "3").map { createItem(material, it) }
         createItem(material, "4", ItemCondition.POOR)
-        fun quantity(n: Int) = listOf(LoanQuantity(material.id, n))
+        fun quantity(n: Int) = listOf(LoanQuantity(material.variantId, n))
 
         post("loans") { setBody(NewLoan("Stamm Nord", lentAt, itemIds = listOf(k1.id))) }.expect<Loan>(HttpStatusCode.Created)
         val tooMany = post("loans") { setBody(NewLoan("Stamm Süd", lentAt, materials = quantity(3))) }
@@ -146,7 +146,7 @@ class LoanAndDamageApiTest {
         assertEquals("Von Kohtenblatt sind nur 0 verfügbar, nicht 1.", noneLeft)
 
         // A piece breaks while lent out: the loan stays editable, but can't grow.
-        put("items/${k2.id}") { setBody(NewIndividualItem(material.id, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR)) }
+        put("items/${k2.id}") { setBody(NewIndividualItem(material.variantId, "2", ItemCondition.GOOD, ItemStatus.IN_REPAIR)) }
             .expect<IndividualItem>(HttpStatusCode.OK)
         put("loans/${created.id}") { setBody(anyTwo.copy(note = "Pfingstlager")) }.expect<Loan>(HttpStatusCode.OK)
         put("loans/${created.id}") { setBody(anyTwo.copy(materials = quantity(3))) }.expectError(HttpStatusCode.Conflict)

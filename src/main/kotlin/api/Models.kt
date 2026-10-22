@@ -52,8 +52,9 @@ data class NewStorageLocation(
 // ========= Materials =========
 
 /**
- * Shared properties of both material types. Loaned pieces are still included in [availableCount]; [loanedCount] is
- * the part of it that is currently lent out, so clients subtract it if they want what is currently in storage.
+ * Shared properties of both material types. The counts are sums over the material's variants. Loaned pieces are
+ * still included in [availableCount]; [loanedCount] is the part of it that is currently lent out, so clients subtract
+ * it if they want what is currently in storage.
  */
 @Serializable
 @JsonClassDiscriminator("trackingType")
@@ -77,8 +78,8 @@ data class BulkMaterial(
     override val availableCount: Int,
     override val damagedCount: Int,
     override val loanedCount: Int,
-    val location: StorageLocation?,
-    val locationDetail: String?
+    /** At least one, sorted by name (numbers by value: 5 m, 10 m, 15 m). */
+    val variants: List<BulkVariant>
 ) : Material
 
 /** Counts are derived from the material's items: available = active and not POOR, damaged = POOR or in repair. */
@@ -91,16 +92,51 @@ data class IndividualMaterial(
     override val description: String?,
     override val availableCount: Int,
     override val damagedCount: Int,
-    override val loanedCount: Int
+    override val loanedCount: Int,
+    /** At least one, sorted by name (numbers by value: 5 m, 10 m, 15 m). */
+    val variants: List<IndividualVariant>
 ) : Material
 
-/** The type of a material can't be changed after creation. */
+// Variants hold what differs between otherwise equal materials, e.g. the lengths of a rope. Every material has at
+// least one; a material with a single variant usually leaves it unnamed (name null), and clients don't show variants
+// for it. The counts mean the same as those of the material. Plain classes, so the variant lists are concretely typed.
+
+/** A variant of a bulk material with its own stock and location. */
+@Serializable
+data class BulkVariant(
+    val id: Uuid,
+    val name: String?,
+    val availableCount: Int,
+    val damagedCount: Int,
+    val loanedCount: Int,
+    val location: StorageLocation?,
+    val locationDetail: String?
+)
+
+/** A variant of an individual material; its items reference it. */
+@Serializable
+data class IndividualVariant(
+    val id: Uuid,
+    val name: String?,
+    val availableCount: Int,
+    val damagedCount: Int,
+    val loanedCount: Int
+)
+
+/**
+ * The type of a material can't be changed after creation.
+ *
+ * The variants are the complete list: on update, entries with an `id` change that variant, entries without one are
+ * created, and the variants in [removedVariantIds] are deleted (only while nothing references them). An existing
+ * variant that is neither listed nor removed, e.g. one another user just added, is a conflict (409).
+ */
 @Serializable
 @JsonClassDiscriminator("trackingType")
 sealed interface NewMaterial {
     val name: String
     val category: String?
     val description: String?
+    val removedVariantIds: List<Uuid>
 }
 
 @Serializable
@@ -109,6 +145,35 @@ data class NewBulkMaterial(
     override val name: String,
     override val category: String? = null,
     override val description: String? = null,
+    val variants: List<NewBulkVariant>,
+    override val removedVariantIds: List<Uuid> = emptyList()
+) : NewMaterial {
+    init {
+        requireMaterialFields()
+        requireVariants(variants.map { it.id to it.name })
+    }
+}
+
+@Serializable
+@SerialName("INDIVIDUAL")
+data class NewIndividualMaterial(
+    override val name: String,
+    override val category: String? = null,
+    override val description: String? = null,
+    val variants: List<NewIndividualVariant> = listOf(NewIndividualVariant()),
+    override val removedVariantIds: List<Uuid> = emptyList()
+) : NewMaterial {
+    init {
+        requireMaterialFields()
+        requireVariants(variants.map { it.id to it.name })
+    }
+}
+
+/** [id] is null for a new variant. */
+@Serializable
+data class NewBulkVariant(
+    val id: Uuid? = null,
+    val name: String? = null,
     val availableCount: Int,
     val damagedCount: Int = 0,
     val storageLocationId: Uuid? = null,
@@ -118,30 +183,39 @@ data class NewBulkMaterial(
      * since, e.g. by a purchase, so it isn't overwritten unnoticed.
      */
     val expectedAvailableCount: Int? = null
-) : NewMaterial {
+) {
     init {
-        requireMaterialFields()
         requireNonNegative(availableCount, "Der verfügbare Bestand")
         requireNonNegative(damagedCount, "Der beschädigte Bestand")
         requireMaxLength(locationDetail, "Der Platz im Lagerort", 255)
     }
 }
 
+/** [id] is null for a new variant. */
 @Serializable
-@SerialName("INDIVIDUAL")
-data class NewIndividualMaterial(
-    override val name: String,
-    override val category: String? = null,
-    override val description: String? = null
-) : NewMaterial {
-    init {
-        requireMaterialFields()
-    }
-}
+data class NewIndividualVariant(
+    val id: Uuid? = null,
+    val name: String? = null
+)
 
 private fun NewMaterial.requireMaterialFields() {
     requireText(name, "Der Name", maxLength = 255)
     requireMaxLength(category, "Die Kategorie", 100)
+}
+
+/** [variants] as pairs of id and name. */
+private fun NewMaterial.requireVariants(variants: List<Pair<Uuid?, String?>>) {
+    require(variants.isNotEmpty()) { "Ein Material braucht mindestens eine Variante." }
+    variants.forEach { (_, name) -> name?.let { requireText(it, "Der Name einer Variante", maxLength = 100) } }
+    if (variants.size > 1) {
+        require(variants.all { it.second != null }) { "Hat ein Material mehrere Varianten, braucht jede einen Namen." }
+        require(variants.distinctBy { it.second }.size == variants.size) {
+            "Die Varianten eines Materials brauchen unterschiedliche Namen."
+        }
+    }
+    val ids = variants.mapNotNull { it.first }
+    require(ids.toSet().size == ids.size) { "Eine Variante kann nur einmal vorkommen." }
+    require(ids.none { it in removedVariantIds }) { "Eine Variante kann nicht zugleich bearbeitet und entfernt werden." }
 }
 
 // ========= Individual items =========
@@ -149,7 +223,9 @@ private fun NewMaterial.requireMaterialFields() {
 @Serializable
 data class IndividualItem(
     val id: Uuid,
+    /** The material of [variantId], for grouping. */
     val materialId: Uuid,
+    val variantId: Uuid,
     val identifier: String,
     val condition: ItemCondition,
     val status: ItemStatus,
@@ -163,10 +239,13 @@ data class IndividualItem(
     val hasHistory: Boolean
 )
 
-/** [materialId] can't be changed after creation. */
+/**
+ * Identifiers are unique per variant. On update, [variantId] can only change to another variant of the same
+ * material, e.g. to fix a wrong entry.
+ */
 @Serializable
 data class NewIndividualItem(
-    val materialId: Uuid,
+    val variantId: Uuid,
     val identifier: String,
     val condition: ItemCondition,
     val status: ItemStatus = ItemStatus.ACTIVE,
@@ -187,7 +266,9 @@ data class NewIndividualItem(
 @Serializable
 data class Purchase(
     val id: Uuid,
+    /** The material of [variantId], for grouping. */
     val materialId: Uuid,
+    val variantId: Uuid,
     val quantity: Int,
     val unitPrice: Double?,
     val purchaseDate: LocalDate?,
@@ -195,12 +276,12 @@ data class Purchase(
 )
 
 /**
- * Recording a purchase adds its [quantity] to the material's available stock; changing or deleting it adjusts the
- * stock accordingly. [materialId] can't be changed after creation.
+ * Recording a purchase adds its [quantity] to the variant's available stock; changing or deleting it adjusts the
+ * stock accordingly. [variantId] can't be changed after creation.
  */
 @Serializable
 data class NewPurchase(
-    val materialId: Uuid,
+    val variantId: Uuid,
     val quantity: Int,
     val unitPrice: Double? = null,
     val purchaseDate: LocalDate? = null,
@@ -315,8 +396,13 @@ data class NewKitGroup(
             }
         }
         require(options.isNotEmpty()) { "Jedes Teil braucht mindestens ein Material." }
-        require(options.distinctBy { it.materialId }.size == options.size) {
-            "Ein Material kann in einem Teil nur einmal vorkommen."
+        // "Any variant" covers the specific ones, so a material is either one option or one per distinct variant.
+        val overlapping = options.groupBy { it.materialId }.values.any { same ->
+            same.size > 1 && (same.any { it.variantId == null } || same.distinctBy { it.variantId }.size < same.size)
+        }
+        require(!overlapping) {
+            "Die Materialien eines Teils überschneiden sich: Nimm ein Material entweder einmal mit beliebiger " +
+                "Variante auf oder mit unterschiedlichen, bestimmten Varianten."
         }
     }
 }
@@ -332,17 +418,24 @@ data class NewKitGroupAmount(
     }
 }
 
-/** How much one piece of a material contributes to a group. Options with lower [priority] are used first. */
+/**
+ * How much one piece of a material contributes to a group. Options with lower [priority] are used first.
+ * [variantId] null means any variant of the material, including variants added later, all with the same
+ * [unitValue]; otherwise only that variant of the material counts.
+ */
 @Serializable
 data class KitGroupOption(
     val materialId: Uuid,
+    val variantId: Uuid?,
     val unitValue: Int,
     val priority: Int
 )
 
+/** [variantId], if given, must be a variant of [materialId]. */
 @Serializable
 data class NewKitGroupOption(
     val materialId: Uuid,
+    val variantId: Uuid? = null,
     val unitValue: Int = 1,
     val priority: Int = 0
 ) {
@@ -354,9 +447,9 @@ data class NewKitGroupOption(
 // ========= Loans =========
 
 /**
- * A loan is open until [returnedAt] is set. It lends quantities of materials without saying which pieces
- * ([materials], e.g. "4 Kohtenblätter, 30 Heringe") and specific items ([itemIds], e.g. "Jurte 3"), but not both for
- * the same material.
+ * A loan is open until [returnedAt] is set. It lends quantities of material variants without saying which pieces
+ * ([materials], e.g. "4 Kohtenblätter, 3 Seile 15 m") and specific items ([itemIds], e.g. "Jurte 3"), but not both for
+ * the same variant.
  */
 @Serializable
 data class Loan(
@@ -393,18 +486,18 @@ data class NewLoan(
         if (borrowerId == null) requireText(borrower.orEmpty(), "„Ausgeliehen an“", maxLength = 255)
         require(itemIds.isNotEmpty() || materials.isNotEmpty()) { "Wähle mindestens einen Gegenstand oder ein Material aus." }
         require(itemIds.toSet().size == itemIds.size) { "Ein Gegenstand kann in einer Ausleihe nur einmal vorkommen." }
-        require(materials.distinctBy { it.materialId }.size == materials.size) {
-            "Ein Material kann in einer Ausleihe nur einmal vorkommen."
+        require(materials.distinctBy { it.variantId }.size == materials.size) {
+            "Eine Variante kann in einer Ausleihe nur einmal vorkommen."
         }
         dueAt?.let { require(it >= lentAt) { "Das Rückgabedatum kann nicht vor dem Ausleihdatum liegen." } }
         returnedAt?.let { require(it >= lentAt) { "Das Datum der Rückgabe kann nicht vor dem Ausleihdatum liegen." } }
     }
 }
 
-/** A quantity of a material, without saying which pieces. */
+/** A quantity of a material variant, without saying which pieces. */
 @Serializable
 data class LoanQuantity(
-    val materialId: Uuid,
+    val variantId: Uuid,
     val quantity: Int
 ) {
     init {

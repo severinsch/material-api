@@ -177,26 +177,46 @@ suspend fun HttpResponse.expectError(status: HttpStatusCode): String {
 suspend fun HttpClient.createLocation(name: String = "Keller"): StorageLocation =
     post("locations") { setBody(NewStorageLocation(name)) }.expect(HttpStatusCode.Created)
 
+/** A bulk material with a single, unnamed variant. */
 suspend fun HttpClient.createBulk(
     name: String = "Hering",
     available: Int = 10,
     location: StorageLocation? = null
 ): BulkMaterial =
-    post("materials") {
-        setBody<NewMaterial>(NewBulkMaterial(name, availableCount = available, storageLocationId = location?.id))
-    }.expect<Material>(HttpStatusCode.Created) as BulkMaterial
+    createBulk(name, NewBulkVariant(availableCount = available, storageLocationId = location?.id))
 
-suspend fun HttpClient.createIndividual(name: String = "Kohtenblatt"): IndividualMaterial =
-    post("materials") { setBody<NewMaterial>(NewIndividualMaterial(name)) }
+suspend fun HttpClient.createBulk(name: String, vararg variants: NewBulkVariant): BulkMaterial =
+    post("materials") { setBody<NewMaterial>(NewBulkMaterial(name, variants = variants.toList())) }
+        .expect<Material>(HttpStatusCode.Created) as BulkMaterial
+
+/** An individual material with a single, unnamed variant, or with the named [variants]. */
+suspend fun HttpClient.createIndividual(name: String = "Kohtenblatt", vararg variants: String): IndividualMaterial {
+    val newVariants = variants.map { NewIndividualVariant(name = it) }.ifEmpty { listOf(NewIndividualVariant()) }
+    return post("materials") { setBody<NewMaterial>(NewIndividualMaterial(name, variants = newVariants)) }
         .expect<Material>(HttpStatusCode.Created) as IndividualMaterial
+}
 
 suspend fun HttpClient.createItem(
     material: IndividualMaterial,
     identifier: String,
     condition: ItemCondition = ItemCondition.GOOD,
-    status: ItemStatus = ItemStatus.ACTIVE
+    status: ItemStatus = ItemStatus.ACTIVE,
+    variant: IndividualVariant = material.variants.single()
 ): IndividualItem =
-    post("items") { setBody(NewIndividualItem(material.id, identifier, condition, status)) }
+    post("items") { setBody(NewIndividualItem(variant.id, identifier, condition, status)) }
         .expect(HttpStatusCode.Created)
 
 suspend fun HttpClient.getMaterial(id: Uuid): Material = get("materials/$id").expect(HttpStatusCode.OK)
+
+/** The id of the material's single variant. */
+val Material.variantId: Uuid
+    get() = when (this) {
+        is BulkMaterial -> variants.single().id
+        is IndividualMaterial -> variants.single().id
+    }
+
+/** [material] with its single variant's stock set to [available], expecting [expected] if given. */
+fun stockUpdate(material: BulkMaterial, available: Int, expected: Int? = null): NewMaterial = NewBulkMaterial(
+    material.name,
+    variants = listOf(NewBulkVariant(material.variantId, availableCount = available, expectedAvailableCount = expected))
+)

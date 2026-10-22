@@ -17,7 +17,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
     route("/materials") {
         requires(Permission.READ) {
             /**
-             * Get all materials.
+             * Get all materials with their variants.
              *
              * Query: type [api.MaterialTrackingType] Only return materials of this type.
              */
@@ -38,22 +38,25 @@ fun Route.materialRoutes(materialService: MaterialService) {
 
         requires(Permission.EDIT) {
             /**
-             * Create a material. `trackingType` decides whether it's a bulk or an individual material.
+             * Create a material with its variants (none of them with an `id`). `trackingType` decides whether it's a bulk
+             * or an individual material.
              *
-             * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
+             * Response: 400 application/json [api.ErrorResponse] Invalid material or variants, or unknown location.
+             * Response: 409 application/json [api.ErrorResponse] The name is taken.
              */
             post {
                 call.respond(HttpStatusCode.Created, materialService.create(call.tenant, call.receive<NewMaterial>()))
             }
 
             /**
-             * Replace a material. Its `trackingType` can't be changed.
+             * Replace a material including its variants. Variants with an `id` are changed, those without are created,
+             * and those in `removedVariantIds` are deleted. Every existing variant must be listed or removed. Its
+             * `trackingType` can't be changed.
              *
              * Path: id [kotlin.uuid.Uuid] The material id.
-             * Response: 400 application/json [api.ErrorResponse] Invalid material or unknown location.
+             * Response: 400 application/json [api.ErrorResponse] Invalid material or variants, a variant of another material, or unknown location.
              * Response: 404 application/json [api.ErrorResponse] No material with this id.
-             * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, or the stock
-             * differs from `expectedAvailableCount` or would drop below the pieces lent out.
+             * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, an existing variant is neither listed nor removed, a removed variant is still in use, or a stock differs from `expectedAvailableCount` or would drop below the pieces lent out.
              */
             put("/{id}") {
                 val id = call.uuidPathParameter()
@@ -61,7 +64,8 @@ fun Route.materialRoutes(materialService: MaterialService) {
             }
 
             /**
-             * Delete a material. Only possible while nothing references it (items, purchases, kits, loans).
+             * Delete a material with its variants. Only possible while nothing references them (items, purchases, kits,
+             * loans).
              *
              * Path: id [kotlin.uuid.Uuid] The material id.
              * Response: 404 application/json [api.ErrorResponse] No material with this id.
@@ -81,7 +85,7 @@ fun Route.itemRoutes(itemService: ItemService) {
             /**
              * Get all individual items.
              *
-             * Query: materialId [kotlin.uuid.Uuid] Only return items of this material.
+             * Query: materialId [kotlin.uuid.Uuid] Only return items of this material (of all its variants).
              */
             get {
                 call.respond(itemService.getAll(call.tenant, call.uuidQueryParameter("materialId")))
@@ -100,9 +104,9 @@ fun Route.itemRoutes(itemService: ItemService) {
 
         requires(Permission.EDIT) {
             /**
-             * Create an individual item.
+             * Create an individual item of a variant.
              *
-             * Response: 400 application/json [api.ErrorResponse] Invalid item, or the material isn't an individual one.
+             * Response: 400 application/json [api.ErrorResponse] Invalid item, or the variant isn't one of an individual material.
              * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
              */
             post {
@@ -113,7 +117,7 @@ fun Route.itemRoutes(itemService: ItemService) {
              * Create several individual items at once, e.g. a set of new tents. At most 100; either all of them are
              * created or none.
              *
-             * Response: 400 application/json [api.ErrorResponse] Invalid or no items, or a material isn't an individual one.
+             * Response: 400 application/json [api.ErrorResponse] Invalid or no items, or a variant isn't one of an individual material.
              * Response: 409 application/json [api.ErrorResponse] An identifier is taken or used twice.
              */
             post("/batch") {
@@ -122,10 +126,11 @@ fun Route.itemRoutes(itemService: ItemService) {
             }
 
             /**
-             * Replace an individual item. Its `materialId` can't be changed.
+             * Replace an individual item. It can move to another variant of its material (`variantId`), not to another
+             * material.
              *
              * Path: id [kotlin.uuid.Uuid] The item id.
-             * Response: 400 application/json [api.ErrorResponse] Invalid item.
+             * Response: 400 application/json [api.ErrorResponse] Invalid item, or a variant of another material.
              * Response: 404 application/json [api.ErrorResponse] No item with this id.
              * Response: 409 application/json [api.ErrorResponse] The identifier is taken.
              */

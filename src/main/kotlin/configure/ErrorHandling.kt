@@ -65,13 +65,18 @@ internal val constraintMessages = mapOf(
     "tenants_name_key" to "Es gibt schon einen Stamm mit diesem Namen.",
     "tenants_slug_key" to "Es gibt schon einen Stamm mit diesem Kürzel.",
     "password_logins_username_key" to "Diesen Benutzernamen gibt es schon.",
-    "individual_items_material_id_identifier_key" to "Diese Kennung ist bei diesem Material schon vergeben.",
-    "individual_items_material_id_tracking_type_fkey" to
-        "Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.",
-    "purchases_material_id_fkey" to "Das Material hat Einkäufe. Lösche zuerst die Einkäufe.",
+    "material_variants_name_key" to "Die Varianten eines Materials brauchen unterschiedliche Namen.",
+    "individual_items_variant_id_identifier_key" to "Diese Kennung ist bei dieser Variante schon vergeben.",
+    // Deleting a material deletes its variants, so these also apply to materials. Removing a referenced variant is
+    // rejected by MaterialService with a message naming the variant.
+    "individual_items_variant_id_fkey" to "Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.",
+    "purchases_variant_id_fkey" to "Das Material hat Einkäufe. Lösche zuerst die Einkäufe.",
     "kit_group_options_material_id_fkey" to
         "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
-    "loan_lines_material_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
+    "kit_group_options_variant_id_fkey" to
+        "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
+    "kit_group_options_group_id_material_id_variant_id_key" to "Die Materialien eines Teils überschneiden sich.",
+    "loan_lines_variant_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
     "loan_lines_individual_item_id_fkey" to
         "Der Gegenstand wurde schon ausgeliehen. Setze stattdessen seinen Status auf „Ausgemustert“.",
     "damage_reports_individual_item_id_fkey" to
