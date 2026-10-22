@@ -945,9 +945,42 @@ code before fixing.
   buttons and their hint in the material dialog (a `title` on a disabled button may not show in every browser); the
   required variant select in the purchase dialog.
 
-### 2026-10-22: Status and next steps (handoff)
+### 2026-10-23: Status and next steps (handoff)
 
 Steps 1–5 of PLAN.md are done on the branches `variants` (based on `kit-amounts`) in both repositories, not
-merged, not deployed: implemented, independently reviewed, review findings fixed (entry above). Next: the owner's
-browser pass (the "Needs the browser pass" lists above); then deployment together with the owner (PLAN.md step
-6). The owner decided to deploy everything together; FE-7, FE-8 and FE-9 follow afterwards.
+merged, not deployed: implemented, independently reviewed, review findings fixed (entry above). All tests green
+(backend 93, frontend 65). The owner decided to deploy everything together; FE-7, FE-8 and FE-9 follow afterwards.
+
+Next, in this order:
+
+1. **Browser pass by Claude** (attempted 2026-10-23, the Chrome extension wasn't connected, so nothing was clicked
+   yet). Go through the "Needs the browser pass" / "Not verified" lists of the entries dated 2026-10-22 above, on
+   the restored dump, on desktop and phone width: kit editor (Ausführungen, Optional shortcut), packing list (two
+   lines of one kit, selects, "Weitere mit anderer Ausführung", URL, print/copy), material dialog (variants editor,
+   "Varianten anlegen", "Lagerort je Variante", removing and "behalten", disabled remove for variants with items),
+   item dialog (variant select, moving, identifier suggestion), purchase dialog (required variant), loan dialog
+   (rows per variant, picking), material picker ("Seil 15"), merge (selection mode, dialog, blocked kits, real
+   submit incl. a 409 toast, landing page). Merge the demo ropes and Kohtenplanen. Fix what's broken, log it here.
+2. **Manual testing by the owner.**
+3. **Deployment together with the owner** (PLAN.md step 6).
+
+**Local test stack on the synced dump** (`synced-backup/scout_material-2026-10-22.dump`, test data only, excluded
+from git via `.git/info/exclude`). The dump's grants need the role `material_app` to exist before restoring:
+
+```bash
+docker run -d --name browsertest_db -e POSTGRES_USER=scout -e POSTGRES_PASSWORD=scoutpass \
+  -e POSTGRES_DB=scout_material -p 55433:5432 postgres:18-alpine
+docker exec browsertest_db psql -U scout -d postgres -c "DROP DATABASE scout_material" \
+  -c "CREATE ROLE material_app NOLOGIN" -c "CREATE DATABASE scout_material"
+docker cp synced-backup/scout_material-2026-10-22.dump browsertest_db:/tmp/d.dump
+docker exec browsertest_db pg_restore -U scout -d scout_material --no-owner /tmp/d.dump
+# API (migrates the dump from V3 to V5 on start) and a setup link for the dump's platform admin `admin`:
+PORT=8095 DATABASE_URL=jdbc:postgresql://localhost:55433/scout_material DATABASE_USER=scout \
+  DATABASE_PASSWORD=scoutpass FRONTEND_URL=http://localhost:5195 ADMIN_SETUP_LINK_FOR=admin \
+  AUTH_BOOTSTRAP=false ./gradlew run
+# Frontend (in material-frontend):
+API_URL=http://localhost:8095 ORIGIN=http://localhost:5195 npx vite dev --port 5195 --strictPort
+```
+
+Open the setup link from the API log (`Setup link for admin …`), set a local password, use tenant `test`.
+Afterwards: `docker rm -f browsertest_db`. The container `scout_db` belongs to the owner's own local setup; leave it.
