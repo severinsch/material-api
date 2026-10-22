@@ -62,7 +62,7 @@ Defaults chosen in this plan (cheap to change):
   every kit that uses "Kohtenplane" accept them, which is the point of the feature; a kit that must not accept them
   switches to the specific variant. Since "any variant" shares one unit value, materials whose variants count
   differently (Kanister 10 L / 20 L in a "Wasser" group) list their variants individually; the kit editor says so.
-- **Merging materials** (section 4.5) turns existing separate materials (Seil 10 m, Seil 15 m, Seil 20 m) into
+- **Merging materials** (section 4.4) turns existing separate materials (Seil 10 m, Seil 15 m, Seil 20 m) into
   variants of one material in one step, keeping items, purchases, loans and kit references with their exact meaning.
 - **Moving an individual item to another variant of its material** is allowed (fixing a wrong entry). Like a status
   change, it isn't checked against quantity loans of the old variant; those may then exceed what's available, which
@@ -222,7 +222,7 @@ test data there is, and the owner wants to keep it on production.
 
 ---
 
-## 4. Q9: backend — [ ] (all but the merge, 4.4, done in step 2)
+## 4. Q9: backend — [x]
 
 ### 4.1 Models — [x]
 
@@ -271,7 +271,7 @@ data class KitGroupOption(val materialId: Uuid, val variantId: Uuid?, val unitVa
 - Query parameters stay material based (`GET /items?materialId=`, `GET /purchases?materialId=` return those of all
   variants); no `variantId` filters unless the frontend needs them.
 
-### 4.2 Services — [x] (without `merge`)
+### 4.2 Services — [x]
 
 - `Availability.kt` works per variant: `availableCounts`, `loanedCounts`, `lockStock` take variant ids; locks are taken
   on `material_variants` rows in id order. Material counts are sums. `materialName` becomes the variant display name.
@@ -288,7 +288,7 @@ README: the "Kit" section (amounts, options referring to a material or a variant
 and "Hybrid Tracking" (variants; items unique per variant). REVIEW.md: Q8/Q9 answered with a pointer to this plan;
 progress log entries.
 
-### 4.4 Merging materials — [ ]
+### 4.4 Merging materials — [x] (backend; dialog in 5.2 open)
 
 `POST /materials/merge` (EDIT) with `{ materialIds: [<target>, <source>…], name, variantNames: { <variantId>: "<name>" } }`:
 
@@ -306,7 +306,7 @@ progress log entries.
 - The response is the merged material. The frontend shows the affected kits in the preview (computed from the kits it
   already loaded).
 
-### 4.5 Tests — [x] (without merge)
+### 4.5 Tests — [x]
 
 - Materials: variant create/update/remove, the "neither listed nor removed" conflict, name rules, deleting referenced
   variants (409 messages), `expectedAvailableCount` per variant, counts per variant and summed, foreign variant ids

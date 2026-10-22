@@ -820,3 +820,23 @@ Backend only, branch `variants`; the frontend doesn't compile against the new AP
   `MigrationTest` V4 → V5).
 - Not verified: nothing against the frontend (step 3); no concurrency tests for the variant locks. The merge (4.4)
   isn't implemented.
+
+### 2026-10-22: Merging materials, backend (Q9, PLAN.md step 4)
+
+- `POST /materials/merge` `{materialIds: [target, source…], name, variantNames}` (EDIT): the target keeps its id,
+  category and description and gets `name`; the sources' variants move to it and the sources are deleted. Items,
+  stock, purchases and loans stay attached to their variants. Response: the merged material.
+- V5 already supports it, no new migration: options for a specific variant follow it through the cascading key;
+  "any variant" options (`variant_id` NULL, so the key doesn't apply) on single-variant materials, target and
+  sources alike, are rewritten to that variant first, so kits keep their exact meaning.
+- Deviation from the plan: the kit overlap rule is not safe by construction. A target with several variants used
+  with "any variant" in a group that also lists a source would overlap afterwards; that's rejected with 409 naming
+  the kit. A source with several variants used with "any variant" is rejected too (409, as planned); sources with
+  several variants whose options name specific variants merge fine.
+- Order: rewrite options, clear the involved variant names, move variants, delete sources, rename the target, set
+  the final names, so swapped names and taking over a source's name work. Locks: variants, then materials, then the
+  variants again (re-read), the same order as `PUT /materials/{id}`, so a variant added to a source meanwhile isn't
+  deleted unnoticed.
+- Verified: `UPDATE_OPENAPI=1 ./gradlew clean test`, 91 tests (`MergeApiTest`: data moves with counts, option
+  rewriting, both 409 kit cases leaving data unchanged, name rules and swaps, tracking type, unknown/duplicate and
+  other tenants' ids; `PermissionTest` covers the route). Not verified: lock concurrency; the dialog (5.2) is open.
