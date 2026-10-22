@@ -160,7 +160,7 @@ data class NewIndividualMaterial(
     override val name: String,
     override val category: String? = null,
     override val description: String? = null,
-    val variants: List<NewIndividualVariant> = listOf(NewIndividualVariant()),
+    val variants: List<NewIndividualVariant>,
     override val removedVariantIds: List<Uuid> = emptyList()
 ) : NewMaterial {
     init {

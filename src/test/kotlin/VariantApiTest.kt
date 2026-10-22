@@ -85,6 +85,28 @@ class VariantApiTest {
     }
 
     @Test
+    fun `a variant that was removed meanwhile is a conflict`() = apiTest {
+        val seil = createSeil()
+        val (tenMeters, fifteenMeters) = seil.variants
+        fun update(vararg variants: BulkVariant, removed: List<Uuid> = emptyList()): NewMaterial = NewBulkMaterial(
+            "Seil",
+            variants = variants.map { NewBulkVariant(it.id, it.name, availableCount = it.availableCount) },
+            removedVariantIds = removed
+        )
+        put("materials/${seil.id}") { setBody(update(tenMeters, removed = listOf(fifteenMeters.id))) }
+            .expect<Material>(HttpStatusCode.OK)
+
+        // Editors who loaded the material before: one changes the removed variant, one removes it as well.
+        val changed = put("materials/${seil.id}") { setBody(update(tenMeters, fifteenMeters)) }
+            .expectError(HttpStatusCode.Conflict)
+        assertEquals("Das Material wurde inzwischen geändert. Lade die Seite neu.", changed)
+        val removed = put("materials/${seil.id}") { setBody(update(tenMeters, removed = listOf(fifteenMeters.id))) }
+            .expectError(HttpStatusCode.Conflict)
+        assertEquals("Das Material wurde inzwischen geändert. Lade die Seite neu.", removed)
+        assertEquals(listOf(tenMeters.id), (getMaterial(seil.id) as BulkMaterial).variants.map { it.id })
+    }
+
+    @Test
     fun `variant names and ids are validated`() = apiTest {
         /** Creates a material, or replaces the one at [path]. */
         suspend fun messageFor(variants: String, path: String? = null, removed: String = "[]"): String {

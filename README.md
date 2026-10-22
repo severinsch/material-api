@@ -98,6 +98,14 @@ Identifiers of items are unique per variant (K01… for the plain Kohtenplanen, 
 item can move to another variant of its material. Materials are written together with their complete variant list
 (`PUT /materials/{id}` creates, changes and removes variants in one request).
 
+Materials of the same tracking type that turn out to be variants of one ("Seil 10 m", "Seil 15 m") are merged with
+`POST /materials/merge`: the first one keeps its id, category and description, the others' variants move to it with
+their items, stock, purchases and loans, and the others are deleted. Kit options for a material with a single variant
+are rewritten to that variant, so kits keep using the same pieces; only "any variant" of a target that already has
+several (see below) includes the merged-in variants afterwards. Merges whose kit options can't be expressed afterwards
+(a source with several variants used with "any variant", or "any variant" of the target in a group that also lists a
+source) are rejected with a message naming the kits.
+
 The database enforces that individual items only belong to individual variants and stock only to bulk variants.
 Materials, variants, items and records with history (damage reports, purchases, loans, kit recipes) can't be deleted
 while referenced; items are retired via their status instead.

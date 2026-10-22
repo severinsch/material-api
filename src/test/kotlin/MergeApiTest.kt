@@ -227,10 +227,13 @@ class MergeApiTest {
             "Der Name einer Variante darf nicht leer sein.",
             messageFor(body(seil.id, twenty.id, variantNames = """{"${twenty.variantId}": ""}"""))
         )
-        val unknown = Uuid.random()
-        assertEquals("Material $unknown gibt es nicht.", messageFor(body(seil.id, unknown)))
+        // The client only lists materials and variants it has seen, so unknown ones were deleted or merged meanwhile.
         // Another tenant's material doesn't exist here.
-        assertEquals("Material ${foreign.id} gibt es nicht.", messageFor(body(seil.id, foreign.id)))
+        suspend fun conflictFor(body: String) = post("materials/merge") { setBody(body) }.expectError(HttpStatusCode.Conflict)
+        val changed = "Die Materialien wurden inzwischen geändert. Lade die Seite neu."
+        assertEquals(changed, conflictFor(body(seil.id, Uuid.random())))
+        assertEquals(changed, conflictFor(body(seil.id, foreign.id)))
+        assertEquals(changed, conflictFor(body(seil.id, twenty.id, variantNames = """{"${Uuid.random()}": "x"}""")))
         assertEquals(
             "Nur Materialien derselben Erfassungsart können zusammengeführt werden.",
             messageFor(body(seil.id, blatt.id))

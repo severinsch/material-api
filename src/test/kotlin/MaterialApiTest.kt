@@ -100,17 +100,24 @@ class MaterialApiTest {
 
     @Test
     fun `invalid input is rejected with a message`() = apiTest {
-        val blankName = post("materials") { setBody("""{"trackingType": "INDIVIDUAL", "name": "  "}""") }
+        val blankName = post("materials") { setBody("""{"trackingType": "INDIVIDUAL", "name": "  ", "variants": [{}]}""") }
         assertEquals("Der Name darf nicht leer sein.", blankName.expectError(HttpStatusCode.BadRequest))
 
-        val longName = post("materials") { setBody("""{"trackingType": "INDIVIDUAL", "name": "${"x".repeat(256)}"}""") }
+        val longName = post("materials") {
+            setBody("""{"trackingType": "INDIVIDUAL", "name": "${"x".repeat(256)}", "variants": [{}]}""")
+        }
         assertEquals("Der Name darf höchstens 255 Zeichen lang sein.", longName.expectError(HttpStatusCode.BadRequest))
 
         get("materials/not-a-uuid").expectError(HttpStatusCode.BadRequest)
 
+        // The variants are always the complete list, so a material without them is invalid, not one without changes.
+        val withoutVariants = post("materials") { setBody("""{"trackingType": "INDIVIDUAL", "name": "Kohte"}""") }
+        withoutVariants.expectError(HttpStatusCode.BadRequest)
+
         createIndividual("Kohtenblatt")
-        val taken = post("materials") { setBody<NewMaterial>(NewIndividualMaterial("Kohtenblatt")) }
-            .expectError(HttpStatusCode.Conflict)
+        val taken = post("materials") {
+            setBody<NewMaterial>(NewIndividualMaterial("Kohtenblatt", variants = listOf(NewIndividualVariant())))
+        }.expectError(HttpStatusCode.Conflict)
         assertEquals("Es gibt schon ein Material mit diesem Namen.", taken)
     }
 

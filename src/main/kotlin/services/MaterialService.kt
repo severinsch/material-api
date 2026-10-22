@@ -11,6 +11,11 @@ import kotlin.uuid.Uuid
 /** Materials are written together with their complete list of variants, see [NewMaterial]. */
 class MaterialService(private val db: Db) {
 
+    private companion object {
+        const val MATERIAL_CHANGED = "Das Material wurde inzwischen geändert. Lade die Seite neu."
+        const val MATERIALS_CHANGED = "Die Materialien wurden inzwischen geändert. Lade die Seite neu."
+    }
+
     private data class Counts(val available: Int = 0, val damaged: Int = 0)
 
     private data class VariantRow(val id: Uuid, val materialId: Uuid, val name: String?)
@@ -37,15 +42,16 @@ class MaterialService(private val db: Db) {
     /** Replaces a material including its variants. Its type can't be changed. */
     suspend fun update(tenant: TenantId, id: Uuid, material: NewMaterial): Material = db.tenantQuery(tenant) {
         if (find(id).trackingType != material.trackingType) conflict("Die Erfassungsart eines Materials kann nicht geändert werden.")
-        val existing = lockVariantsOf(id)
+        val existing = lockVariantsOf(listOf(id)).associate { it.id to it.name }
         val listed = material.listedVariants.mapNotNull { it.first }
-        (listed + material.removedVariantIds).firstOrNull { it !in existing }?.let {
-            invalid("Die Variante $it gehört nicht zu diesem Material.")
+        val unknown = (listed + material.removedVariantIds).filter { it !in existing }
+        if (unknown.isNotEmpty()) {
+            existingVariants(unknown).firstOrNull()?.let { invalid("Die Variante $it gehört nicht zu diesem Material.") }
+            // Removed meanwhile, e.g. by another user.
+            conflict(MATERIAL_CHANGED)
         }
         // E.g. a variant another user added meanwhile, which must not disappear unnoticed.
-        if (existing.keys.any { it !in listed && it !in material.removedVariantIds }) {
-            conflict("Das Material wurde inzwischen geändert. Lade die Seite neu.")
-        }
+        if (existing.keys.any { it !in listed && it !in material.removedVariantIds }) conflict(MATERIAL_CHANGED)
         requireLocations(material)
         if (material is NewBulkMaterial) requireStockUpdates(material)
 
@@ -76,14 +82,19 @@ class MaterialService(private val db: Db) {
             .orderBy(Materials.id)
             .forUpdate()
             .associate { it[Materials.id].value to (it[Materials.name] to it[Materials.trackingType]) }
-        merge.materialIds.firstOrNull { it !in materials }?.let { invalid("Material $it gibt es nicht.") }
+        // The client lists materials it has seen, so a missing one was most likely deleted or merged meanwhile.
+        if (merge.materialIds.any { it !in materials }) conflict(MATERIALS_CHANGED)
         if (materials.values.map { it.second }.distinct().size > 1) {
             invalid("Nur Materialien derselben Erfassungsart können zusammengeführt werden.")
         }
         val variants = lockVariantsOf(merge.materialIds)
 
-        merge.variantNames.keys.firstOrNull { id -> variants.none { it.id == id } }?.let {
-            invalid("Die Variante $it gehört zu keinem der zusammengeführten Materialien.")
+        val unknown = merge.variantNames.keys.filter { id -> variants.none { it.id == id } }
+        if (unknown.isNotEmpty()) {
+            existingVariants(unknown).firstOrNull()?.let {
+                invalid("Die Variante $it gehört zu keinem der zusammengeführten Materialien.")
+            }
+            conflict(MATERIALS_CHANGED)
         }
         val names = variants.associate { it.id to (merge.variantNames[it.id] ?: it.name) }
         if (names.values.any { it == null }) invalid("Hat ein Material mehrere Varianten, braucht jede einen Namen.")
@@ -157,21 +168,19 @@ class MaterialService(private val db: Db) {
         }
     }
 
-    /** Locks the variants of a material (see [lockVariants]) and returns their names. */
-    private fun lockVariantsOf(materialId: Uuid): Map<Uuid, String?> = MaterialVariants
-        .select(MaterialVariants.id, MaterialVariants.name)
-        .where { MaterialVariants.materialId eq materialId }
-        .orderBy(MaterialVariants.id)
-        .forUpdate()
-        .associate { it[MaterialVariants.id].value to it[MaterialVariants.name] }
-
-    /** Locks the variants of several materials (see [lockVariants]) and returns them. */
+    /** Locks the variants of materials (in the same order as [lockVariants]) and returns them. */
     private fun lockVariantsOf(materialIds: Collection<Uuid>): List<VariantRow> = MaterialVariants
         .select(MaterialVariants.id, MaterialVariants.materialId, MaterialVariants.name)
         .where { MaterialVariants.materialId inList materialIds }
         .orderBy(MaterialVariants.id)
         .forUpdate()
         .map { VariantRow(it[MaterialVariants.id].value, it[MaterialVariants.materialId].value, it[MaterialVariants.name]) }
+
+    /** Those of [variantIds] that exist, as a variant of any material of the tenant. */
+    private fun existingVariants(variantIds: List<Uuid>): List<Uuid> = MaterialVariants
+        .select(MaterialVariants.id)
+        .where { MaterialVariants.id inList variantIds }
+        .map { it[MaterialVariants.id].value }
 
     /** E.g. "im Set Jurte" or "in den Sets Jurte, Kohte". */
     private fun inKits(names: List<String>) =

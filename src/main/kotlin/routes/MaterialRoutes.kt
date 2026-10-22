@@ -57,7 +57,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
              * Path: id [kotlin.uuid.Uuid] The material id.
              * Response: 400 application/json [api.ErrorResponse] Invalid material or variants, a variant of another material, or unknown location.
              * Response: 404 application/json [api.ErrorResponse] No material with this id.
-             * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, an existing variant is neither listed nor removed, a removed variant is still in use, or a stock differs from `expectedAvailableCount` or would drop below the pieces lent out.
+             * Response: 409 application/json [api.ErrorResponse] The tracking type differs, the name is taken, an existing variant is neither listed nor removed, a listed or removed variant no longer exists, a removed variant is still in use, or a stock differs from `expectedAvailableCount` or would drop below the pieces lent out.
              */
             put("/{id}") {
                 val id = call.uuidPathParameter()
@@ -70,8 +70,8 @@ fun Route.materialRoutes(materialService: MaterialService) {
              * variant id) or its current one. Items, stock, purchases, loans and kit options come along with their
              * variants, the other materials are deleted. Responds with the merged material.
              *
-             * Response: 400 application/json [api.ErrorResponse] Fewer than two or duplicate materials, an unknown material, different tracking types, a variant of another material in `variantNames`, or missing or duplicate variant names.
-             * Response: 409 application/json [api.ErrorResponse] The name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).
+             * Response: 400 application/json [api.ErrorResponse] Fewer than two or duplicate materials, different tracking types, a variant of another material in `variantNames`, or missing or duplicate variant names.
+             * Response: 409 application/json [api.ErrorResponse] A material or variant no longer exists (deleted or merged meanwhile), the name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).
              */
             post("/merge") {
                 call.respond(materialService.merge(call.tenant, call.receive<MaterialMerge>()))

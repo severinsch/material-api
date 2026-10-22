@@ -70,14 +70,6 @@ class TenantIsolationTest {
                 val variant = NewBulkVariant(availableCount = 1, storageLocationId = location.id)
                 setBody<NewMaterial>(NewBulkMaterial("Hering", variants = listOf(variant)))
             },
-            // This tenant's variant listed as one of the other tenant's material.
-            other.put("materials/${otherIndividual.id}") {
-                val variants = listOf(
-                    NewIndividualVariant(otherIndividual.variantId, "A"),
-                    NewIndividualVariant(individual.variantId, "B")
-                )
-                setBody<NewMaterial>(NewIndividualMaterial("Kohtenblatt", variants = variants))
-            },
             other.post("items") { setBody(NewIndividualItem(individual.variantId, "2", ItemCondition.GOOD)) },
             other.put("items/${otherItem.id}") { setBody(NewIndividualItem(individual.variantId, "1", ItemCondition.GOOD)) },
             other.post("items") {
@@ -91,6 +83,16 @@ class TenantIsolationTest {
             other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(bulk.variantId, 1)))) },
         )
         requests.forEach { assertEquals(HttpStatusCode.BadRequest, it.status, it.bodyAsText()) }
+
+        // This tenant's variant listed as one of the other tenant's material: unknown there, like a removed variant.
+        other.put("materials/${otherIndividual.id}") {
+            val variants = listOf(
+                NewIndividualVariant(otherIndividual.variantId, "A"),
+                NewIndividualVariant(individual.variantId, "B")
+            )
+            setBody<NewMaterial>(NewIndividualMaterial("Kohtenblatt", variants = variants))
+        }.expectError(HttpStatusCode.Conflict)
+        assertEquals(listOf(individual.variantId), (getMaterial(individual.id) as IndividualMaterial).variants.map { it.id })
     }
 
     @Test

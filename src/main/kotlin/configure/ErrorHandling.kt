@@ -46,7 +46,7 @@ fun Application.configureErrorHandling() {
         }
         // Services check the common cases themselves; the constraints in the schema are the last line of defense.
         exception<SQLException> { call, e ->
-            val (status, message) = constraintViolation(e) ?: return@exception call.respondInternalError(e)
+            val (status, message) = databaseError(e) ?: return@exception call.respondInternalError(e)
             call.respondError(status, message)
         }
         exception<Throwable> { call, e ->
@@ -83,8 +83,12 @@ internal val constraintMessages = mapOf(
         "Der Gegenstand hat Schadensmeldungen. Setze stattdessen seinen Status auf „Ausgemustert“.",
 )
 
+/**
+ * The response for database errors that the request caused: violated constraints, and transactions that clashed with
+ * concurrent ones (Exposed already retried them). Null for everything else, which is an internal error.
+ */
 // https://www.postgresql.org/docs/current/errcodes-appendix.html
-private fun constraintViolation(e: SQLException): Pair<HttpStatusCode, String>? {
+internal fun databaseError(e: SQLException): Pair<HttpStatusCode, String>? {
     val causes = e.causes()
     val sqlState = causes.filterIsInstance<SQLException>().firstNotNullOfOrNull { it.sqlState?.ifEmpty { null } }
     val constraint = causes.filterIsInstance<PSQLException>().firstNotNullOfOrNull { it.serverErrorMessage?.constraint }
@@ -95,6 +99,9 @@ private fun constraintViolation(e: SQLException): Pair<HttpStatusCode, String>? 
         "23503" -> HttpStatusCode.BadRequest to "Ein angegebener Eintrag existiert nicht."
         "23505" -> HttpStatusCode.Conflict to (specific ?: "Es gibt schon einen Eintrag mit diesem Namen.")
         "23514" -> HttpStatusCode.BadRequest to "Ein Wert liegt außerhalb des erlaubten Bereichs."
+        // Deadlock and serialization failure.
+        "40P01", "40001" -> HttpStatusCode.Conflict to
+            "Jemand anderes hat gleichzeitig dieselben Daten geändert. Versuche es noch einmal."
         else -> null
     }
 }
