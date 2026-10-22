@@ -840,3 +840,34 @@ Backend only, branch `variants`; the frontend doesn't compile against the new AP
 - Verified: `UPDATE_OPENAPI=1 ./gradlew clean test`, 91 tests (`MergeApiTest`: data moves with counts, option
   rewriting, both 409 kit cases leaving data unchanged, name rules and swaps, tracking type, unknown/duplicate and
   other tenants' ids; `PermissionTest` covers the route). Not verified: lock concurrency; the dialog (5.2) is open.
+
+### 2026-10-22: Material variants, frontend (Q9, PLAN.md step 3)
+
+Frontend commits `f12c734`, `c8d772a` on `variants`; everything in PLAN.md section 5 except the merge dialog.
+
+- Name helpers in `format.ts` mirror `services/Names.kt` exactly (variant name only if the material has several
+  variants). Material list with the variant breakdown line, material page with the "Varianten" table, items grouped
+  by variant (heading row with its own add button), the variants editor in the material dialog (one-variant mode as
+  before plus "Varianten anlegen"; shared Lagerort with "Lagerort je Variante"; removed variants stay listed as
+  "Wird beim Speichern entfernt … (behalten)" until saved; confirmation only for variants with pieces), variant
+  selects in the item and purchase dialogs (an item can move; a purchase's variant is fixed on edit, as in the API),
+  loans per variant, locations per variant, the kit option picker with "beliebige Variante", the overlap rule in the
+  kit editor.
+- Allocation per variant: "any" options take the variant with the most stock left first; groups are sorted by how
+  many variants they cover (no longer just two tiers). Assignments say whether they came through "any", but only for
+  materials with several variants, so a single-variant material never splits into two needs. A need's `missing` is
+  the allocation's missing pieces rather than required minus available, which stays exact when an "any" group used
+  up a specific variant.
+- Small decisions: a location counts as shared only if location and place match (otherwise the switch starts on);
+  a single named variant shows the variant list so its name stays visible; on the location page each variant counts
+  as one "Material nach Menge".
+- Verified: `bun run check` (0/0), `bun run test` (47), eslint and prettier on tracked files, `bun run build`; the
+  flows over HTTP through the frontend proxy against a throwaway stack with the committed backend (materials with
+  variants, items per variant incl. the same identifier in two variants and moving an item, a purchase, a loan per
+  variant incl. the per-variant quantity-or-items 400, a kit with "any" and specific options incl. the overlap 400,
+  adding/renaming/removing variants incl. both 409s); all pages rendered; the packing list matched a hand
+  calculation ("4× Seil 20 m", "12× Seil (beliebig, außer den 4× 20 m) – 3 fehlen").
+- Not verified (browser pass, owner): the interactive parts of the material dialog (switches, phone layout,
+  stacked confirmation, "behalten"), the item and purchase variant selects, the loan dialog, the material picker's
+  search and indentation, the kit editor's overlap error. `bun run lint` fails only on the git-ignored
+  `.claude/settings.local.json`.

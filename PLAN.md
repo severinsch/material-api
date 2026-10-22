@@ -288,7 +288,7 @@ README: the "Kit" section (amounts, options referring to a material or a variant
 and "Hybrid Tracking" (variants; items unique per variant). REVIEW.md: Q8/Q9 answered with a pointer to this plan;
 progress log entries.
 
-### 4.4 Merging materials — [x] (backend; dialog in 5.2 open)
+### 4.4 Merging materials — [x] (backend; the dialog in 5.2 is open)
 
 `POST /materials/merge` (EDIT) with `{ materialIds: [<target>, <source>…], name, variantNames: { <variantId>: "<name>" } }`:
 
@@ -325,7 +325,7 @@ progress log entries.
 
 ---
 
-## 5. Q9: frontend **(frontend)** — [ ]
+## 5. Q9: frontend **(frontend)** — [x] (all but the merge dialog in 5.2)
 
 ### 5.1 Hierarchy and the confusion with items
 
