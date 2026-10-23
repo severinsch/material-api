@@ -1047,5 +1047,6 @@ Frontend commit `c8be7fe` on `variants`.
   "Beschädigt", with "von 10 m" only for screen readers.
 - Checked in a headless Chromium at 1280 and 390 px (screenshots), `bun run check`, `bun run test` (66), eslint,
   prettier.
-- Dev note: `bun run check` (`svelte-kit sync`) while `vite dev` runs leaves the dev server answering 502/500 until
-  it is restarted.
+- Dev note: `bun run check` and `bun run test` regenerate `.svelte-kit/generated/dev/env/private/server.js` from
+  their own environment, without `API_URL`. A running `vite dev` picks that up and answers 502 ("Der Material-Server
+  ist nicht erreichbar.") until it is restarted with `API_URL` set.
