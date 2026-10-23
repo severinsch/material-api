@@ -1049,4 +1049,7 @@ Frontend commit `c8be7fe` on `variants`.
   prettier.
 - Dev note: `bun run check` and `bun run test` regenerate `.svelte-kit/generated/dev/env/private/server.js` from
   their own environment, without `API_URL`. A running `vite dev` picks that up and answers 502 ("Der Material-Server
-  ist nicht erreichbar.") until it is restarted with `API_URL` set.
+  ist nicht erreichbar.") until it is restarted with `API_URL` set. Running them with `API_URL` (and `ORIGIN`) set
+  avoids it.
+- Owner request: the material list starts with "Verfügbar" (before the name) and ends with "Erfassung" (before the
+  actions), frontend commit `89d0adb`.
