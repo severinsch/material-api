@@ -1033,3 +1033,19 @@ driven over the DevTools protocol, with screenshots.
   `bun run build`; each fix clicked through again. API log without errors.
 - The local stack is still on the edited dump (merges, Mittelstange, Seil 30 m with 3 pieces and a purchase, no
   leftover test data): Postgres container `browsertest_db` on 55433, API on 8095, frontend on 5195.
+
+### 2026-10-23: Owner feedback on the material dialog
+
+Frontend commit `c8be7fe` on `variants`.
+
+- Creating several variants never needed a merge (the link "Varianten anlegen" existed), but it was easy to miss. A
+  material with one variant now offers the button "Variante hinzufügen", the same as in the variant list, with the
+  hint above it.
+- With "Lagerort je Variante" the variants were rows under one header with the location fields in between, hard to
+  tell apart (the ropes). Each variant is now a bordered card with labelled fields on desktop too, as on phones;
+  without per-variant locations they stay compact rows under the header. Inside a card the labels read "Bestand" /
+  "Beschädigt", with "von 10 m" only for screen readers.
+- Checked in a headless Chromium at 1280 and 390 px (screenshots), `bun run check`, `bun run test` (66), eslint,
+  prettier.
+- Dev note: `bun run check` (`svelte-kit sync`) while `vite dev` runs leaves the dev server answering 502/500 until
+  it is restarted.
