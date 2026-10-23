@@ -53,7 +53,7 @@ Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
 
 ---
 
-## 2. FE-7: exact allocation (`src/lib/kits/allocate.ts`) — [ ]
+## 2. FE-7: exact allocation (`src/lib/kits/allocate.ts`) — [x]
 
 The public shape stays: `allocate(selections, stock, variants): Allocation` with `assignments` and `shortages` as
 today, so `needsOf`, the needs list, the print view and the shortage texts keep working. `Allocation` gains
@@ -132,7 +132,7 @@ fallback; README (frontend) keeps its one-line pointer. REVIEW.md: FE-7 and FE-8
 
 ---
 
-## 3. FE-8: pinned alternatives — [ ]
+## 3. FE-8: pinned alternatives — [x]
 
 ### 3.1 Model and URL (`packing.ts`, `allocate.ts`)
 
@@ -142,8 +142,9 @@ fallback; README (frontend) keeps its one-line pointer. REVIEW.md: FE-7 and FE-8
   option order is by priority and UUID and shifts when options are added, reprioritized or merged. Pins on groups
   with a single option, or whose option the kit no longer has, are ignored.
 - **Active pins:** a pin counts only while the group's chosen amount has more than 0 units (Fenster "mit"). An
-  inactive pin is kept on the line (switching back to "mit" restores it) but ignored by the allocation, by
-  `combineLines`, by `lineLabel` and by the URL. One helper, `activePins(selection)`, decides this.
+  inactive pin is kept on the line (switching back to "mit" restores it), also in the URL so a reload keeps it, but
+  ignored by the allocation, by `combineLines` and by `lineLabel`. One helper, `activePins(selection)`, decides
+  this.
 - URL: a fourth `*` segment with the active pins as `<group index>-<option id>`, e.g. `<jurte id>*1**6-<halbdach id>`
   (no amount choices) or `<jurte id>*2*3-1*6-<id>`. `serializeSelection` builds the segments explicitly (today's
   `.filter(Boolean)` would drop an empty choices segment and turn the pin into a choice), trailing empty segments are
@@ -173,7 +174,7 @@ fallback; README (frontend) keeps its one-line pointer. REVIEW.md: FE-7 and FE-8
 
 ---
 
-## 4. Tests — [ ]
+## 4. Tests — [x]
 
 - `allocate.test.ts`:
   - the FE-7 example (Jurte Dach preferring Kohtenplanen, 1 Jurte + 2 Kohten, demo stock): no shortage;
@@ -193,6 +194,14 @@ fallback; README (frontend) keeps its one-line pointer. REVIEW.md: FE-7 and FE-8
     stock, unit values 1–3), with a fixed seed: same missing units, waste and rank costs.
 - `packing.test.ts`: URL round trip with pins, with pins but no choices, old URLs, invalid pins, inactive pins;
   `combineLines` and `lineLabel` with pins; `describeShortage` of a pinned group (several and single options).
+
+### 4.1 Changes from the implementation review
+
+- If every demand's best fill on its own fits the stock, that's the result (the same the search would find);
+  otherwise their costs and the stock left bound the search, which skips fills that can't beat the best found.
+- Steps are charged per enumerated fill and per memo key; the budget is 500 000 (about 20 ms on a desktop).
+  Components are searched smallest first, so one too large doesn't make the others greedy.
+- `approximate` only if a greedily allocated part has a shortage.
 
 ## 5. Order and verification
 

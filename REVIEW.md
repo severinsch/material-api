@@ -300,7 +300,7 @@ check-in/check-out, which doesn't exist.
 - [x] The Dockerfile runner stage runs `bun install --frozen-lockfile` without copying the lockfile.
 - [x] No tests, no CI. (Unit tests for the kit allocation; CI is still missing in both repos.)
 
-### FE-7 Kit allocation reports shortages that a different split would avoid — [ ]
+### FE-7 Kit allocation reports shortages that a different split would avoid — [x]
 
 Found 2026-10-19 with the demo data. `allocate.ts` fills each group greedily in priority order, so a group can use up
 a material that another group needs, even when the first group has alternatives left. Example, with the Jurte roof
@@ -313,7 +313,7 @@ with different alternatives can hit it. Fix: find a feasible split first and use
 feasible ones, e.g. a small exact search over the groups' options (the numbers are small), and report a shortage
 only if no split covers everything.
 
-### FE-8 Fix an alternative for one kit in the packing list — [ ]
+### FE-8 Fix an alternative for one kit in the packing list — [x]
 
 Raised 2026-10-19. It should be possible to pin the option of a group for one selected kit (e.g. this Jurte gets the
 Jurtenhalbdächer, that one Kohtenplanen) and let the allocation fill the rest. Best done together with FE-7.
@@ -1053,3 +1053,34 @@ Frontend commit `c8be7fe` on `variants`.
   avoids it.
 - Owner request: material list columns Name · Verfügbar · Kategorie · Lagerort · Erfassung · Beschädigt ·
   Ausgeliehen (frontend commits `89d0adb`, corrected in `66682fe`).
+
+### 2026-10-23: Exact allocation and pinned alternatives (FE-7, FE-8)
+
+Frontend branch `allocation` (commits `a8b793d`, `0e25d2e`, `eb68f64`), plan in PLAN.md (`allocation` branch here).
+Before that, `variants` was merged into `main` in both repositories (fast-forward, not pushed, not deployed).
+
+- **Plan**, reviewed independently before implementing. The review changed: pins by option id instead of index (the
+  API orders options by priority, then material and variant id), a fixed class order in the search (the memo shares
+  results between paths), `approximate` with a note, inactive pins on groups packed without, the card footer with
+  several lines, gender-neutral aria labels.
+- **FE-7:** `allocate` searches exactly: fewest missing units, then least waste, then preferred options (dense ranks,
+  equal priorities count the same), then earlier lines. Variants that every group treats alike are pooled, groups
+  that share nothing are searched separately; if every group's best fill fits the stock, that's the result,
+  otherwise a memoized depth-first search with lower bounds. Past 500 000 steps (about 20 ms on a desktop) the rest
+  is greedy, and the packing list says so if that part has a shortage. Behaviour change: among equal options the
+  variant with the most stock comes first (Kohte: 10 m ropes before 20 m).
+- **FE-8:** "Alternativen festlegen" on a line shows a select per group with several options ("Dach: automatisch");
+  a pinned group uses only that option. Pins are in the URL as a fourth segment (`<kit>*1**6-<option id>`); old links
+  work. A pin on a group packed without ("Fenster: ohne") is kept (also in the URL) but ignored until "mit". Labels
+  name pins ("Jurte (Fenster: mit · Fensterplane)"), shortages name only the pinned option.
+- **Implementation review** (independent; its own 8000-round brute-force fuzz found no wrong result). Fixed: with
+  plenty of stock the search ran out of steps (now the fast path above and pruning), one large component made all
+  later ones greedy (smallest first now), steps didn't reflect their cost, the approximate note appeared without
+  shortages, accessible names ignored pins, "+" on a card added to a line with an inactive pin, the reveal state was
+  never cleaned up. The in-repo brute-force test now covers priorities 0–3, pins and optional groups.
+- Verified: `bun run check` (0/0), eslint, prettier, `bun run test` (92), `bun run build`; 24 000 fuzz rounds
+  against a brute force; benchmarks with the demo kits (realistic lists 0.1–16 ms, enough stock under 1 ms). In
+  Chrome on the local stack: pinning, URL and reload, shortage of a pinned option, back to "Automatisch", Fenster pin
+  with "ohne"/"mit", copying a line, card footer, print markup, accessible names, "Leeren"; no console errors.
+- Not verified: phone width; the FE-7 case in the browser (the demo kits order Dach so that the old allocator
+  already got it right; covered by unit tests).
