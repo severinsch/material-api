@@ -1051,5 +1051,5 @@ Frontend commit `c8be7fe` on `variants`.
   their own environment, without `API_URL`. A running `vite dev` picks that up and answers 502 ("Der Material-Server
   ist nicht erreichbar.") until it is restarted with `API_URL` set. Running them with `API_URL` (and `ORIGIN`) set
   avoids it.
-- Owner request: the material list starts with "Verfügbar" (before the name) and ends with "Erfassung" (before the
-  actions), frontend commit `89d0adb`.
+- Owner request: material list columns Name · Verfügbar · Kategorie · Lagerort · Erfassung · Beschädigt ·
+  Ausgeliehen (frontend commits `89d0adb`, corrected in `66682fe`).
