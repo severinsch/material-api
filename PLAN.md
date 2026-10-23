@@ -47,9 +47,6 @@ Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
   identical kits, the user splits the line with the existing copy button, as for amounts.
 - **Pins choose among the group's options as defined in the kit**, not among the variants of an "any variant"
   option. A group whose only option is "Seil (beliebig)" can't be pinned to "Seil 20 m" (§7).
-- **Safety net:** if a selection is too large for the exact search (budget in §2.4), the rest falls back to the
-  current greedy allocation instead of freezing the page, and the packing list says so under the shortages. Not
-  expected with real data (§2.5).
 
 ---
 
@@ -57,7 +54,7 @@ Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
 
 The public shape stays: `allocate(selections, stock, variants): Allocation` with `assignments` and `shortages` as
 today, so `needsOf`, the needs list, the print view and the shortage texts keep working. `Allocation` gains
-`approximate: boolean` (§2.4), `KitSelection` gains optional `pins` (§3.1).
+`approximate: boolean` (§2.4, dropped again), `KitSelection` gains optional `pins` (§3.1).
 
 ### 2.1 Demands
 
@@ -97,7 +94,7 @@ With the demo data, the Seil variants 10, 15 and 20 m become one class (every ki
   match the kits, e.g. a material deleted meanwhile) is fully missing.
 - The result per demand is pieces per class, plus the missing units.
 
-### 2.4 Budget and fallback
+### 2.4 Budget and fallback (dropped, see 4.1)
 
 The search counts the fills it evaluates over the whole allocation. Past a fixed budget it stops; the component being
 searched and all later ones are allocated by the current greedy algorithm (kept as a private function, restricted to
@@ -195,13 +192,12 @@ fallback; README (frontend) keeps its one-line pointer. REVIEW.md: FE-7 and FE-8
 - `packing.test.ts`: URL round trip with pins, with pins but no choices, old URLs, invalid pins, inactive pins;
   `combineLines` and `lineLabel` with pins; `describeShortage` of a pinned group (several and single options).
 
-### 4.1 Changes from the implementation review
+### 4.1 Changes after the implementation
 
 - If every demand's best fill on its own fits the stock, that's the result (the same the search would find);
-  otherwise their costs and the stock left bound the search, which skips fills that can't beat the best found.
-- Steps are charged per enumerated fill and per memo key; the budget is 500 000 (about 20 ms on a desktop).
-  Components are searched smallest first, so one too large doesn't make the others greedy.
-- `approximate` only if a greedily allocated part has a shortage.
+  otherwise their costs bound the search, which skips fills that can't beat the best found.
+- The owner decided (2026-10-23) against the budget and the greedy fallback (§2.4): realistic lists (under 50 pieces
+  per Plane type) take milliseconds, so the fallback, `approximate` and its note were removed again.
 
 ## 5. Order and verification
 

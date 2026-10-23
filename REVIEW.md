@@ -1084,3 +1084,7 @@ Before that, `variants` was merged into `main` in both repositories (fast-forwar
   with "ohne"/"mit", copying a line, card footer, print markup, accessible names, "Leeren"; no console errors.
 - Not verified: phone width; the FE-7 case in the browser (the demo kits order Dach so that the old allocator
   already got it right; covered by unit tests).
+- **Fallback removed** (owner, same day; frontend commit after `eb68f64`): no budget, no greedy fallback, no
+  `approximate` note; the supply bound didn't pay off and went too. Measured on this machine with the demo kits:
+  realistic lists 1–20 ms; with three times the demo stock (Doppelplane 60, Kohtenplanen 36) and a shortage, 8 lines
+  17 ms, 10 lines 66 ms, 15 lines 330 ms. Enough stock: under 1 ms. 12 000 fuzz rounds against a brute force pass.
