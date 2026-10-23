@@ -953,15 +953,10 @@ merged, not deployed: implemented, independently reviewed, review findings fixed
 
 Next, in this order:
 
-1. **Browser pass by Claude** (attempted 2026-10-23, the Chrome extension wasn't connected, so nothing was clicked
-   yet). Go through the "Needs the browser pass" / "Not verified" lists of the entries dated 2026-10-22 above, on
-   the restored dump, on desktop and phone width: kit editor (Ausführungen, Optional shortcut), packing list (two
-   lines of one kit, selects, "Weitere mit anderer Ausführung", URL, print/copy), material dialog (variants editor,
-   "Varianten anlegen", "Lagerort je Variante", removing and "behalten", disabled remove for variants with items),
-   item dialog (variant select, moving, identifier suggestion), purchase dialog (required variant), loan dialog
-   (rows per variant, picking), material picker ("Seil 15"), merge (selection mode, dialog, blocked kits, real
-   submit incl. a 409 toast, landing page). Merge the demo ropes and Kohtenplanen. Fix what's broken, log it here.
-2. **Manual testing by the owner.**
+1. **Browser pass by Claude** — done 2026-10-23: the "Needs the browser pass" / "Not verified" lists of the
+   entries dated 2026-10-22 on the restored dump, desktop and phone width, demo ropes and Kohtenplanen merged; see
+   the entry "Browser pass of steps 1–5" below.
+2. **Manual testing by the owner.** Next.
 3. **Deployment together with the owner** (PLAN.md step 6).
 
 **Local test stack on the synced dump** (`synced-backup/scout_material-2026-10-22.dump`, test data only, excluded
@@ -984,3 +979,57 @@ API_URL=http://localhost:8095 ORIGIN=http://localhost:5195 npx vite dev --port 5
 
 Open the setup link from the API log (`Setup link for admin …`), set a local password, use tenant `test`.
 Afterwards: `docker rm -f browsertest_db`. The container `scout_db` belongs to the owner's own local setup; leave it.
+
+### 2026-10-23: Browser pass of steps 1–5
+
+Frontend commit `f0f74d8` on `variants`; no backend change. Done in Chrome (desktop, 2548 px) on the local stack
+from the handoff above, as the dump's platform admin in tenant `test`. Chrome couldn't be resized under the owner's
+tiling window manager and the app refuses to be framed, so phone width (390 × 844) was checked in a headless Chromium
+driven over the DevTools protocol, with screenshots.
+
+- **Merged in the UI:** Seil 10 m/15 m/20 m → `Seil` (10 m, 15 m, 20 m; stock 8/7/5 and the purchase on 20 m kept,
+  the kits Jurte, Kohte, Ovaljurte and Superjurte list exactly the old variants); Kohtenplane + Kohtenplane (45 cm
+  Latz) → `Kohtenplane` (Standard-Latz K01–K08, 45 cm Latz K09–K12). Both landed on the merged material.
+- **Worked as intended:** selection mode (other tracking type disabled, bar text), merge dialog (prefill "Seil" /
+  "10 m"…, the empty name for "Kohtenplane", target switch reorders rows and keeps names, duplicate and empty name
+  errors, preview, kit note), both blocked cases with a throwaway kit (alert text, disabled button, switching the
+  target swaps the message), a real submit with a 409 toast ("Die Materialien wurden inzwischen geändert…", source
+  deleted in the background, dialog stays open); material dialog (stacked confirmation for stock, "Wird beim Speichern
+  entfernt … (behalten)", the API's 409 "Die Variante 15 m wurde schon ausgeliehen…" as a toast, a new variant 30 m
+  with its own place, disabled remove for variants with items plus the hint line; Chrome shows no `title` on disabled
+  buttons, the hint covers it); purchase dialog (required variant, the stock follows, variant fixed on edit); item
+  dialog (variant select, moving K12 to Standard-Latz and back with the move note); loan dialog (rows per variant,
+  picking K09/K11, summary, edit prefill); kit editor (Ausführungen on a part, the Optional shortcut on and off, the
+  overlap error for "Seil (beliebige Variante)" next to its variants); packing list (Zur Packliste, selects, URL
+  `*2-1`, "Weitere mit anderer Ausführung", reload from the URL, shortages, the "für …" breakdown, copied text and
+  the print markup); all of it at phone width too.
+- **Fixed:**
+  - "Variante hinzufügen" didn't focus the new row; typing went to the still focused button, and a space added a
+    second row. The new name field gets the focus now ("Varianten anlegen": the first unnamed one).
+  - The identifier suggestion counted per variant, so after the merge it offered K09 for Standard-Latz while
+    45 cm Latz has a K09. It skips the identifiers of the other variants now (K13), and a variant without items
+    continues the material's numbering. Two variants may still use the same identifier; it just isn't suggested.
+  - The material picker showed a search hit for "Seil 15" as just "15 m" (its material row is filtered out); while
+    searching, variants show their full name. Its check mark was hidden with `text-transparent`, which the highlighted
+    item overrides, so the highlighted entry looked selected; `opacity-0` now. The latter was already on `main`.
+  - Switching "Lagerort je Variante" off and on again reset every variant to the shared location (30 m lost "Regal
+    2"). The variants keep their own locations unless the shared one was changed in between.
+  - The merge selection bar scrolled out of view, so "Weiter" was far away after ticking materials further down
+    (worse on phones). It sticks below the header now.
+- **Left as is (for the owner):**
+  - Descriptions that no longer fit: Kohtenplane "Schwarzzeltplane, Standard-Latz" (taken from the target), Jurte
+    "Gerechnet mit Dreibein (3 Jurtenstangen); mit Einbein wird nur 1 gebraucht." (Jurte now has the part
+    "Mittelstange" with Dreibein 3 / Einbein 1, made in this pass). Rundhalskanister 10 L/20 L are another merge
+    candidate.
+  - "Weitere mit anderer Ausführung" copies the line with its current choices (as planned); the user changes a select
+    afterwards.
+  - Dialogs are centred vertically, so they jump when rows are added or removed (shadcn default).
+  - A variant brought back with "behalten" is appended to the dialog's list; the saved order is by name anyway.
+  - The picker ranks search hits by score, so "Seil" lists 20 m, 30 m, 10 m, 15 m.
+  - Required fields use the browser's own bubble, in the browser's language (pre-existing).
+- **Not verified:** the viewer role in the browser (checked over HTTP before); the real print dialog and the
+  clipboard (the print markup was read, `writeText` intercepted).
+- Verified after the fixes: `bun run check` (0/0), `bun run test` (66), eslint, prettier on the changed files,
+  `bun run build`; each fix clicked through again. API log without errors.
+- The local stack is still on the edited dump (merges, Mittelstange, Seil 30 m with 3 pieces and a purchase, no
+  leftover test data): Postgres container `browsertest_db` on 55433, API on 8095, frontend on 5195.
