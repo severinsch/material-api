@@ -1,9 +1,11 @@
 # Plan: exact kit allocation and pinned alternatives (FE-7, FE-8)
 
-The plan for material variants and kit group amounts (previous content of this file) is done and merged to `main`,
-not deployed yet; see git history and the progress log in REVIEW.md. The owner decided (2026-10-23) to do FE-7 and
-FE-8 before deploying (deployed since, see REVIEW.md). Both are frontend only (`material-frontend`, branch `allocation`); no API change. This plan
-includes the findings of an independent review of the first draft (2026-10-23).
+**Done and deployed** (FE-7, FE-8; FE-9 followed without a plan, see REVIEW.md). No open steps.
+
+The plan for material variants and kit group amounts (previous content of this file) is done and merged to `main`; see
+git history and the progress log in REVIEW.md. The owner decided (2026-10-23) to do FE-7 and FE-8 before deploying.
+Both are frontend only (`material-frontend`, branch `allocation`); no API change. This plan includes the findings of an
+independent review of the first draft (2026-10-23).
 
 Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
 

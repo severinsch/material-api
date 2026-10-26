@@ -1114,3 +1114,5 @@ rounds, removed again); the owner picked:
   collapsible folders, a table per category.
 - Verified: `bun run check` (0/0), eslint, prettier, `bun run test` (90); headless Chromium on the local stack at
   1280 and 375 px, light and dark, no console errors.
+- Images `severinsch/material-frontend:latest` and `severinsch/material-api:latest` (API unchanged) built and pushed
+  the same day; rolling them out on the VPS is up to the owner.
