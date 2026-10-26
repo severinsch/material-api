@@ -318,17 +318,19 @@ only if no split covers everything.
 Raised 2026-10-19. It should be possible to pin the option of a group for one selected kit (e.g. this Jurte gets the
 Jurtenhalbdächer, that one Kohtenplanen) and let the allocation fill the rest. Best done together with FE-7.
 
-### FE-9 UI improvements — [ ]
+### FE-9 UI improvements — [x]
 
-Raised 2026-10-19 after entering the demo data; the exact designs are open.
+Raised 2026-10-19 after entering the demo data. Designs chosen by the owner from live variants on 2026-10-26 (progress
+log).
 
-- [ ] **FE-9a** Packing list: the per-kit breakdown per material ("14× für Jurte, 20× für Kohte",
-  `[tenant]/kits/+page.svelte`) clutters the list. Redesign, e.g. show it only on demand.
-- [ ] **FE-9b** Kits: the list of alternatives per group gets cluttered with more than 2–3 options. Redesign how
-  groups and their options are shown.
-- [ ] **FE-9c** Top bar: the Stamm's name looks like a clickable tab like the others. Make it visually distinct.
-- [ ] **FE-9d** Material table: hard to scan with many materials. Ideas: filter by category with a dropdown, group
-  rows by category.
+- [x] **FE-9a** Packing list: the per-kit breakdown per material ("14× für Jurte, 20× für Kohte",
+  `[tenant]/kits/+page.svelte`) clutters the list. Now behind a "Je Set" switch.
+- [x] **FE-9b** Kits: the list of alternatives per group gets cluttered with more than 2–3 options. Now only the
+  preferred options, the rest behind "+N Alternativen".
+- [x] **FE-9c** Top bar: the Stamm's name looks like a clickable tab like the others. Now a breadcrumb after the logo,
+  separated from the navigation.
+- [x] **FE-9d** Material table: hard to scan with many materials. Now a category filter (several at once) and
+  sections per category while sorted by category.
 
 ---
 
@@ -956,8 +958,9 @@ Next, in this order:
 1. **Browser pass by Claude** — done 2026-10-23: the "Needs the browser pass" / "Not verified" lists of the
    entries dated 2026-10-22 on the restored dump, desktop and phone width, demo ropes and Kohtenplanen merged; see
    the entry "Browser pass of steps 1–5" below.
-2. **Manual testing by the owner.** Next.
-3. **Deployment together with the owner** (PLAN.md step 6).
+2. **Manual testing by the owner.** Done.
+3. **Deployment together with the owner** (PLAN.md step 6). Done by the owner, including FE-7 and FE-8 (noted
+   2026-10-26).
 
 **Local test stack on the synced dump** (`synced-backup/scout_material-2026-10-22.dump`, test data only, excluded
 from git via `.git/info/exclude`). The dump's grants need the role `material_app` to exist before restoring:
@@ -1088,3 +1091,26 @@ Before that, `variants` was merged into `main` in both repositories (fast-forwar
   `approximate` note; the supply bound didn't pay off and went too. Measured on this machine with the demo kits:
   realistic lists 1–20 ms; with three times the demo stock (Doppelplane 60, Kohtenplanen 36) and a shortage, 8 lines
   17 ms, 10 lines 66 ms, 15 lines 330 ms. Enough stock: under 1 ms. 12 000 fuzz rounds against a brute force pass.
+
+### 2026-10-26: UI improvements (FE-9)
+
+Frontend commit `cea8b5d`. The designs were compared live in the app with a temporary dev-only switcher (two
+rounds, removed again); the owner picked:
+
+- **9a:** the per-kit breakdown of the needed materials is behind a "Je Set" switch in the card header, off by
+  default and only shown if some material is packed for more than one line. Rejected: always visible (as before), a per-need
+  expand button, tabs "Nach Material" / "Nach Set".
+- **9b:** a group with several options shows the preferred ones (same priority as the first); the others are behind
+  "+N Alternative(n)" / "Weniger anzeigen", per card and group. Rejected: the nested list (as before), the options as
+  chips, a popover per group. The card footer's link "Ausführung in der Packliste wählen" went (the packing list is on the same page);
+  it reads "2 auf der Packliste".
+- **9c:** the Stamm follows the logo like a breadcrumb ("/ Test Stamm ⌃"), and a full-height divider separates both
+  from the navigation.
+- **9d:** a shadcn faceted filter next to the search (`CategoryFilter.svelte`): a dashed "Kategorie" button showing
+  the chosen ones as badges, a searchable checklist with counts, "Ohne Kategorie" last, several at once. The default
+  sort is now "Kategorie", which shows a section per category with a heading that sticks below the app header; any
+  other column sorts flat. The table container no longer scrolls horizontally (it kept the headings from sticking);
+  no overflow at 375 px. Rejected: a single or multiple select, chips, a sidebar checklist; always-on sections,
+  collapsible folders, a table per category.
+- Verified: `bun run check` (0/0), eslint, prettier, `bun run test` (90); headless Chromium on the local stack at
+  1280 and 375 px, light and dark, no console errors.

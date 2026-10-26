@@ -2,7 +2,7 @@
 
 The plan for material variants and kit group amounts (previous content of this file) is done and merged to `main`,
 not deployed yet; see git history and the progress log in REVIEW.md. The owner decided (2026-10-23) to do FE-7 and
-FE-8 before deploying. Both are frontend only (`material-frontend`, branch `allocation`); no API change. This plan
+FE-8 before deploying (deployed since, see REVIEW.md). Both are frontend only (`material-frontend`, branch `allocation`); no API change. This plan
 includes the findings of an independent review of the first draft (2026-10-23).
 
 Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision.
