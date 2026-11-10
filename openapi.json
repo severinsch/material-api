@@ -963,7 +963,7 @@
                 ]
             },
             "delete": {
-                "summary": "Delete a material with its variants. Only possible while nothing references them (items, purchases, kits,\nloans).",
+                "summary": "Delete a material with its variants. Only possible while nothing references them (items, purchases, kits,\nloans). If items, purchases or loans are in the way, the error has the code `ARCHIVE_INSTEAD`, and clients\ncan offer to archive the material instead (if it isn't archived already).",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -1018,7 +1018,7 @@
                         }
                     },
                     "409": {
-                        "description": "The material is still in use.",
+                        "description": "The material is still in use, with the code ARCHIVE_INSTEAD unless it is used in a kit.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1084,6 +1084,164 @@
                     },
                     "403": {
                         "description": "Requires the permission READ in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
+        "/tenants/{tenantId}/materials/{id}/archive": {
+            "post": {
+                "summary": "Archive a material that is no longer in use, e.g. sold or worn out. It keeps its history and is still\nlisted (with `archivedAt`); clients hide it where new use starts. A material used in a kit can't be\narchived. Archiving an archived material changes nothing. Responds with the material.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The material id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No material with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "The material is used in a kit (named in the message).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Material"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "session": []
+                    }
+                ]
+            }
+        },
+        "/tenants/{tenantId}/materials/{id}/unarchive": {
+            "post": {
+                "summary": "Take a material out of the archive. Responds with the material.",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "path",
+                        "description": "The tenant id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The material id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "401": {
+                        "description": "No valid session; log in again.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No material with this id.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Requires the permission EDIT in the tenant.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1176,7 +1334,7 @@
                         }
                     },
                     "409": {
-                        "description": "A material or variant no longer exists (deleted or merged meanwhile), the name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).",
+                        "description": "A material or variant no longer exists (deleted or merged meanwhile), a material is archived, or the name is taken.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2716,6 +2874,26 @@
                             }
                         }
                     },
+                    "400": {
+                        "description": "Same as for creating a kit.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Same as for creating a kit.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
                     "200": {
                         "description": "",
                         "content": {
@@ -3039,7 +3217,7 @@
         },
         "/tenants/{tenantId}/loans/{id}": {
             "put": {
-                "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned. Without the permission EDIT\nonly the user's own open loans, and they stay theirs.",
+                "summary": "Replace a loan including its items. Set `returnedAt` to mark it as returned. Without the permission EDIT\nonly the user's own loans (returned ones too), and they stay theirs.",
                 "parameters": [
                     {
                         "name": "tenantId",
@@ -4289,6 +4467,15 @@
                 "properties": {
                     "message": {
                         "type": "string"
+                    },
+                    "code": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "ARCHIVE_INSTEAD"
+                        ]
                     }
                 }
             },
@@ -4594,6 +4781,13 @@
                             "null"
                         ]
                     },
+                    "archivedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
                     "availableCount": {
                         "type": "integer"
                     },
@@ -4679,6 +4873,13 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "archivedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     },
                     "availableCount": {
                         "type": "integer"

@@ -141,11 +141,11 @@ class VariantApiTest {
         )
         val path = "materials/${named.id}"
         assertEquals(
-            "Die Variante ${other.variantId} gehört nicht zu diesem Material.",
+            "Kohtenblatt gehört nicht zu diesem Material. Lade die Seite neu.",
             messageFor("""[{"id": "${named.variantId}", "name": "A"}, {"id": "${other.variantId}", "name": "B"}]""", path)
         )
         assertEquals(
-            "Die Variante ${other.variantId} gehört nicht zu diesem Material.",
+            "Kohtenblatt gehört nicht zu diesem Material. Lade die Seite neu.",
             messageFor("""[{"id": "${named.variantId}"}]""", path, removed = """["${other.variantId}"]""")
         )
         assertEquals(

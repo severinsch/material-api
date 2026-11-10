@@ -46,7 +46,9 @@ fun Route.kitRoutes(kitService: KitService) {
              * Replace a kit including all of its groups.
              *
              * Path: id [kotlin.uuid.Uuid] The kit id.
+             * Response: 400 application/json [api.ErrorResponse] Same as for creating a kit.
              * Response: 404 application/json [api.ErrorResponse] No kit with this id.
+             * Response: 409 application/json [api.ErrorResponse] Same as for creating a kit.
              */
             put("/{id}") {
                 val id = call.uuidPathParameter()

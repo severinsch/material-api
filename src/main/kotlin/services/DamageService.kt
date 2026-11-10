@@ -54,7 +54,7 @@ class DamageService(private val db: Db) {
     }
 
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
-        if (DamageReports.deleteWhere { DamageReports.id eq id } == 0) notFound("Schadensmeldung", id)
+        if (DamageReports.deleteWhere { DamageReports.id eq id } == 0) notFound("Diese Schadensmeldung")
     }
 
     private fun requireReportOnly(report: NewDamageReport) {
@@ -75,7 +75,7 @@ class DamageService(private val db: Db) {
     }
 
     private fun find(id: Uuid): DamageReport =
-        findWhere { DamageReports.id eq id }.singleOrNull() ?: notFound("Schadensmeldung", id)
+        findWhere { DamageReports.id eq id }.singleOrNull() ?: notFound("Diese Schadensmeldung")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<DamageReport> = DamageReports
         .selectAll()

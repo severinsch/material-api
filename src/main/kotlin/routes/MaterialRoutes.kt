@@ -71,7 +71,7 @@ fun Route.materialRoutes(materialService: MaterialService) {
              * variants, the other materials are deleted. Responds with the merged material.
              *
              * Response: 400 application/json [api.ErrorResponse] Fewer than two or duplicate materials, different tracking types, a variant of another material in `variantNames`, or missing or duplicate variant names.
-             * Response: 409 application/json [api.ErrorResponse] A material or variant no longer exists (deleted or merged meanwhile), the name is taken, or a kit uses a merged material with any variant in a way the merge would change (named in the message).
+             * Response: 409 application/json [api.ErrorResponse] A material or variant no longer exists (deleted or merged meanwhile), a material is archived, or the name is taken.
              */
             post("/merge") {
                 call.respond(materialService.merge(call.tenant, call.receive<MaterialMerge>()))
@@ -79,15 +79,39 @@ fun Route.materialRoutes(materialService: MaterialService) {
 
             /**
              * Delete a material with its variants. Only possible while nothing references them (items, purchases, kits,
-             * loans).
+             * loans). If items, purchases or loans are in the way, the error has the code `ARCHIVE_INSTEAD`, and clients
+             * can offer to archive the material instead (if it isn't archived already).
              *
              * Path: id [kotlin.uuid.Uuid] The material id.
              * Response: 404 application/json [api.ErrorResponse] No material with this id.
-             * Response: 409 application/json [api.ErrorResponse] The material is still in use.
+             * Response: 409 application/json [api.ErrorResponse] The material is still in use, with the code ARCHIVE_INSTEAD unless it is used in a kit.
              */
             delete("/{id}") {
                 materialService.delete(call.tenant, call.uuidPathParameter())
                 call.respond(HttpStatusCode.NoContent)
+            }
+
+            /**
+             * Archive a material that is no longer in use, e.g. sold or worn out. It keeps its history and is still
+             * listed (with `archivedAt`); clients hide it where new use starts. A material used in a kit can't be
+             * archived. Archiving an archived material changes nothing. Responds with the material.
+             *
+             * Path: id [kotlin.uuid.Uuid] The material id.
+             * Response: 404 application/json [api.ErrorResponse] No material with this id.
+             * Response: 409 application/json [api.ErrorResponse] The material is used in a kit (named in the message).
+             */
+            post("/{id}/archive") {
+                call.respond(materialService.archive(call.tenant, call.uuidPathParameter()))
+            }
+
+            /**
+             * Take a material out of the archive. Responds with the material.
+             *
+             * Path: id [kotlin.uuid.Uuid] The material id.
+             * Response: 404 application/json [api.ErrorResponse] No material with this id.
+             */
+            post("/{id}/unarchive") {
+                call.respond(materialService.unarchive(call.tenant, call.uuidPathParameter()))
             }
         }
     }

@@ -2,7 +2,7 @@
 
 Ktor/Kotlin backend of the scout material management (Stamm inventory, kits, loans). Read README.md for the API,
 schema and tenant (row-level security) conventions; PLAN.md is the current plan, REVIEW.md has the open domain
-questions and the progress log.
+questions and the progress log, TODO.md the backlog for both repos and the deployment.
 
 ## Related repositories
 

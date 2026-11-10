@@ -30,7 +30,7 @@ Each user has a role per tenant:
 
 | Role | May |
 |---|---|
-| `VIEWER` | read inventory, kits and locations, report damage (without resolving it or retiring items), lend to themselves and see and change their own open loans |
+| `VIEWER` | read inventory, kits and locations, report damage (without resolving it or retiring items), lend to themselves and see and change their own loans |
 | `EDITOR` | also change inventory, damage reports, kits and locations, manage all loans, and see the members |
 | `ADMIN` | also manage the members of the tenant |
 
@@ -43,7 +43,7 @@ doesn't start if one is missing, and `PermissionTest` checks all of them for eve
 
 Accounts are created by admins, who get a single-use setup link to pass on (no email); the user sets their own
 password with it. The same kind of link resets a forgotten password. Links are valid 7 days for new accounts and 24
-hours for resets, and are revoked when the user's memberships, platform admin flag or disabled state change.
+hours for resets, and are revoked when the user becomes a platform admin. Disabled users can't use theirs.
 
 **Bootstrap:** on startup, if there is no platform admin, the API creates the user `admin` and logs a setup link at
 WARN level (`docker compose logs api`), renewed on every start until its password is set. **Recovery:** if the only
@@ -100,15 +100,22 @@ item can move to another variant of its material. Materials are written together
 
 Materials of the same tracking type that turn out to be variants of one ("Seil 10 m", "Seil 15 m") are merged with
 `POST /materials/merge`: the first one keeps its id, category and description, the others' variants move to it with
-their items, stock, purchases and loans, and the others are deleted. Kit options for a material with a single variant
-are rewritten to that variant, so kits keep using the same pieces; only "any variant" of a target that already has
-several (see below) includes the merged-in variants afterwards. Merges whose kit options can't be expressed afterwards
-(a source with several variants used with "any variant", or "any variant" of the target in a group that also lists a
-source) are rejected with a message naming the kits.
+their items, stock, purchases and loans, and the others are deleted. Kit options with "any variant" of a merged
+material become options for each of its current variants, so kits keep using exactly the same pieces.
 
 The database enforces that individual items only belong to individual variants and stock only to bulk variants.
 Materials, variants, items and records with history (damage reports, purchases, loans, kit recipes) can't be deleted
-while referenced; items are retired via their status instead.
+while referenced; items are retired via their status instead, and materials are archived.
+
+**Archived materials** (`archived_at`, `POST /materials/{id}/archive` and `/unarchive`) are no longer in use, e.g. sold
+or worn out, but keep their history. Archiving only marks them: they are still listed (with `archivedAt`), and clients
+hide them where new use starts (new items, purchases, loans, kit options); the API doesn't refuse those. A material used
+in a kit can't be archived, and archived materials can't be merged. Deleting a material that has items, purchases or
+loans fails with the error code `ARCHIVE_INSTEAD`, so clients can offer archiving instead.
+
+**Categories** are free text without a lookup table. The API trims them and stores a blank one as none; otherwise
+it stores them as given, so "zelte" and "Zelte" are two categories. Clients derive the list of categories from the
+materials and suggest existing ones to avoid such splits.
 
 The API combines the separately tracked materials into one response type in some endpoints.
 
@@ -139,6 +146,9 @@ kotlinx-serialization models in `src/main/kotlin/api/Models.kt`:
 * Swagger UI: http://localhost:8080/swagger
 * OpenAPI document (JSON): http://localhost:8080/swagger/documentation.yaml
 
+Names, labels, identifiers and similar short texts in request bodies are trimmed when received (`TrimmedString` in
+`Models.kt`), so "Seil " can't get past a uniqueness check; descriptions and notes are stored as entered.
+
 Routes are documented with KDoc comments. Request and response bodies are inferred from `call.receive`/`call.respond`;
 the comments add descriptions, typed parameters and error responses:
 
@@ -165,10 +175,12 @@ changes are visible in reviews and the frontend can generate its client from it.
 UPDATE_OPENAPI=1 ./gradlew clean test
 ```
 
-Errors are returned as `{"message": "..."}` with status 400 (invalid input), 401 (no valid session; nothing else),
-403 (missing permission), 404 (not found, also for tenants the user has no access to), 409 (conflicts, e.g. deleting
-something that is still referenced or lending an item twice), 429 (too many failed logins, with `Retry-After`) or 503
-(too many password hashes at once).
+Errors are returned as `{"message": "...", "code": null}` with status 400 (invalid input), 401 (no valid session;
+nothing else), 403 (missing permission), 404 (not found, also for tenants the user has no access to), 409 (conflicts,
+e.g. deleting something that is still referenced or lending an item twice), 429 (too many failed logins, with
+`Retry-After`) or 503 (too many password hashes at once). Messages are German and meant for users; they never contain
+ids. Messages about something that no longer exists (usually because the page is out of date) suggest reloading.
+`code` is set for errors that clients handle beyond showing the message (`ErrorCode` in `Models.kt`).
 
 ## Development
 

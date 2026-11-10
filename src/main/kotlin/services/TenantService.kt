@@ -42,7 +42,7 @@ class TenantService(private val db: Db) {
 
     /** Also for deleted tenants. Changing the slug breaks existing links. */
     suspend fun update(id: Uuid, tenant: NewTenant): Tenant = db.query {
-        if (Tenants.update({ Tenants.id eq id }) { it.fill(tenant) } == 0) notFound("Stamm", id)
+        if (Tenants.update({ Tenants.id eq id }) { it.fill(tenant) } == 0) notFound("Diesen Stamm")
         find(id)
     }
 
@@ -51,17 +51,17 @@ class TenantService(private val db: Db) {
         val deleted = Tenants.update({ (Tenants.id eq id) and Tenants.deletedAt.isNull() }) {
             it[deletedAt] = Clock.System.now()
         }
-        if (deleted == 0) notFound("Stamm", id)
+        if (deleted == 0) notFound("Diesen Stamm")
     }
 
     /** Fails with 409 if another tenant took the name or slug in the meantime. */
     suspend fun restore(id: Uuid): Tenant = db.query {
-        if (Tenants.update({ Tenants.id eq id }) { it[deletedAt] = null } == 0) notFound("Stamm", id)
+        if (Tenants.update({ Tenants.id eq id }) { it[deletedAt] = null } == 0) notFound("Diesen Stamm")
         find(id)
     }
 
     private fun find(id: Uuid): Tenant =
-        Tenants.selectAll().where { Tenants.id eq id }.singleOrNull()?.let(::toTenant) ?: notFound("Stamm", id)
+        Tenants.selectAll().where { Tenants.id eq id }.singleOrNull()?.let(::toTenant) ?: notFound("Diesen Stamm")
 
     private fun toTenant(row: ResultRow) = Tenant(
         id = row[Tenants.id].value,

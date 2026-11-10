@@ -57,7 +57,7 @@ class ItemService(private val db: Db) {
     }
 
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
-        if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Gegenstand", id)
+        if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Diesen Gegenstand")
     }
 
     /** Rejects identifiers that are used twice or already taken by another item of the variant. */
@@ -76,7 +76,7 @@ class ItemService(private val db: Db) {
     }
 
     private fun find(id: Uuid): IndividualItem =
-        findWhere { IndividualItems.id eq id }.singleOrNull() ?: notFound("Gegenstand", id)
+        findWhere { IndividualItems.id eq id }.singleOrNull() ?: notFound("Diesen Gegenstand")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<IndividualItem> {
         val onLoan = exists(

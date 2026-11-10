@@ -5,15 +5,21 @@ import database.*
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.*
+import kotlin.time.Clock
+import org.postgresql.util.PSQLException
 import kotlin.uuid.Uuid
+
+/** Foreign keys that refuse deleting a material because of its history: items, purchases and loans. */
+internal val HISTORY_CONSTRAINTS = setOf("individual_items_variant_id_fkey", "purchases_variant_id_fkey", "loan_lines_variant_id_fkey")
 
 /** Materials are written together with their complete list of variants, see [NewMaterial]. */
 class MaterialService(private val db: Db) {
 
     private companion object {
-        const val MATERIAL_CHANGED = "Das Material wurde inzwischen geändert. Lade die Seite neu."
-        const val MATERIALS_CHANGED = "Die Materialien wurden inzwischen geändert. Lade die Seite neu."
+        const val MATERIAL_CHANGED = "Das Material wurde inzwischen geändert. $RELOAD"
+        const val MATERIALS_CHANGED = "Die Materialien wurden inzwischen geändert. $RELOAD"
     }
 
     private data class Counts(val available: Int = 0, val damaged: Int = 0)
@@ -39,14 +45,18 @@ class MaterialService(private val db: Db) {
         find(id.value)
     }
 
-    /** Replaces a material including its variants. Its type can't be changed. */
+    /**
+     * Replaces a material including its variants. Its type can't be changed. Archived materials can be edited like
+     * others, including their variants and stock.
+     */
     suspend fun update(tenant: TenantId, id: Uuid, material: NewMaterial): Material = db.tenantQuery(tenant) {
+        lockMaterial(id)
         if (find(id).trackingType != material.trackingType) conflict("Die Erfassungsart eines Materials kann nicht geändert werden.")
         val existing = lockVariantsOf(listOf(id)).associate { it.id to it.name }
         val listed = material.listedVariants.mapNotNull { it.first }
         val unknown = (listed + material.removedVariantIds).filter { it !in existing }
         if (unknown.isNotEmpty()) {
-            existingVariants(unknown).firstOrNull()?.let { invalid("Die Variante $it gehört nicht zu diesem Material.") }
+            existingVariants(unknown).firstOrNull()?.let { invalid("${variantName(it)} gehört nicht zu diesem Material. $RELOAD") }
             // Removed meanwhile, e.g. by another user.
             conflict(MATERIAL_CHANGED)
         }
@@ -62,9 +72,59 @@ class MaterialService(private val db: Db) {
         find(id)
     }
 
+    /**
+     * Deletes a material with its variants, only while nothing references them; the foreign keys refuse it otherwise.
+     * Instead of deleting a material with items, purchases or loans, clients can offer to archive it: that conflict has
+     * [ErrorCode.ARCHIVE_INSTEAD].
+     */
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
-        if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Material", id)
+        try {
+            if (Materials.deleteWhere { Materials.id eq id } == 0) notFound("Dieses Material")
+        } catch (e: ExposedSQLException) {
+            val constraint = generateSequence<Throwable>(e) { it.cause }.filterIsInstance<PSQLException>()
+                .firstNotNullOfOrNull { it.serverErrorMessage?.constraint }
+            if (constraint !in HISTORY_CONSTRAINTS) throw e
+            conflict(
+                "Das Material hat Gegenstände, Einkäufe oder Ausleihen und kann deshalb nicht gelöscht werden.",
+                ErrorCode.ARCHIVE_INSTEAD
+            )
+        }
     }
+
+    /**
+     * Archives a material: it keeps its history and is hidden where new use starts (see [Material]). Materials used in
+     * kits can't be archived. Archiving an archived material keeps the original time.
+     */
+    suspend fun archive(tenant: TenantId, id: Uuid): Material = db.tenantQuery(tenant) {
+        kitsUsing(id).takeIf { it.isNotEmpty() }?.let { kits ->
+            conflict("Das Material wird ${inKits(kits)} verwendet. Entferne es zuerst daraus.")
+        }
+        Materials.update({ (Materials.id eq id) and Materials.archivedAt.isNull() }) {
+            it[archivedAt] = Clock.System.now()
+        }
+        find(id)
+    }
+
+    suspend fun unarchive(tenant: TenantId, id: Uuid): Material = db.tenantQuery(tenant) {
+        Materials.update({ (Materials.id eq id) and Materials.archivedAt.isNotNull() }) { it[archivedAt] = null }
+        find(id)
+    }
+
+    /**
+     * Locks a material against concurrent changes. Locks are taken in the order materials, then variants (see
+     * [lockVariantsOf]), in every path that takes both.
+     */
+    private fun lockMaterial(id: Uuid) {
+        Materials.select(Materials.id).where { Materials.id eq id }.forUpdate().singleOrNull() ?: notFound("Dieses Material")
+    }
+
+    /** Names of the kits that use any variant of the material, sorted. */
+    private fun kitsUsing(materialId: Uuid): List<String> = KitGroupOptions.innerJoin(KitGroups).innerJoin(Kits)
+        .select(Kits.name)
+        .where { KitGroupOptions.materialId eq materialId }
+        .map { it[Kits.name] }
+        .distinct()
+        .sorted()
 
     /**
      * Merges materials into the first one, see [MaterialMerge]. Everything that references a variant comes along
@@ -74,25 +134,28 @@ class MaterialService(private val db: Db) {
         val targetId = merge.materialIds.first()
         val sourceIds = merge.materialIds.drop(1)
 
-        // Variants first, in the same order as everywhere else. Then the materials, so nobody can add variants or
-        // kit options to them meanwhile; their variants are read again, including any added just before.
-        lockVariantsOf(merge.materialIds)
-        val materials = Materials.select(Materials.id, Materials.name, Materials.trackingType)
+        // Materials first, then their variants, as everywhere else. With the materials locked, nobody can add
+        // variants or kit options to them meanwhile (foreign keys lock the referenced rows).
+        val materials = Materials.select(Materials.id, Materials.name, Materials.trackingType, Materials.archivedAt)
             .where { Materials.id inList merge.materialIds }
             .orderBy(Materials.id)
             .forUpdate()
-            .associate { it[Materials.id].value to (it[Materials.name] to it[Materials.trackingType]) }
+            .associateBy { it[Materials.id].value }
         // The client lists materials it has seen, so a missing one was most likely deleted or merged meanwhile.
         if (merge.materialIds.any { it !in materials }) conflict(MATERIALS_CHANGED)
-        if (materials.values.map { it.second }.distinct().size > 1) {
+        if (materials.values.map { it[Materials.trackingType] }.distinct().size > 1) {
             invalid("Nur Materialien derselben Erfassungsart können zusammengeführt werden.")
+        }
+        // Merging would quietly bring the archived material's variants back, or archive the others' ones.
+        materials.values.firstOrNull { it[Materials.archivedAt] != null }?.let {
+            conflict("${it[Materials.name]} ist archiviert. Hole das Material zuerst aus dem Archiv, um es zusammenzuführen.")
         }
         val variants = lockVariantsOf(merge.materialIds)
 
         val unknown = merge.variantNames.keys.filter { id -> variants.none { it.id == id } }
         if (unknown.isNotEmpty()) {
             existingVariants(unknown).firstOrNull()?.let {
-                invalid("Die Variante $it gehört zu keinem der zusammengeführten Materialien.")
+                invalid("${variantName(it)} gehört zu keinem der zusammengeführten Materialien. $RELOAD")
             }
             conflict(MATERIALS_CHANGED)
         }
@@ -100,16 +163,21 @@ class MaterialService(private val db: Db) {
         if (names.values.any { it == null }) invalid("Hat ein Material mehrere Varianten, braucht jede einen Namen.")
         if (names.values.toSet().size < names.size) invalid("Die Varianten eines Materials brauchen unterschiedliche Namen.")
 
-        val singleVariants = variants.groupBy { it.materialId }.filterValues { it.size == 1 }.mapValues { it.value.single().id }
-        requireKitsAfterMerge(targetId, sourceIds, materials.mapValues { it.value.first }, singleVariants.keys)
-
-        // "Any variant" of a material with a single variant meant exactly that one, and must not mean all variants
-        // of the merged material afterwards.
-        singleVariants.forEach { (materialId, variantId) ->
-            KitGroupOptions.update({ (KitGroupOptions.materialId eq materialId) and KitGroupOptions.variantId.isNull() }) {
-                it[KitGroupOptions.variantId] = variantId
-            }
+        // "Any variant" becomes the current variants of its material, so every kit uses exactly what it did before.
+        val variantsByMaterial = variants.groupBy({ it.materialId }) { it.id }
+        val anyVariant = KitGroupOptions.selectAll()
+            .where { (KitGroupOptions.materialId inList merge.materialIds) and KitGroupOptions.variantId.isNull() }
+            .toList()
+        KitGroupOptions.batchInsert(
+            anyVariant.flatMap { option -> variantsByMaterial[option[KitGroupOptions.materialId].value].orEmpty().map { option to it } }
+        ) { (option, variantId) ->
+            this[KitGroupOptions.groupId] = option[KitGroupOptions.groupId]
+            this[KitGroupOptions.materialId] = option[KitGroupOptions.materialId]
+            this[KitGroupOptions.variantId] = variantId
+            this[KitGroupOptions.unitValue] = option[KitGroupOptions.unitValue]
+            this[KitGroupOptions.priority] = option[KitGroupOptions.priority]
         }
+        KitGroupOptions.deleteWhere { (KitGroupOptions.materialId inList merge.materialIds) and KitGroupOptions.variantId.isNull() }
         // Names are unique per material and may be swapped or taken over, so they are cleared first.
         val variantIds = variants.map { it.id }
         MaterialVariants.update({ MaterialVariants.id inList variantIds }) { it[MaterialVariants.name] = null }
@@ -125,50 +193,9 @@ class MaterialService(private val db: Db) {
     }
 
     /**
-     * Rejects merges that would change what kits mean: "any variant" of a source with several variants (except
-     * [singleVariantMaterials]) can't be expressed afterwards, and "any variant" of the target in a group that also
-     * lists a source would overlap with it. [materialNames] are the current names.
+     * Locks the variants of materials (in the same order as [lockVariants]) and returns them. Callers that lock
+     * materials as well lock them first, see [lockMaterial].
      */
-    private fun requireKitsAfterMerge(
-        targetId: Uuid,
-        sourceIds: List<Uuid>,
-        materialNames: Map<Uuid, String>,
-        singleVariantMaterials: Set<Uuid>
-    ) {
-        val options = KitGroupOptions.innerJoin(KitGroups).innerJoin(Kits)
-            .select(KitGroupOptions.groupId, KitGroupOptions.materialId, KitGroupOptions.variantId, Kits.name)
-            .where { KitGroupOptions.materialId inList listOf(targetId) + sourceIds }
-            .toList()
-        fun Iterable<ResultRow>.kitNames() = map { it[Kits.name] }.distinct().sorted()
-        val anyVariant = options.filter { it[KitGroupOptions.variantId] == null }
-
-        for (sourceId in sourceIds.filter { it !in singleVariantMaterials }) {
-            val kits = anyVariant.filter { it[KitGroupOptions.materialId].value == sourceId }.kitNames()
-            if (kits.isNotEmpty()) {
-                conflict(
-                    "${materialNames.getValue(sourceId)} wird ${inKits(kits)} mit beliebiger Variante verwendet, was " +
-                        "sich nach dem Zusammenführen nicht mehr ausdrücken lässt. Wähle dort zuerst bestimmte " +
-                        "Varianten aus, oder führe die anderen Materialien in dieses zusammen."
-                )
-            }
-        }
-        if (targetId !in singleVariantMaterials) {
-            val groups = anyVariant.filter { it[KitGroupOptions.materialId].value == targetId }
-                .map { it[KitGroupOptions.groupId] }.toSet()
-            val kits = options
-                .filter { it[KitGroupOptions.groupId] in groups && it[KitGroupOptions.materialId].value != targetId }
-                .kitNames()
-            if (kits.isNotEmpty()) {
-                conflict(
-                    "${materialNames.getValue(targetId)} wird ${inKits(kits)} mit beliebiger Variante verwendet, " +
-                        "zusammen mit einem der anderen Materialien im selben Teil. Danach würden sich die " +
-                        "Materialien des Teils überschneiden. Entferne zuerst eines davon aus dem Teil."
-                )
-            }
-        }
-    }
-
-    /** Locks the variants of materials (in the same order as [lockVariants]) and returns them. */
     private fun lockVariantsOf(materialIds: Collection<Uuid>): List<VariantRow> = MaterialVariants
         .select(MaterialVariants.id, MaterialVariants.materialId, MaterialVariants.name)
         .where { MaterialVariants.materialId inList materialIds }
@@ -200,7 +227,7 @@ class MaterialService(private val db: Db) {
         val stock = lockStock(ids)
         val loaned = loanedCounts(ids)
         for (variant in updated) {
-            val name = displayName(material.name, variant.name, material.variants.size)
+            val name = displayName(material.name, variant.name)
             val current = stock.getValue(variant.id!!)
             if (variant.expectedAvailableCount != null && variant.expectedAvailableCount != current) {
                 conflict(
@@ -283,7 +310,7 @@ class MaterialService(private val db: Db) {
         }
     }
 
-    private fun find(id: Uuid): Material = findWhere { Materials.id eq id }.singleOrNull() ?: notFound("Material", id)
+    private fun find(id: Uuid): Material = findWhere { Materials.id eq id }.singleOrNull() ?: notFound("Dieses Material")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Material> {
         val materialRows = Materials.selectAll().where(predicate).orderBy(Materials.name).toList()
@@ -318,6 +345,7 @@ class MaterialService(private val db: Db) {
                         name = row[Materials.name],
                         category = row[Materials.category],
                         description = row[Materials.description],
+                        archivedAt = row[Materials.archivedAt],
                         availableCount = variants.sumOf { it.availableCount },
                         damagedCount = variants.sumOf { it.damagedCount },
                         loanedCount = variants.sumOf { it.loanedCount },
@@ -342,6 +370,7 @@ class MaterialService(private val db: Db) {
                         name = row[Materials.name],
                         category = row[Materials.category],
                         description = row[Materials.description],
+                        archivedAt = row[Materials.archivedAt],
                         availableCount = variants.sumOf { it.availableCount },
                         damagedCount = variants.sumOf { it.damagedCount },
                         loanedCount = variants.sumOf { it.loanedCount },
@@ -387,7 +416,8 @@ class MaterialService(private val db: Db) {
 
     private fun UpdateBuilder<*>.fillMaterial(material: NewMaterial) {
         this[Materials.name] = material.name
-        this[Materials.category] = material.category
+        // Trimmed on receive; a blank category means none.
+        this[Materials.category] = material.category?.ifEmpty { null }
         this[Materials.description] = material.description
     }
 

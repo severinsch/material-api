@@ -108,7 +108,10 @@ class KitApiTest {
         val group = NewKitGroup(amounts = units(1), options = listOf(NewKitGroupOption(unknown)))
         val unknownMessage = post("kits") { setBody(NewKit("Jurte", groups = listOf(group))) }
             .expectError(HttpStatusCode.BadRequest)
-        assertEquals("Material $unknown gibt es nicht.", unknownMessage)
+        assertEquals(
+            "Ein ausgewähltes Material gibt es nicht mehr, oder es wurde geändert. Lade die Seite neu.",
+            unknownMessage
+        )
 
         val empty = post("kits") { setBody("""{"name": "Jurte", "groups": []}""") }.expectError(HttpStatusCode.BadRequest)
         assertEquals("Ein Set braucht mindestens ein Teil.", empty)
@@ -161,11 +164,13 @@ class KitApiTest {
         assertEquals(overlapping, messageFor(seil.id to null, seil.id to null))
 
         assertEquals(
-            "Die Variante ${tenMeters.id} gehört nicht zu Material ${hering.id}.",
+            "Seil 10 m gehört nicht zum Material Hering. Lade die Seite neu.",
             messageFor(hering.id to tenMeters.id)
         )
-        val unknown = Uuid.random()
-        assertEquals("Variante $unknown gibt es nicht.", messageFor(seil.id to unknown))
+        assertEquals(
+            "Ein ausgewähltes Material gibt es nicht mehr, oder es wurde geändert. Lade die Seite neu.",
+            messageFor(seil.id to Uuid.random())
+        )
 
         // The same material in another group is fine.
         val groups = listOf(

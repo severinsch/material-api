@@ -1,4 +1,6 @@
 import configure.constraintMessages
+import services.HISTORY_CONSTRAINTS
+import java.io.File
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -219,17 +221,45 @@ class MigrationTest {
     }
 
     @Test
+    fun `categories are trimmed and blank ones removed`() {
+        TestDatabase.migrate(url, target = "5")
+        val (north, south) = List(2) { Uuid.random() }
+        val categories = listOf(
+            north to "Zelte", north to "zelte ", north to " Zelte", north to "  ",
+            north to null, north to "Küche", south to "zelte",
+        )
+        TestDatabase.execute(
+            """
+            INSERT INTO tenants (id, name, slug)
+            VALUES ('$north', 'Stamm Nord', 'nord'), ('$south', 'Stamm Süd', 'sued');
+            INSERT INTO materials (id, name, tracking_type, tenant_id, category) VALUES
+            ${categories.mapIndexed { i, (tenant, category) ->
+                "('${Uuid.random()}', 'M${"%02d".format(i)}', 'BULK', '$tenant', ${category?.let { "'$it'" } ?: "NULL"})"
+            }.joinToString()};
+            """,
+            url
+        )
+
+        TestDatabase.migrate(url)
+
+        val migrated = TestDatabase.query("SELECT name, category, archived_at FROM materials ORDER BY name", url)
+        // Only trimmed: spellings that differ in case stay apart.
+        val expected = listOf("Zelte", "zelte", "Zelte", null, null, "Küche", "zelte")
+        assertEquals(expected.mapIndexed { i, category -> listOf("M${"%02d".format(i)}", category, null) }, migrated)
+    }
+
+    @Test
     fun `an empty database gets no tenant`() {
         TestDatabase.migrate(url)
         assertEquals(emptyList(), TestDatabase.query("SELECT * FROM tenants", url))
     }
 
     @Test
-    fun `the constraints with specific error messages exist`() {
+    fun `the constraints the API refers to by name exist`() {
         TestDatabase.migrate(url)
         val names = TestDatabase.query(
             "SELECT conname FROM pg_constraint UNION SELECT relname FROM pg_class WHERE relkind = 'i'", url
         ).map { it.single() }.toSet()
-        assertEquals(emptySet(), constraintMessages.keys - names)
+        assertEquals(emptySet(), constraintMessages.keys + HISTORY_CONSTRAINTS - names)
     }
 }

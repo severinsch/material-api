@@ -12,13 +12,18 @@ import kotlin.uuid.Uuid
 
 // Checks for ids referenced in request bodies. They give readable 400 errors for the common mistakes; the foreign
 // keys in the schema still guarantee consistency. Must be called inside a transaction.
+//
+// Clients only send ids they got from the API, so an unknown id most likely belongs to something deleted (or merged)
+// meanwhile, and the messages suggest reloading the page instead of naming the id.
+
+private const val MATERIAL_GONE = "Ein ausgewähltes Material gibt es nicht mehr, oder es wurde geändert. $RELOAD"
 
 /** Rejects unknown variants and variants of the wrong type. Returns the variant's material. */
 internal fun requireVariant(id: Uuid, type: MaterialTrackingType): Uuid {
     val row = MaterialVariants.select(MaterialVariants.materialId, MaterialVariants.trackingType)
         .where { MaterialVariants.id eq id }
         .singleOrNull()
-        ?: invalid("Variante $id gibt es nicht.")
+        ?: invalid(MATERIAL_GONE)
     if (row[MaterialVariants.trackingType] != type) {
         val expected = when (type) {
             MaterialTrackingType.BULK -> "nach Menge"
@@ -31,27 +36,29 @@ internal fun requireVariant(id: Uuid, type: MaterialTrackingType): Uuid {
 
 /** Rejects unknown variants. Returns the material of each variant. */
 internal fun requireVariants(ids: Collection<Uuid>): Map<Uuid, Uuid> {
+    if (ids.isEmpty()) return emptyMap()
     val materials = MaterialVariants.select(MaterialVariants.id, MaterialVariants.materialId)
         .where { MaterialVariants.id inList ids }
         .associate { it[MaterialVariants.id].value to it[MaterialVariants.materialId].value }
-    (ids - materials.keys).firstOrNull()?.let { invalid("Variante $it gibt es nicht.") }
+    if (!materials.keys.containsAll(ids)) invalid(MATERIAL_GONE)
     return materials
 }
 
 internal fun requireMaterials(ids: Collection<Uuid>) {
+    if (ids.isEmpty()) return
     val existing = Materials.select(Materials.id).where { Materials.id inList ids }.map { it[Materials.id].value }
-    (ids - existing.toSet()).firstOrNull()?.let { invalid("Material $it gibt es nicht.") }
+    if (!existing.containsAll(ids)) invalid(MATERIAL_GONE)
 }
 
 internal fun requireItem(id: Uuid) {
     if (IndividualItems.select(IndividualItems.id).where { IndividualItems.id eq id }.empty()) {
-        invalid("Gegenstand $id gibt es nicht.")
+        invalid("Diesen Gegenstand gibt es nicht mehr. $RELOAD")
     }
 }
 
 internal fun requireLocation(id: Uuid?) {
     if (id != null && StorageLocations.select(StorageLocations.id).where { StorageLocations.id eq id }.empty()) {
-        invalid("Lagerort $id gibt es nicht.")
+        invalid("Den ausgewählten Lagerort gibt es nicht mehr. $RELOAD")
     }
 }
 

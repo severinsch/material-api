@@ -69,7 +69,7 @@ class PurchaseService(private val db: Db) {
      * the stock is adjusted once.
      */
     private fun find(id: Uuid, lock: Boolean = false): Purchase =
-        findWhere(lock) { Purchases.id eq id }.singleOrNull() ?: notFound("Einkauf", id)
+        findWhere(lock) { Purchases.id eq id }.singleOrNull() ?: notFound("Diesen Einkauf")
 
     private fun findWhere(lock: Boolean = false, predicate: () -> Op<Boolean>): List<Purchase> = Purchases
         .innerJoin(MaterialVariants)

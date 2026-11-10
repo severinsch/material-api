@@ -51,10 +51,7 @@ internal fun issueSetupLink(userId: Uuid, validFor: Duration): SetupLink {
     return link
 }
 
-/**
- * Invalidates the user's setup link. Called whenever their privileges change (memberships, platform admin flag,
- * disabled), so a link can never be used with more privileges than the user had when it was issued.
- */
+/** Invalidates the user's setup link, e.g. when they become a platform admin or change their password. */
 internal fun revokeSetupLink(userId: Uuid) {
     SetupTokens.deleteWhere { SetupTokens.userId eq userId }
 }

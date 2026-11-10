@@ -82,7 +82,10 @@ class MaterialApiTest {
         createItem(material, "1")
 
         val message = delete("materials/${material.id}").expectError(HttpStatusCode.Conflict)
-        assertEquals("Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.", message)
+        assertEquals(
+            "Das Material hat Gegenstände, Einkäufe oder Ausleihen und kann deshalb nicht gelöscht werden.",
+            message
+        )
 
         val unused = createBulk()
         assertEquals(HttpStatusCode.NoContent, delete("materials/${unused.id}").status)

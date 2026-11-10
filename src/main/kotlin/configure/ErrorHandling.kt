@@ -1,5 +1,6 @@
 package configure
 
+import api.ErrorCode
 import api.ErrorResponse
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -13,6 +14,7 @@ import services.ConflictException
 import services.ForbiddenException
 import services.InvalidRequestException
 import services.NotFoundException
+import services.RELOAD
 import services.TooManyRequestsException
 import services.UnauthorizedException
 import org.postgresql.util.PSQLException
@@ -34,7 +36,7 @@ fun Application.configureErrorHandling() {
         exception<UnauthorizedException> { call, e -> call.respondError(HttpStatusCode.Unauthorized, e.message) }
         exception<ForbiddenException> { call, e -> call.respondError(HttpStatusCode.Forbidden, e.message) }
         exception<NotFoundException> { call, e -> call.respondError(HttpStatusCode.NotFound, e.message) }
-        exception<ConflictException> { call, e -> call.respondError(HttpStatusCode.Conflict, e.message) }
+        exception<ConflictException> { call, e -> call.respondError(HttpStatusCode.Conflict, e.message, e.code) }
         exception<TooManyRequestsException> { call, e ->
             call.response.header(HttpHeaders.RetryAfter, e.retryAfter.inWholeSeconds + 1)
             call.respondError(HttpStatusCode.TooManyRequests, e.message)
@@ -67,16 +69,13 @@ internal val constraintMessages = mapOf(
     "password_logins_username_key" to "Diesen Benutzernamen gibt es schon.",
     "material_variants_name_key" to "Die Varianten eines Materials brauchen unterschiedliche Namen.",
     "individual_items_variant_id_identifier_key" to "Diese Kennung ist bei dieser Variante schon vergeben.",
-    // Deleting a material deletes its variants, so these also apply to materials. Removing a referenced variant is
-    // rejected by MaterialService with a message naming the variant.
-    "individual_items_variant_id_fkey" to "Das Material hat noch Gegenstände. Lösche zuerst die Gegenstände.",
-    "purchases_variant_id_fkey" to "Das Material hat Einkäufe. Lösche zuerst die Einkäufe.",
+    // Deleting a material deletes its variants, so these also apply to materials. Items, purchases and loans of a
+    // variant are handled by MaterialService (HISTORY_CONSTRAINTS on delete, checks before removing a variant).
     "kit_group_options_material_id_fkey" to
         "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
     "kit_group_options_variant_id_fkey" to
         "Das Material wird in einem Set verwendet. Entferne es zuerst aus dem Set.",
     "kit_group_options_group_id_material_id_variant_id_key" to "Die Materialien eines Teils überschneiden sich.",
-    "loan_lines_variant_id_fkey" to "Das Material wurde schon ausgeliehen und kann nicht gelöscht werden.",
     "loan_lines_individual_item_id_fkey" to
         "Der Gegenstand wurde schon ausgeliehen. Setze stattdessen seinen Status auf „Ausgemustert“.",
     "damage_reports_individual_item_id_fkey" to
@@ -96,7 +95,8 @@ internal fun databaseError(e: SQLException): Pair<HttpStatusCode, String>? {
     return when (sqlState) {
         // All foreign keys define ON DELETE, so violations on delete are always RESTRICT violations.
         "23001" -> HttpStatusCode.Conflict to (specific ?: "Der Eintrag wird noch verwendet und kann nicht gelöscht werden.")
-        "23503" -> HttpStatusCode.BadRequest to "Ein angegebener Eintrag existiert nicht."
+        // References are checked by the services; this remains for something deleted meanwhile.
+        "23503" -> HttpStatusCode.BadRequest to "Ein angegebener Eintrag existiert nicht mehr. $RELOAD"
         "23505" -> HttpStatusCode.Conflict to (specific ?: "Es gibt schon einen Eintrag mit diesem Namen.")
         "23514" -> HttpStatusCode.BadRequest to "Ein Wert liegt außerhalb des erlaubten Bereichs."
         // Deadlock and serialization failure.
@@ -115,5 +115,5 @@ private suspend fun ApplicationCall.respondInternalError(e: Throwable) {
     respondError(HttpStatusCode.InternalServerError, "Auf dem Server ist ein unerwarteter Fehler aufgetreten.")
 }
 
-private suspend fun ApplicationCall.respondError(status: HttpStatusCode, message: String?) =
-    respond(status, ErrorResponse(message ?: status.description))
+private suspend fun ApplicationCall.respondError(status: HttpStatusCode, message: String?, code: ErrorCode? = null) =
+    respond(status, ErrorResponse(message ?: status.description, code))

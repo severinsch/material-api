@@ -11,6 +11,7 @@ import database.KitGroupAmounts
 import database.KitGroupOptions
 import database.KitGroups
 import database.Kits
+import database.Materials
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.jdbc.*
@@ -39,14 +40,14 @@ class KitService(private val db: Db) {
             it[name] = kit.name
             it[description] = kit.description
         }
-        if (updated == 0) notFound("Set", id)
+        if (updated == 0) notFound("Dieses Set")
         KitGroups.deleteWhere { kitId eq id }
         insertGroups(EntityID(id, Kits), kit)
         find(id)
     }
 
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
-        if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Set", id)
+        if (Kits.deleteWhere { Kits.id eq id } == 0) notFound("Dieses Set")
     }
 
     /** Rejects unknown materials and variants, and variants that don't belong to the option's material. */
@@ -55,7 +56,9 @@ class KitService(private val db: Db) {
         requireMaterials(options.map { it.materialId }.toSet())
         val variantMaterials = requireVariants(options.mapNotNull { it.variantId }.toSet())
         options.firstOrNull { it.variantId != null && variantMaterials[it.variantId] != it.materialId }?.let {
-            invalid("Die Variante ${it.variantId} gehört nicht zu Material ${it.materialId}.")
+            // E.g. merged into another material meanwhile.
+            val material = Materials.select(Materials.name).where { Materials.id eq it.materialId }.single()
+            invalid("${variantName(it.variantId!!)} gehört nicht zum Material ${material[Materials.name]}. $RELOAD")
         }
     }
 
@@ -80,7 +83,7 @@ class KitService(private val db: Db) {
         }
     }
 
-    private fun find(id: Uuid): Kit = findWhere { Kits.id eq id }.singleOrNull() ?: notFound("Set", id)
+    private fun find(id: Uuid): Kit = findWhere { Kits.id eq id }.singleOrNull() ?: notFound("Dieses Set")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Kit> {
         val kitRows = Kits.selectAll().where(predicate).orderBy(Kits.name).toList()

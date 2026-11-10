@@ -183,7 +183,9 @@ The substitution-group idea (roof = 6 units, Jurtenhalbdach = 3 units, Kohtenbla
   removes it from every kit recipe. Same for `individual_items` → `damage_reports`, which loses damage history. Use
   `RESTRICT` plus soft-delete or archiving for materials and items.
 - [x] **DB-7b** `created_at` / `updated_at` are missing everywhere (despite `AGENTS.md`).
-- [ ] **DB-7c** `category` is free text, so typos split categories. A lookup table or at least a constraint would help.
+- [x] **DB-7c** `category` is free text, so typos split categories. A lookup table or at least a constraint would help.
+  Done 2026-11-09 (TODO.md T-5) without a lookup table: suggestions in the dialog. The API adopting existing
+  spellings was dropped again on 2026-11-10; it only trims.
 - [x] **DB-7d** Locations stay flat (Q2). Add a nullable free-text `location_detail` (e.g. "Regal 3, Fach 2") on
   `individual_items` and `bulk_stock`; it belongs to the stored thing, not the location.
 - [x] **DB-7e** Several indexes in the SQL duplicate the ones the UNIQUE constraints already create.
@@ -1116,3 +1118,142 @@ rounds, removed again); the owner picked:
   1280 and 375 px, light and dark, no console errors.
 - Images `severinsch/material-frontend:latest` and `severinsch/material-api:latest` (API unchanged) built and pushed
   the same day; rolling them out on the VPS is up to the owner.
+
+### 2026-11-09: Backlog batch T-2, T-4, T-5, T-6, T-8 … T-12 (TODO.md)
+
+Built by subagents: API first (in parallel with the API-independent frontend items), then the frontend parts
+depending on it; then an independent review per repo, with the fixes applied, and a browser pass. Nothing is committed yet.
+
+- **API (T-5, T-6, T-12):** migration `V6__material_archive_and_categories.sql`:
+  - It adds `materials.archived_at`.
+  - It trims names, identifiers and categories with the same whitespace rule as Kotlin's `trim()`, including NBSP.
+    A row is skipped where trimming would clash with a unique value.
+  - It gives each category one spelling per tenant: the most used one wins, and on a tie the first in byte order.
+    (Dropped on 2026-11-10, like the next point's category rules.)
+  - `TrimmedString` trims names etc. on receive. A category adopts the existing spelling of a case-insensitive match
+    in the tenant. Changing only the capitalisation of a material's own category respells it for all materials in
+    that category.
+  - `POST …/materials/{id}/archive|unarchive` (EDITOR). Archived materials are refused for new purchases, items, loan
+    lines, kit use and merge. Archiving is refused while a kit uses the material; editing the material itself stays
+    allowed.
+  - Material delete checks its dependencies explicitly, under locks. It returns 409 `code: "ARCHIVE_INSTEAD"`, since
+    `ErrorResponse` is now `{message, code}`.
+  - Lock order everywhere is materials, then variants.
+  - Messages name what's missing without UUIDs and suggest reloading.
+  - 109 tests.
+- **Frontend:**
+  - T-2: iterator-helper fix, plus `eslint-plugin-es-x` (ES2024 target, type-aware) so it can't come back.
+  - T-4: `src/lib/search.ts`; identifier search ignores leading zeros, opens the row and highlights the item.
+  - T-5: suggestion buttons under the category field, and hints "Wird als „…" gespeichert" / "Ändert die
+    Schreibweise auch für N weitere Materialien" that mirror the API.
+  - T-6: archived materials are hidden everywhere new use starts, with a quiet "N archivierte anzeigen" link below
+    the list and an "Archiviert" badge and banner. Archiving is in the row menu (`src/lib/archive.ts`). The delete
+    dialog turns into "archivieren?" on `ARCHIVE_INSTEAD`. Retired items are behind a toggle in `ItemTable`, except
+    search hits.
+  - T-8: damaged bulk stock on the overview, low-key.
+  - T-9: `/[tenant]/report` (Inventarliste) with print CSS and a CSV download (BOM, semicolons, formula-escaped),
+    computed in `src/lib/report.ts`. Bulk value is the sum of recorded purchases, with a footnote that stock isn't
+    tied to purchases.
+  - T-10: `ConfirmDialog` before a final return for viewers, on the loans page and for a return date in
+    `LoanDialog`.
+  - T-11: `FormDialog` takes `values` and asks "Änderungen verwerfen?" only if they changed. It also has a `confirm`
+    hook, `dvh` and a flush sticky footer; the loan dialog has no nested scroll area any more.
+  - T-12: German `+error.svelte` with "Neu laden", `src/lib/errors.ts`, and `src/error.html` for errors before the
+    layout renders.
+  - 139 tests.
+- **Reviews found no blockers.** The fixes included:
+  - respelling shared categories, and trimming existing names in V6
+  - lock order
+  - the frontend hint and tie-break mirroring the API
+  - CSV formula injection, and a CSV download that could fail on iOS
+  - false "Änderungen verwerfen?" prompts
+  - SvelteKit's deprecated `error()` body
+  - the report printing black on black in dark mode
+  - sticky offsets inside the dialog padding
+- **Verified:** check 0/0, lint and prettier, vitest 139, build; API `UPDATE_OPENAPI=1 ./gradlew clean test` (109).
+  Headless Chromium on a local stack (copy of the 2026-10-22 dump) at 1280 and 375 px, T-6 at desktop only.
+  Spot-checked in Chrome: the 404 page, the 502 page with the API stopped (full load and client-side navigation, both
+  show `error.html`), and the loan dialog's sticky search and footer.
+  Not checked: WebKit/iOS (TODO T-19).
+- **Follow-ups found:** TODO T-18 (material list overflows at 375 px for editors; existed before), T-19, T-20, T-21.
+
+### 2026-11-10: Follow-ups T-18, T-20, T-21 (TODO.md); category spellings dropped
+
+On top of the uncommitted 2026-11-09 batch; nothing committed yet. Frontend only, except the category change.
+
+- **T-18 (material list at 375 px):** `RowActions` puts "Bearbeiten" at the top of the ⋯ menu below `sm` when the
+  row also has a menu. This applies to every table, not only the material list, so rows look the same on all pages.
+  Page headers (`outline`) keep their buttons. In the material list, the chevron and actions cells drop their outer
+  padding on phones, and selection mode hides the actions column on phones. Names use `hyphens-auto`. Not
+  `wrap-anywhere`: it lets the table squeeze the name column and breaks words without a hyphen.
+  - Measured on the test dump: the page was 410 px wide on a 375 px screen, now 375; selection mode too. The table's
+    min-content is 329 px of 341. Desktop is unchanged.
+- **T-20:** the report tables use `table-fixed` with the same column widths in every category: rem on phones, and
+  percentages from `sm` and in print. Checked at 375 and 1280 px and in an A4 PDF from Chromium; the columns line up.
+- **T-21:**
+  - `mutate` also accepts a function of the response for the success toast. Create and edit toasts for materials,
+    locations, kits, tenants and members now show the name as the API saved it.
+  - The overview says "Nichts ist ausgeliehen." when nothing is overdue. The error page retrying by itself was
+    dropped (owner).
+- **Category spellings dropped (owner's decision):** T-5's rule that a category takes over the spelling of an
+  existing one matching case-insensitively needed a second rule, and the owner found that one odd. Changing only the
+  capitalisation of a material's own category respelled it for every material in it, and a real rename still wasn't
+  possible. Both rules are gone. The API trims the category and stores it as typed, so "zelte" and "Zelte" are two
+  categories, as the list and the report already grouped them. V6 (not applied anywhere yet, so edited in place) no
+  longer unifies existing spellings; it only trims and removes blank categories. In the frontend, `categoriesOf`
+  counts exact spellings and the dialog hints are gone; the suggestion buttons, which match ignoring case, stay.
+  Tests changed accordingly: API 107, vitest 135. A "Kategorie umbenennen" action is the option if renames are needed.
+- **T-19 not done:** an emulated WebKit wouldn't show the risky part (iOS keyboard and dialog sizing), so it's now a
+  short checklist for the owner's iPhone. Tailwind emits `-webkit-hyphens` for Safari.
+- **Verified:** check 0/0, eslint, prettier, vitest (139 before the category change), build. Headless Chromium (playwright-core with the system
+  Chromium) on the local stack from the 2026-10-22 dump, at 375 px touch and 1280 px: list, ⋯ menu to the edit
+  dialog, selection mode; RowActions on the material, locations, loans and members pages; report on screen and as
+  PDF; no console errors.
+
+### 2026-11-11: Simplification batch (complexity audit)
+
+An audit agent looked for complexity that serves rare cases or adds little (the owner's rule after the category
+spellings were dropped: avoid "loads of additional complexity … with very little benefits or benefits that only improve
+rare edge cases"; expected users per Stamm: about 1, so parallel editing and stale tabs aren't worth extra machinery).
+The owner chose everything except dropping the "Ausgeliehenes nicht als verfügbar zählen" toggle. Not committed yet.
+
+- **Merge and kits:** the merge turns every "any variant" kit option of the merged materials into options for their
+  current variants (same unit value and priority). Nothing is refused for kits any more. Removed `requireKitsAfterMerge`,
+  the frontend's `kitsAfterMerge` with its "same/widened/blocked" notes, and loading the kits on the material list.
+- **Archiving only marks:** the API no longer refuses new items, purchases, loan lines or kit options for archived
+  materials (the frontend hides them where new use starts). Still refused: archiving a material used in a kit, and
+  merging archived materials. Material delete no longer pre-checks under locks: the foreign keys refuse it, and
+  `MaterialService.delete` turns the item, purchase and loan constraints into a 409 with `ARCHIVE_INSTEAD`. The delete
+  dialog offers archiving only for materials that aren't archived. Kit-use deletes get the generic constraint message
+  without kit names.
+- **V6** is reduced to `archived_at` and a plain `btrim` of categories; the trimming of existing names (Postgres copy
+  of Kotlin's whitespace set, clash handling, two tests) is gone. There is no real data yet.
+- **Variant names** include the variant's name whenever it has one, in the API (`Names.kt`, no count query) and the
+  frontend (`format.ts`); before, a single named variant was left out.
+- **Setup links** are only revoked when the user becomes a platform admin (and on password change, as before), not on
+  role, membership or disabled changes.
+- **Viewers** can reopen their own returned loans; their return gets an undo in the toast like editors', and the
+  confirmation dialog, `returnConfirmation` and `FormDialog`'s `confirm` hook are gone.
+- **Inventarliste:** only individually tracked items have a value. Bulk lines keep purchase years and prices, without
+  a value, the footnote or the "Einkäufe: …" notes. The CSV's last column is now "Gegenstände mit Preis".
+- **Small ones:** a kit pin is dropped when its group is set to "ohne" (also when read from the URL), instead of being
+  kept inactive. `MaterialDialog` keeps the confirmation for removing a variant with stock, but lost the "(behalten)"
+  list and the items it loaded to copy the API's "variant has items" refusal (the API's 409 covers it). `ItemTable`
+  lost `seenInUse` (a retired item now disappears unless retired items are shown), and the toggle has one label.
+- **Independent review (agent) of the 2026-11-10 and 2026-11-11 changes:** no bugs. Fixed what it found:
+  - Route KDoc (and so openapi.json) still promised refusals for archived materials, merge kit refusals and "only open
+    loans" for viewers.
+  - Stale service docs and comments (`PurchaseService`, `LoanService`, `LoanDialog`, `MaterialPicker`).
+  - The archive refusal still said archived materials can't be in kits, and `archive` took a lock that protected
+    nothing.
+  - Unreachable constraint messages: `MigrationTest` now checks `HISTORY_CONSTRAINTS` instead.
+  - Unused code: `ConfirmDialog`'s async/busy handling and `FormDialog`'s `submitDisabled`.
+  - `RowActions` now renders the phone-only "Bearbeiten" item through a `MediaQuery` (no invisible item in the
+    keyboard order on desktop), always followed by a separator.
+  - Added tests: kit option with an archived material, delete of an archived material with history, a pin of an
+    "ohne" group dropped on parse.
+  - Noted, not changed: a variant removal the API refuses can only be undone by cancelling the dialog; viewers can
+    edit their returned loans without availability checks (they hold nothing); merged kits no longer pick up variants
+    added later.
+- **Verified:** API `UPDATE_OPENAPI=1 ./gradlew clean test` (103), `npm run api:generate`; frontend check 0/0, eslint,
+  prettier, vitest 128, build. Headless Chromium on the local stack at 375 and 1280 px: row menus.

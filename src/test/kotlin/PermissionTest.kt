@@ -133,10 +133,9 @@ class PermissionTest {
         asViewer.put("loans/${own.id}") { setBody(loan.copy(borrowerId = other.id)) }.expectError(HttpStatusCode.Forbidden)
         asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = LocalDate(2026, 10, 3))) }
             .expect<Loan>(HttpStatusCode.OK)
-        // Returned loans stay visible, but only editors can change them.
+        // Returned loans stay visible, and their borrower can reopen them.
         asViewer.get("loans/${own.id}").expect<Loan>(HttpStatusCode.OK)
-        asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = null)) }.expectError(HttpStatusCode.Forbidden)
-        put("loans/${own.id}") { setBody(loan.copy(returnedAt = null)) }.expect<Loan>(HttpStatusCode.OK)
+        asViewer.put("loans/${own.id}") { setBody(loan.copy(returnedAt = null)) }.expect<Loan>(HttpStatusCode.OK)
     }
 
     @Test

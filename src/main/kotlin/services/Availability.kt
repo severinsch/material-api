@@ -19,7 +19,10 @@ import kotlin.uuid.Uuid
 internal val isAvailableItem: Op<Boolean>
     get() = (IndividualItems.status eq ItemStatus.ACTIVE) and (IndividualItems.condition neq ItemCondition.POOR)
 
-/** Locks the rows of [variantIds] in `material_variants` until the transaction ends, in a fixed order to avoid deadlocks. */
+/**
+ * Locks the rows of [variantIds] in `material_variants` until the transaction ends, in a fixed order to avoid
+ * deadlocks. Paths that also lock materials lock them before their variants.
+ */
 internal fun lockVariants(variantIds: Collection<Uuid>) {
     if (variantIds.isEmpty()) return
     MaterialVariants.select(MaterialVariants.id)
@@ -38,7 +41,7 @@ internal fun lockStock(variantIds: Collection<Uuid>): Map<Uuid, Int> {
 }
 
 /** Locks a bulk variant (see [lockVariants]) and returns its available stock. */
-internal fun lockStock(variantId: Uuid): Int = lockStock(listOf(variantId))[variantId] ?: notFound("Variante", variantId)
+internal fun lockStock(variantId: Uuid): Int = lockStock(listOf(variantId))[variantId] ?: notFound("Diese Variante")
 
 /** Available pieces per variant: the stock of bulk variants, the available items of individual ones. */
 internal fun availableCounts(variantIds: Collection<Uuid>): Map<Uuid, Int> {

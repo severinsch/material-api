@@ -4,8 +4,12 @@ package api
 
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -13,10 +17,19 @@ import kotlin.uuid.Uuid
 // Request and response bodies. `New*` classes are used for both creating (POST) and replacing (PUT) a resource.
 // Validation happens in init blocks, so invalid bodies are rejected with 400 while being received. The limits match
 // the column sizes in the migrations. Messages are shown to users of the (German) frontend, so they are in German and
-// name fields as the frontend labels them.
+// name fields as the frontend labels them. Names, labels and similar short texts are [TrimmedString]s.
 
+/** [code] is set for errors that clients handle specifically, see [ErrorCode]. */
 @Serializable
-data class ErrorResponse(val message: String)
+data class ErrorResponse(val message: String, val code: ErrorCode? = null)
+
+/** Errors that clients may handle beyond showing the message. */
+@Serializable
+@SerialName("ErrorCode")
+enum class ErrorCode {
+    /** The material can't be deleted since it has history (items, purchases, loans); it can be archived instead. */
+    ARCHIVE_INSTEAD
+}
 
 @Serializable
 @SerialName("MaterialTrackingType")
@@ -41,7 +54,7 @@ data class StorageLocation(
 
 @Serializable
 data class NewStorageLocation(
-    val name: String,
+    val name: TrimmedString,
     val description: String? = null
 ) {
     init {
@@ -55,6 +68,9 @@ data class NewStorageLocation(
  * Shared properties of both material types. The counts are sums over the material's variants. Loaned pieces are
  * still included in [availableCount]; [loanedCount] is the part of it that is currently lent out, so clients subtract
  * it if they want what is currently in storage.
+ *
+ * Archived materials ([archivedAt] set) are no longer in use, e.g. sold or worn out, but keep their history. They
+ * are still listed; clients hide them where new use starts.
  */
 @Serializable
 @JsonClassDiscriminator("trackingType")
@@ -63,6 +79,7 @@ sealed interface Material {
     val name: String
     val category: String?
     val description: String?
+    val archivedAt: Instant?
     val availableCount: Int
     val damagedCount: Int
     val loanedCount: Int
@@ -75,6 +92,7 @@ data class BulkMaterial(
     override val name: String,
     override val category: String?,
     override val description: String?,
+    override val archivedAt: Instant?,
     override val availableCount: Int,
     override val damagedCount: Int,
     override val loanedCount: Int,
@@ -90,6 +108,7 @@ data class IndividualMaterial(
     override val name: String,
     override val category: String?,
     override val description: String?,
+    override val archivedAt: Instant?,
     override val availableCount: Int,
     override val damagedCount: Int,
     override val loanedCount: Int,
@@ -124,7 +143,8 @@ data class IndividualVariant(
 )
 
 /**
- * The type of a material can't be changed after creation.
+ * The type of a material can't be changed after creation. The category is stored as given (trimmed); a blank one means
+ * none.
  *
  * The variants are the complete list: on update, entries with an `id` change that variant, entries without one are
  * created, and the variants in [removedVariantIds] are deleted (only while nothing references them). An existing
@@ -142,8 +162,8 @@ sealed interface NewMaterial {
 @Serializable
 @SerialName("BULK")
 data class NewBulkMaterial(
-    override val name: String,
-    override val category: String? = null,
+    override val name: TrimmedString,
+    override val category: TrimmedString? = null,
     override val description: String? = null,
     val variants: List<NewBulkVariant>,
     override val removedVariantIds: List<Uuid> = emptyList()
@@ -157,8 +177,8 @@ data class NewBulkMaterial(
 @Serializable
 @SerialName("INDIVIDUAL")
 data class NewIndividualMaterial(
-    override val name: String,
-    override val category: String? = null,
+    override val name: TrimmedString,
+    override val category: TrimmedString? = null,
     override val description: String? = null,
     val variants: List<NewIndividualVariant>,
     override val removedVariantIds: List<Uuid> = emptyList()
@@ -173,11 +193,11 @@ data class NewIndividualMaterial(
 @Serializable
 data class NewBulkVariant(
     val id: Uuid? = null,
-    val name: String? = null,
+    val name: TrimmedString? = null,
     val availableCount: Int,
     val damagedCount: Int = 0,
     val storageLocationId: Uuid? = null,
-    val locationDetail: String? = null,
+    val locationDetail: TrimmedString? = null,
     /**
      * On update: the available count the client started from. The update is rejected with 409 if the stock changed
      * since, e.g. by a purchase, so it isn't overwritten unnoticed.
@@ -195,7 +215,7 @@ data class NewBulkVariant(
 @Serializable
 data class NewIndividualVariant(
     val id: Uuid? = null,
-    val name: String? = null
+    val name: TrimmedString? = null
 )
 
 /**
@@ -204,15 +224,14 @@ data class NewIndividualVariant(
  * variants of the others move to it with their items, stock, purchases and loans, and the others are deleted.
  *
  * Afterwards every variant needs a name, unique within the material: the one in [variantNames] (by variant id) or its
- * current one. Kit options keep their meaning: "any variant" of a material with a single variant becomes that
- * variant. Other materials with several variants must not be used with "any variant" in kits, since that can't be
- * expressed after the merge.
+ * current one. Kit options keep their meaning: "any variant" of a merged material becomes an option for each of its
+ * current variants.
  */
 @Serializable
 data class MaterialMerge(
     val materialIds: List<Uuid>,
-    val name: String,
-    val variantNames: Map<Uuid, String> = emptyMap()
+    val name: TrimmedString,
+    val variantNames: Map<Uuid, TrimmedString> = emptyMap()
 ) {
     init {
         require(materialIds.size >= 2) { "Wähle mindestens zwei Materialien zum Zusammenführen aus." }
@@ -270,11 +289,11 @@ data class IndividualItem(
 @Serializable
 data class NewIndividualItem(
     val variantId: Uuid,
-    val identifier: String,
+    val identifier: TrimmedString,
     val condition: ItemCondition,
     val status: ItemStatus = ItemStatus.ACTIVE,
     val storageLocationId: Uuid? = null,
-    val locationDetail: String? = null,
+    val locationDetail: TrimmedString? = null,
     val purchasePrice: Double? = null,
     val purchaseDate: LocalDate? = null
 ) {
@@ -342,7 +361,7 @@ data class DamageReport(
 data class NewDamageReport(
     val itemId: Uuid,
     val description: String,
-    val reportedBy: String? = null,
+    val reportedBy: TrimmedString? = null,
     val isResolved: Boolean = false,
     val resolutionNotes: String? = null,
     val itemStatus: ItemStatus? = null
@@ -366,7 +385,7 @@ data class Kit(
 
 @Serializable
 data class NewKit(
-    val name: String,
+    val name: TrimmedString,
     val description: String? = null,
     val groups: List<NewKitGroup>
 ) {
@@ -403,7 +422,7 @@ data class KitGroupAmount(
 
 @Serializable
 data class NewKitGroup(
-    val name: String? = null,
+    val name: TrimmedString? = null,
     val amounts: List<NewKitGroupAmount>,
     val options: List<NewKitGroupOption>
 ) {
@@ -433,7 +452,7 @@ data class NewKitGroup(
 
 @Serializable
 data class NewKitGroupAmount(
-    val label: String? = null,
+    val label: TrimmedString? = null,
     val requiredUnits: Int
 ) {
     init {
@@ -497,7 +516,7 @@ data class Loan(
  */
 @Serializable
 data class NewLoan(
-    val borrower: String? = null,
+    val borrower: TrimmedString? = null,
     val lentAt: LocalDate,
     val dueAt: LocalDate? = null,
     val returnedAt: LocalDate? = null,
@@ -531,10 +550,25 @@ data class LoanQuantity(
 
 // ========= Validation helpers =========
 
+/**
+ * Text that is trimmed when received, so "Seil " and "Seil" are the same name for the uniqueness checks. Used for
+ * names, labels, identifiers and similar short texts, where surrounding whitespace is never meant. Free text
+ * (descriptions, notes) is stored as entered.
+ */
+typealias TrimmedString = @Serializable(with = TrimmingSerializer::class) String
+
+/** A plain string in the API document; only decoding differs. */
+object TrimmingSerializer : KSerializer<String> {
+    override val descriptor = String.serializer().descriptor
+    override fun serialize(encoder: Encoder, value: String) = encoder.encodeString(value)
+    override fun deserialize(decoder: Decoder): String = decoder.decodeString().trim()
+}
+
 private const val MAX_PRICE = 99_999_999.99 // DECIMAL(10, 2)
 
 // [field] is the subject of the message including its article, e.g. "Der Name".
 
+/** [value] is a [TrimmedString] where it comes from a request, so a value of only whitespace arrives empty. */
 internal fun requireText(value: String, field: String, maxLength: Int? = null) {
     require(value.isNotBlank()) { "$field darf nicht leer sein." }
     maxLength?.let { requireMaxLength(value, field, it) }

@@ -1,5 +1,6 @@
 package services
 
+import api.ErrorCode
 import kotlin.time.Duration
 
 /** The request is invalid, e.g. it references a material that doesn't exist. Mapped to 400. */
@@ -14,8 +15,11 @@ class ForbiddenException(message: String) : RuntimeException(message)
 /** The requested resource doesn't exist. Mapped to 404. */
 class NotFoundException(message: String) : RuntimeException(message)
 
-/** The request conflicts with the current state, e.g. an item that is already on loan. Mapped to 409. */
-class ConflictException(message: String) : RuntimeException(message)
+/**
+ * The request conflicts with the current state, e.g. an item that is already on loan. Mapped to 409, with [code] for
+ * conflicts that clients handle specifically.
+ */
+class ConflictException(message: String, val code: ErrorCode? = null) : RuntimeException(message)
 
 /** Too many attempts, e.g. failed logins; the client may try again after [retryAfter]. Mapped to 429. */
 class TooManyRequestsException(message: String, val retryAfter: Duration) : RuntimeException(message)
@@ -27,7 +31,14 @@ internal fun invalid(message: String): Nothing = throw InvalidRequestException(m
 
 internal fun forbidden(message: String): Nothing = throw ForbiddenException(message)
 
-/** [resource] in German, e.g. "Material" or "Gegenstand". */
-internal fun notFound(resource: String, id: Any): Nothing = throw NotFoundException("$resource $id wurde nicht gefunden.")
+/**
+ * [what] is the missing resource as accusative object, e.g. "Dieses Material" or "Diesen Gegenstand". Clients only
+ * use ids they got from the API, so the likely cause is a page that is out of date, e.g. after someone else deleted
+ * the resource.
+ */
+internal fun notFound(what: String): Nothing = throw NotFoundException("$what gibt es nicht mehr. $RELOAD")
 
-internal fun conflict(message: String): Nothing = throw ConflictException(message)
+internal fun conflict(message: String, code: ErrorCode? = null): Nothing = throw ConflictException(message, code)
+
+/** The usual advice when a request refers to something that changed meanwhile. */
+internal const val RELOAD = "Lade die Seite neu."

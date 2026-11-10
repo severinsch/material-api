@@ -40,7 +40,7 @@ class MemberService(private val db: Db) {
         val tenant = access.tenant.value
         val current = findWhere { (TenantMembers.tenantId eq tenant) and (TenantMembers.userId eq userId) }.singleOrNull()
         val account = account(userId)
-        if (account == null || (current == null && !access.user.isPlatformAdmin)) notFound("Mitglied", userId)
+        if (account == null || (current == null && !access.user.isPlatformAdmin)) notFound("Dieses Mitglied")
         requireNotPlatformAdmin(access, account)
         val renamed = update.displayName.changes(account.displayName) || update.username.changes(account.username)
         if (renamed) requireOnlyThisTenant(access, account)
@@ -57,7 +57,6 @@ class MemberService(private val db: Db) {
                 it[role] = update.role
             }
         }
-        if (current?.role != update.role) revokeSetupLink(userId)
         update.displayName?.takeIf { it != account.displayName }?.let { name ->
             Users.update({ Users.id eq userId }) { it[displayName] = name }
         }
@@ -77,7 +76,6 @@ class MemberService(private val db: Db) {
         requireNotPlatformAdmin(access, checkNotNull(account(userId)))
         if (member.role == TenantRole.ADMIN) requireOtherTenantAdmin(tenant, userId)
         TenantMembers.deleteWhere { (tenantId eq tenant) and (TenantMembers.userId eq userId) }
-        revokeSetupLink(userId)
     }
 
     /** A new setup link, e.g. for a forgotten password. Replaces an older link; the password works until it's used. */
@@ -133,7 +131,7 @@ class MemberService(private val db: Db) {
 
     private fun find(tenant: TenantId, userId: Uuid): Member =
         findWhere { (TenantMembers.tenantId eq tenant.value) and (TenantMembers.userId eq userId) }.singleOrNull()
-            ?: notFound("Mitglied", userId)
+            ?: notFound("Dieses Mitglied")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Member> = TenantMembers
         .innerJoin(Users)

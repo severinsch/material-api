@@ -15,7 +15,7 @@ import kotlin.uuid.Uuid
 
 /**
  * Users with [Permission.EDIT] manage all loans. Users with only [Permission.BORROW] lend to themselves, and see and
- * change only their own open loans; other loans don't exist for them (404).
+ * change only their own loans, returned ones too; other loans don't exist for them (404).
  */
 class LoanService(private val db: Db) {
 
@@ -43,9 +43,6 @@ class LoanService(private val db: Db) {
     /** Replaces the loan including all of its lines. Returning a loan means setting `returnedAt`. */
     suspend fun update(access: TenantAccess, id: Uuid, loan: NewLoan): Loan = db.tenantQuery(access.tenant) {
         val existing = find(access, id)
-        if (existing.returnedAt != null && !access.permits(Permission.EDIT)) {
-            forbidden("Eine zurückgegebene Ausleihe kannst du nicht mehr ändern.")
-        }
         val borrower = borrowerName(access, loan, existing)
         checkLines(loan, existing)
         Loans.update({ Loans.id eq id }) { it.fill(loan, borrower) }
@@ -55,7 +52,7 @@ class LoanService(private val db: Db) {
     }
 
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
-        if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Ausleihe", id)
+        if (Loans.deleteWhere { Loans.id eq id } == 0) notFound("Diese Ausleihe")
     }
 
     private fun visibleTo(access: TenantAccess): Op<Boolean> =
@@ -80,10 +77,10 @@ class LoanService(private val db: Db) {
     }
 
     /**
-     * Checks that everything lent exists and, for an open loan, is available: specific items must be active and on no
-     * other open loan, and the pieces per variant (quantities plus specific available items) must not exceed what
-     * other open loans leave. Parts of an open loan that don't change aren't checked again, so it stays editable when
-     * e.g. one of its items was damaged while lent out.
+     * Checks that everything lent exists, and, for an open loan, that it is available: specific items must be active
+     * and on no other open loan, and the pieces per variant (quantities plus specific available items) must not exceed
+     * what other open loans leave. Parts of an open loan that don't change aren't checked again, so it stays editable
+     * when e.g. one of its items was damaged while lent out. Returned loans aren't checked, since they hold nothing.
      */
     private fun checkLines(loan: NewLoan, existing: Loan?) {
         val previous = existing?.takeIf { it.returnedAt == null }
@@ -92,7 +89,7 @@ class LoanService(private val db: Db) {
             .where { IndividualItems.id inList (loan.itemIds + previous?.itemIds.orEmpty()) }
             .forUpdate()
             .associateBy { it[IndividualItems.id].value }
-        loan.itemIds.forEach { if (it !in items) invalid("Gegenstand $it gibt es nicht.") }
+        if (!items.keys.containsAll(loan.itemIds)) invalid("Einen der ausgewählten Gegenstände gibt es nicht mehr. $RELOAD")
         requireVariants(loan.materials.map(LoanQuantity::variantId))
         val itemVariants = loan.itemIds.map { items.getValue(it)[IndividualItems.variantId].value }.toSet()
         loan.materials.firstOrNull { it.variantId in itemVariants }?.let {
@@ -149,7 +146,7 @@ class LoanService(private val db: Db) {
     }
 
     private fun find(access: TenantAccess, id: Uuid): Loan =
-        findWhere { (Loans.id eq id) and visibleTo(access) }.singleOrNull() ?: notFound("Ausleihe", id)
+        findWhere { (Loans.id eq id) and visibleTo(access) }.singleOrNull() ?: notFound("Diese Ausleihe")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<Loan> {
         val loanRows = Loans.leftJoin(Users).selectAll().where(predicate).orderBy(Loans.lentAt, SortOrder.DESC).toList()

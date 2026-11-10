@@ -46,7 +46,7 @@ fun Route.loanRoutes(loanService: LoanService) {
 
             /**
              * Replace a loan including its items. Set `returnedAt` to mark it as returned. Without the permission EDIT
-             * only the user's own open loans, and they stay theirs.
+             * only the user's own loans (returned ones too), and they stay theirs.
              *
              * Path: id [kotlin.uuid.Uuid] The loan id.
              * Response: 404 application/json [api.ErrorResponse] No loan with this id that the user may see.

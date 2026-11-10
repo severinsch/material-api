@@ -55,7 +55,7 @@ data class UserTenant(
 )
 
 @Serializable
-data class NewProfile(val displayName: String) {
+data class NewProfile(val displayName: TrimmedString) {
     init {
         requireDisplayName(displayName)
     }
@@ -104,7 +104,7 @@ data class Tenant(
 
 /** [slug] is the tenant's part of frontend URLs; changing it breaks existing links. */
 @Serializable
-data class NewTenant(val name: String, val slug: String) {
+data class NewTenant(val name: TrimmedString, val slug: String) {
     init {
         requireText(name, "Der Name", maxLength = 100)
         require(slug.matches(SLUG)) {
@@ -151,7 +151,7 @@ data class Membership(val tenantId: Uuid, val role: TenantRole)
  */
 @Serializable
 data class UserUpdate(
-    val displayName: String,
+    val displayName: TrimmedString,
     val username: String? = null,
     val isPlatformAdmin: Boolean,
     val isDisabled: Boolean
@@ -180,7 +180,7 @@ data class Member(
 
 /** Creates a new account with a password login, which the user sets up with the returned link. */
 @Serializable
-data class NewMember(val displayName: String, val username: String, val role: TenantRole) {
+data class NewMember(val displayName: TrimmedString, val username: String, val role: TenantRole) {
     init {
         requireDisplayName(displayName)
         requireUsername(username)
@@ -195,7 +195,7 @@ data class CreatedMember(val member: Member, val setupLink: SetupLink)
  * accounts that belong to their tenant only. Platform admins can also add users of other tenants this way.
  */
 @Serializable
-data class MemberUpdate(val role: TenantRole, val displayName: String? = null, val username: String? = null) {
+data class MemberUpdate(val role: TenantRole, val displayName: TrimmedString? = null, val username: String? = null) {
     init {
         displayName?.let(::requireDisplayName)
         username?.let(::requireUsername)

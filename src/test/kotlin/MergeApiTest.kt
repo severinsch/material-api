@@ -117,7 +117,7 @@ class MergeApiTest {
     }
 
     @Test
-    fun `kit options with any variant of a single-variant material get that variant`() = apiTest {
+    fun `kit options with any variant get the current variants of their material`() = apiTest {
         val ten = createBulk("Seil 10 m", available = 4)
         val fifteen = createBulk("Seil 15 m", available = 6)
         val twenty = createBulk("Seil 20 m", available = 2)
@@ -153,13 +153,16 @@ class MergeApiTest {
     }
 
     @Test
-    fun `a target with several variants keeps any variant, and specific variants follow`() = apiTest {
+    fun `any variant of materials with several variants becomes those variants, and specific variants follow`() = apiTest {
         val seil = createVariants("Seil", "10 m", "15 m")
         val alt = createVariants("Seil alt", "alt 10 m", "alt 15 m")
         val twenty = createBulk("Seil 20 m", available = 2)
-        val jurte = createKit("Jurte", option(seil.id))
-        // A source with several variants may be merged as long as kits name specific variants of it.
-        val kohte = createKit("Kohte", option(alt.id, alt.variants.first().id) + option(twenty.id))
+        val (ten, fifteen) = seil.variants.map { it.id }
+        val (altTen, altFifteen) = alt.variants.map { it.id }
+        val jurte = createKit("Jurte", option(seil.id, unitValue = 2))
+        // Any variant of a source with several variants, and any variant of the target next to a source.
+        val kohte = createKit("Kohte", option(alt.id, priority = 1))
+        val wasser = createKit("Wasser", option(seil.id) + option(twenty.id) + option(alt.id, altTen))
 
         val merged = post("materials/merge") {
             setBody(merge(listOf(seil, alt, twenty), "Seil", twenty.variantId to "20 m"))
@@ -167,46 +170,16 @@ class MergeApiTest {
 
         assertEquals(listOf("10 m", "15 m", "20 m", "alt 10 m", "alt 15 m"), merged.variants.map { it.name })
         val kits = get("kits").expect<List<Kit>>(HttpStatusCode.OK).associateBy { it.id }
-        assertEquals(listOf(KitGroupOption(seil.id, null, 1, 0)), kits.getValue(jurte.id).groups.single().options)
+        fun options(kit: Kit) = kits.getValue(kit.id).groups.single().options.toSet()
+        assertEquals(setOf(KitGroupOption(seil.id, ten, 2, 0), KitGroupOption(seil.id, fifteen, 2, 0)), options(jurte))
+        assertEquals(setOf(KitGroupOption(seil.id, altTen, 1, 1), KitGroupOption(seil.id, altFifteen, 1, 1)), options(kohte))
         assertEquals(
-            setOf(KitGroupOption(seil.id, alt.variants.first().id, 1, 0), KitGroupOption(seil.id, twenty.variantId, 1, 0)),
-            kits.getValue(kohte.id).groups.single().options.toSet()
+            setOf(
+                KitGroupOption(seil.id, ten, 1, 0), KitGroupOption(seil.id, fifteen, 1, 0),
+                KitGroupOption(seil.id, twenty.variantId, 1, 0), KitGroupOption(seil.id, altTen, 1, 0)
+            ),
+            options(wasser)
         )
-    }
-
-    @Test
-    fun `merges that would change what kits mean are rejected`() = apiTest {
-        val seil = createVariants("Seil", "10 m", "15 m")
-        val kanister = createVariants("Kanister", "10 L", "20 L")
-        val twenty = createBulk("Seil 20 m", available = 2)
-        createKit("Kohte", option(kanister.id))
-        createKit("Jurte", option(kanister.id))
-
-        // Any variant of a source with several variants.
-        val anyOfSource = post("materials/merge") { setBody(merge(listOf(seil, kanister), "Seil")) }
-            .expectError(HttpStatusCode.Conflict)
-        assertEquals(
-            "Kanister wird in den Sets Jurte, Kohte mit beliebiger Variante verwendet, was sich nach dem Zusammenführen " +
-                "nicht mehr ausdrücken lässt. Wähle dort zuerst bestimmte Varianten aus, oder führe die anderen " +
-                "Materialien in dieses zusammen.",
-            anyOfSource
-        )
-
-        // Any variant of the target together with a source in one group.
-        createKit("Wasser", option(seil.id) + option(twenty.id))
-        val overlap = post("materials/merge") { setBody(merge(listOf(seil, twenty), "Seil", twenty.variantId to "20 m")) }
-            .expectError(HttpStatusCode.Conflict)
-        assertEquals(
-            "Seil wird im Set Wasser mit beliebiger Variante verwendet, zusammen mit einem der anderen Materialien im " +
-                "selben Teil. Danach würden sich die Materialien des Teils überschneiden. Entferne zuerst eines davon " +
-                "aus dem Teil.",
-            overlap
-        )
-
-        // Nothing changed.
-        assertEquals(seil, getMaterial(seil.id))
-        assertEquals(kanister, getMaterial(kanister.id))
-        assertEquals(twenty, getMaterial(twenty.id))
     }
 
     @Test
@@ -239,7 +212,7 @@ class MergeApiTest {
             messageFor(body(seil.id, blatt.id))
         )
         assertEquals(
-            "Die Variante ${hering.variantId} gehört zu keinem der zusammengeführten Materialien.",
+            "Hering gehört zu keinem der zusammengeführten Materialien. Lade die Seite neu.",
             messageFor(body(seil.id, twenty.id, variantNames = """{"${twenty.variantId}": "20 m", "${hering.variantId}": "x"}"""))
         )
         assertEquals(

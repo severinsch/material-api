@@ -3,41 +3,28 @@ package services
 import database.IndividualItems
 import database.MaterialVariants
 import database.Materials
-import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.select
 import kotlin.uuid.Uuid
 
 // Names of variants and items in messages shown to users, all built here so the format can change in one place. A
-// variant's name is only included if its material has several variants, since clients don't show variants otherwise:
-// "Seil 15 m" and "Kohtenplane 45 cm Latz K45 01", but "Hering" and "Kohtenblatt 3". Must be called inside a
-// transaction.
+// variant's name is included if it has one: "Seil 15 m" and "Kohtenplane 45 cm Latz K45 01", but "Hering" and
+// "Kohtenblatt 3". Must be called inside a transaction.
 
-/** E.g. "Seil 15 m"; just the material's name if it has a single variant ([variantCount]). */
-internal fun displayName(materialName: String, variantName: String?, variantCount: Int): String =
-    if (variantCount > 1 && variantName != null) "$materialName $variantName" else materialName
+/** E.g. "Seil 15 m"; just the material's name for an unnamed variant. */
+internal fun displayName(materialName: String, variantName: String?): String =
+    if (variantName != null) "$materialName $variantName" else materialName
 
 /** Display names of the variants [ids], see [displayName]. */
-internal fun variantNames(ids: Collection<Uuid>): Map<Uuid, String> {
-    val rows = MaterialVariants.innerJoin(Materials)
-        .select(MaterialVariants.id, MaterialVariants.materialId, MaterialVariants.name, Materials.name)
-        .where { MaterialVariants.id inList ids }
-        .toList()
-    val variants = MaterialVariants.id.count()
-    val variantCounts = MaterialVariants.select(MaterialVariants.materialId, variants)
-        .where { MaterialVariants.materialId inList rows.map { it[MaterialVariants.materialId] }.distinct() }
-        .groupBy(MaterialVariants.materialId)
-        .associate { it[MaterialVariants.materialId].value to it[variants].toInt() }
-    return rows.associate { row ->
-        val variantCount = variantCounts.getValue(row[MaterialVariants.materialId].value)
-        row[MaterialVariants.id].value to displayName(row[Materials.name], row[MaterialVariants.name], variantCount)
-    }
-}
+internal fun variantNames(ids: Collection<Uuid>): Map<Uuid, String> = MaterialVariants.innerJoin(Materials)
+    .select(MaterialVariants.id, MaterialVariants.name, Materials.name)
+    .where { MaterialVariants.id inList ids }
+    .associate { it[MaterialVariants.id].value to displayName(it[Materials.name], it[MaterialVariants.name]) }
 
 internal fun variantName(id: Uuid): String = variantNames(listOf(id)).getValue(id)
 
-/** E.g. "Kohtenblatt 3", or "Kohtenplane 45 cm Latz K45 01" if the material has several variants. */
+/** E.g. "Kohtenblatt 3", or "Kohtenplane 45 cm Latz K45 01" for a named variant. */
 internal fun itemName(id: Uuid): String {
     val row = IndividualItems.select(IndividualItems.variantId, IndividualItems.identifier)
         .where { IndividualItems.id eq id }

@@ -86,6 +86,7 @@ object Materials : UuidTable("materials") {
     val trackingType = pgEnum<MaterialTrackingType>("tracking_type", "material_tracking_type")
     val description = text("description").nullable()
     val category = varchar("category", 100).nullable()
+    val archivedAt = timestamp("archived_at").nullable()
 }
 
 /** Every material has at least one variant; stock, items, purchases and loans belong to a variant. */

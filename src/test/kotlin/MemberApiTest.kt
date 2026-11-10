@@ -114,38 +114,34 @@ class MemberApiTest {
     }
 
     @Test
-    fun `setup links are revoked when the user's access changes`() = apiTest { context ->
+    fun `setup links are only revoked when the user becomes a platform admin`() = apiTest { context ->
         val admin = context.clientFor(TenantRole.ADMIN)
         val platformAdmin = context.clientFor(null, isPlatformAdmin = true)
         val otherTenant = TestDatabase.createTenant("Stamm West")
         val user = context.createUser(TenantRole.VIEWER)
-        suspend fun newLink() = platformAdmin.post("/users/${user.id}/setup-link").expect<SetupLink>(HttpStatusCode.OK).token
+        platformAdmin.post("/users/${user.id}/setup-link").expect<SetupLink>(HttpStatusCode.OK)
         // Checked in the database: the setup page would hide the link of a disabled user anyway.
         fun hasLink() = TestDatabase.query("SELECT * FROM setup_tokens WHERE user_id = '${user.id}'").isNotEmpty()
 
-        newLink()
-        admin.put("members/${user.id}") { setBody(MemberUpdate(TenantRole.VIEWER, displayName = "Max")) }
-            .expect<Member>(HttpStatusCode.OK)
-        assertTrue(hasLink(), "renaming doesn't change access")
-
-        val changes = listOf<Pair<String, suspend () -> HttpStatusCode>>(
+        val kept = listOf<Pair<String, suspend () -> HttpStatusCode>>(
+            "rename" to { admin.put("members/${user.id}") { setBody(MemberUpdate(TenantRole.VIEWER, displayName = "Max")) }.status },
             "role" to { admin.put("members/${user.id}") { setBody(MemberUpdate(TenantRole.EDITOR)) }.status },
             "new membership" to {
                 platformAdmin.put("/tenants/$otherTenant/members/${user.id}") { setBody(MemberUpdate(TenantRole.VIEWER)) }.status
             },
             "removed membership" to { platformAdmin.delete("/tenants/$otherTenant/members/${user.id}").status },
-            "platform admin" to {
-                platformAdmin.put("/users/${user.id}") { setBody(UserUpdate("Max", isPlatformAdmin = true, isDisabled = false)) }.status
-            },
             "disabled" to {
-                platformAdmin.put("/users/${user.id}") { setBody(UserUpdate("Max", isPlatformAdmin = true, isDisabled = true)) }.status
+                platformAdmin.put("/users/${user.id}") { setBody(UserUpdate("Max", isPlatformAdmin = false, isDisabled = true)) }.status
             },
         )
-        for ((change, perform) in changes) {
-            newLink()
+        for ((change, perform) in kept) {
             assertTrue(perform().isSuccess(), change)
-            assertFalse(hasLink(), change)
+            assertTrue(hasLink(), change)
         }
+
+        platformAdmin.put("/users/${user.id}") { setBody(UserUpdate("Max", isPlatformAdmin = true, isDisabled = false)) }
+            .expect<User>(HttpStatusCode.OK)
+        assertFalse(hasLink())
     }
 
     private fun addMember(tenant: Uuid, userId: Uuid, role: TenantRole) = TestDatabase.execute(

@@ -34,15 +34,15 @@ class UserService(private val db: Db) {
             PasswordLogins.update({ PasswordLogins.userId eq userId }) { it[PasswordLogins.username] = username }
         }
         if (disables) Sessions.deleteWhere { Sessions.userId eq userId }
-        if (update.isPlatformAdmin != user.isPlatformAdmin || update.isDisabled != user.isDisabled) {
-            revokeSetupLink(userId)
-        }
+        // A link handed out for an ordinary account must not become access to the whole platform. Other changes keep
+        // the link; disabled users can't use theirs anyway.
+        if (update.isPlatformAdmin && !user.isPlatformAdmin) revokeSetupLink(userId)
         find(userId)
     }
 
     /** Deletes the account with its memberships and sessions. Nothing else references users. */
     suspend fun delete(userId: Uuid) = db.query {
-        if (!lockUser(userId)) notFound("Benutzer", userId)
+        if (!lockUser(userId)) notFound("Dieses Konto")
         requireOtherAdmins(userId)
         Users.deleteWhere { id eq userId }
     }
@@ -56,7 +56,7 @@ class UserService(private val db: Db) {
         issueSetupLink(userId, if (user.setupPending) NEW_ACCOUNT_LINK_VALIDITY else RESET_LINK_VALIDITY)
     }
 
-    private fun find(id: Uuid): User = findWhere { Users.id eq id }.singleOrNull() ?: notFound("Benutzer", id)
+    private fun find(id: Uuid): User = findWhere { Users.id eq id }.singleOrNull() ?: notFound("Dieses Konto")
 
     private fun findWhere(predicate: () -> Op<Boolean>): List<User> {
         val userRows = Users.leftJoin(PasswordLogins)
