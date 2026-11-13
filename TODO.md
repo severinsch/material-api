@@ -37,9 +37,9 @@ maintainability, UX and security rather than by how much code changes.
 
 ## Suggested order
 
-1. Done 2026-11-09: T-2, T-4, T-5, T-6, T-8, T-9, T-10, T-11, T-12 (see REVIEW.md). Left: T-13 (owner deploys), then
-   the follow-ups T-18 … T-21 (done 2026-11-10 except T-19, the owner's check on an iPhone).
-2. T-1 (backups) before real data is entered; needs the owner for the Cloudflare account and storing secrets.
+1. Done 2026-11-09: T-2, T-4, T-5, T-6, T-8, T-9, T-10, T-11, T-12 (see REVIEW.md). T-13 (2026-11-13, owner rolls it out)
+   and the follow-ups T-18 … T-21 are done too; T-19 was dropped.
+2. T-1 (backups): done 2026-11-13, restic → Cloudflare R2, alerts via healthchecks.io.
 3. T-3 (Inventur) and T-7 (Aufgaben): explore with the owner first (open questions listed), compare designs live,
    then plan. T-5 and T-6 help T-3 and are worth doing before it.
 
@@ -50,7 +50,9 @@ CLAUDE.md). Deploying is manual: images are built and pushed, the owner rolls th
 
 ## Before real data goes in
 
-- [~] **T-1 Backup procedure.** Needs planning and setup, not just turning a cron job on. Today
+- [x] **T-1 Backup procedure.** Done 2026-11-13 (see PLAN.md and REVIEW.md; the procedure is in
+  `deploy:material/README.md`, "Backups"). The notes below are the original analysis. Needs planning and setup, not
+  just turning a cron job on. Today
   `deploy:material/backup-db.sh` writes a daily `pg_dump` to the VPS's own disk (keeps 30 days), but
   `deploy:material/README.md` ("Backups") says "Not set up yet (test phase)", and nothing copies backups off the VPS.
   To decide, set up and document in that README:
@@ -66,8 +68,10 @@ CLAUDE.md). Deploying is manual: images are built and pushed, the owner rolls th
     | Google Drive etc. via rclone | free (15 GB) | many people have one | the token on the VPS can usually reach the whole drive; needs a dedicated account; clunky |
     | Hetzner Storage Box | ~4 €/month | simplest if the VPS is at Hetzner | paying for 1 TB to store MBs |
 
-    **Chosen (2026-11-06): restic → Cloudflare R2**, since the owner already has a Cloudflare account (domain
-    hosting). Run from the existing cron job right after `pg_dump`, with an R2 API token limited to the backup bucket.
+    **Chosen (confirmed by the owner 2026-11-13): restic → Cloudflare R2**: free, and the owner's Cloudflare
+    account (which already has a card on file) is used. The VPS is at Hetzner; Hetzner Cloud Backups (~20 % of
+    the server price) were considered a good extra against broken updates but skipped for now to stay free. B2 is
+    the drop-in alternative (same S3 API) if R2's free tier changes. Run from the existing cron job right after `pg_dump`, with an R2 API token limited to the backup bucket.
     Check whether R2 asks for a payment method; usage stays far below the free 10 GB. Optionally a home pull as a
     second copy.
   - **Frequency and retention** off-site: daily; `restic forget --keep-daily 7 --keep-weekly 5 --keep-monthly 12
@@ -207,21 +211,19 @@ CLAUDE.md). Deploying is manual: images are built and pushed, the owner rolls th
   tab: name what's missing in words and suggest reloading ("…gibt es nicht mehr. Lade die Seite neu."), as the merge
   already does. Related: `fe:src/routes/+error.svelte` is a bare "Fehler 502" with no reload button, which is what
   users see while the API restarts.
-- [ ] **T-13 nginx keeps the frontend's address from startup.** `deploy:proxy/nginx.conf:179,188` resolve
+- [x] **T-13 nginx keeps the frontend's address from startup.** `deploy:proxy/nginx.conf:179,188` resolve
   `material-frontend` once when nginx starts; a recreated container can get a new IP, giving 502s until nginx reloads.
   Fix: `resolver 127.0.0.11 valid=10s;` (Docker's DNS) and `set $material http://material-frontend:3000;
   proxy_pass $material;` (same for the other sites in that file). The owner deploys it.
+  Done 2026-11-13 (`resolver` plus `set $upstream …; proxy_pass $upstream;` in every location, checked with
+  `nginx -t`); rolling it out is up to the owner: copy the file and `docker compose exec nginx nginx -s reload`.
 
 - [x] **T-18 Material list overflows at 375 px for editors** (existed before 2026-11-09). The table is ~410 px wide (chevron,
   name, Verfügbar, two 44 px action buttons) against ~341 px available, so the page scrolls sideways and form dialogs
   opened from the list are shifted right with their footer cut off. Options: `overflow-wrap:anywhere` on the name cell
   (removed the overflow in a test), or "Bearbeiten" into the ⋯ menu on phones. Done 2026-11-10, see REVIEW.md.
-- [ ] **T-19 Check the 2026-11-09 and 2026-11-10 changes on an iPhone** (owner, about 5 minutes after the next
-  deploy). Playwright's WebKit doesn't run on this machine, and an emulated WebKit wouldn't show the risky part
-  anyway: how iOS Safari's keyboard and toolbars resize dialogs. Checklist: material list scrolls without errors (T-2)
-  and doesn't scroll sideways (T-18); ⋯ menu has "Bearbeiten"; in "Material anlegen", tap into a field low in the
-  dialog: the field stays visible and the footer buttons are reachable; loan dialog: material search stays on top
-  while scrolling; Inventarliste: "CSV" downloads a file, long names hyphenate.
+- [x] **T-19 Check the 2026-11-09 and 2026-11-10 changes on an iPhone.** Dropped 2026-11-13: the owner has no
+  iPhone. The risky part (how iOS Safari's keyboard and toolbars resize dialogs) stays unchecked.
 - [x] **T-20 Inventory report columns line up across categories.** Each category's table sizes its own columns; fixed
   column widths would align them in print. Done 2026-11-10. Not done: per-year purchase totals for the cash audit
   (only if the Vorstand asks for them).

@@ -1257,3 +1257,31 @@ The owner chose everything except dropping the "Ausgeliehenes nicht als verfügb
     added later.
 - **Verified:** API `UPDATE_OPENAPI=1 ./gradlew clean test` (103), `npm run api:generate`; frontend check 0/0, eslint,
   prettier, vitest 128, build. Headless Chromium on the local stack at 375 and 1280 px: row menus.
+
+### 2026-11-13: Off-site backups (T-1), nginx resolver (T-13)
+
+- **Backups** (plan in PLAN.md): `deploy:material/backup-db.sh` keeps the local `pg_dump` (30 days, `umask 077`) and
+  pushes it with restic to a Cloudflare R2 bucket in the EU jurisdiction (snapshots under the fixed host `material`
+  and file name `scout_material.dump`; keep 7 daily, 5 weekly, 12 monthly; `restic check --read-data` every run). It
+  runs with `set -euo pipefail` and pings healthchecks.io only after every step succeeded, so a missing ping is the
+  alert. Secrets live in `backup.env` on the VPS (git-ignored; the deployment repo is public) and in the owner's
+  Bitwarden; the bus factor (only the owner holds them) is accepted for now. Restores use `pg_restore --exit-on-error
+  --single-transaction`; a fresh server needs `CREATE ROLE material_app NOLOGIN` first. The README covers setup,
+  checking, both restores and a test restore.
+- **Options considered:** B2 (same as R2 with another account), Hetzner Storage Box (paid), Hetzner Cloud Backups
+  (deleted with the server; a possible extra later), a pull to a home machine, Google Drive. healthchecks.io was kept
+  over "look at `restic snapshots` when deploying" because a silently stopped backup is the usual failure.
+- **Review:** an independent agent reviewed the plan before building. It caught that skipping the push without
+  `backup.env` would still ping success, the missing `set -a` export, `pg_restore` continuing past errors, and the EU
+  endpoint/token caveat; it confirmed the restic flags, the R2 endpoint and that the dump holds RLS policies, grants
+  and Flyway history.
+- **Verified:** locally with restic 0.18 in Docker and the 2026-10-22 dump (backup, wrong password and missing
+  `backup.env` stop before the ping, the README's test restore gives identical row counts). On the VPS the owner set
+  up R2, healthchecks.io and cron and restored from R2 successfully.
+- **T-13:** every `proxy_pass` in `deploy:proxy/nginx.conf` goes through `$upstream` with `resolver 127.0.0.11
+  valid=10s`, so recreated containers are found again; `nginx -t` passes. Committed with the backups; the owner
+  reloads nginx on the VPS (`nginx.conf` is a single-file bind mount, so after `git pull` the container may need a
+  recreate rather than a reload).
+- **T-19** (iPhone check) dropped: the owner has no iPhone.
+- **R2 token restricted to the VPS's addresses** (owner): small gain (only helps if the keys leak from somewhere other
+  than the VPS), so the README's fresh-server restore starts with adding the new server's addresses to the token.
