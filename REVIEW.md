@@ -1285,3 +1285,26 @@ The owner chose everything except dropping the "Ausgeliehenes nicht als verfügb
 - **T-19** (iPhone check) dropped: the owner has no iPhone.
 - **R2 token restricted to the VPS's addresses** (owner): small gain (only helps if the keys leak from somewhere other
   than the VPS), so the README's fresh-server restore starts with adding the new server's addresses to the token.
+
+### 2026-11-14: Aufgaben (T-7)
+
+- **Built** per PLAN.md: tasks (one-off, recurring via `repeatMonths` and `previousId`), rules (one recurring task
+  per current item of an individually tracked material), routines (task templates around a day 0, started for an
+  occasion), tasks from damage reports. Migration V7; `/tasks`, `/task-rules`, `/task-routines`. Frontend: Aufgaben
+  page and management page, material page section, overview card, packing-list marker, navigation.
+- **Viewers** may change, complete and reopen tasks assigned to them (`WORK_ON_TASKS`), but not reassign them, so
+  they can tick checklists. Owner chose this over a checklist-only endpoint.
+- **Two independent reviews.** The first (backend, frontend code, UI/UX) found, among others: deleting an item left
+  rule tasks recurring without an item (now deleted with it); reopening a task whose next one is done forked the
+  series (now 409, with the next task locked); retired items and former members leaking into new tasks from
+  templates (`memberOrNull`, no next rule task for retired items); lost ticks and double submits in the frontend.
+  The second, after the fixes, found frontend races in the task dialog and that rules lost items found again or
+  merged in (`createMissingRuleTasks`, idempotent, now also on item update, damage status change and merge).
+- **Cleanups:** routine name uniqueness via the constraint (409), shared `isMember`, redundant index dropped from the
+  unreleased V7, notes from rules and routines unticked; frontend shared interval/label/assignee helpers, RadioGroup,
+  plurals and wording, accessibility and touch targets, `tasks.ts` edge-case tests.
+- **Verified:** backend 114 tests; frontend check, lint, 215 tests. Browser pass on desktop and in DevTools phone
+  mode, as editor and as viewer (local accounts `claude.test`, `claude.viewerclaude.viewer`). It found what no
+  check had: the task form's pickers didn't open (the property button's `onclick={undefined}` came after the popover
+  trigger's spread props and replaced its handler); also fixed: the dialog's close button over the title field, an
+  empty footer for viewers, the "Aufgaben verwalten" hint shown to viewers.

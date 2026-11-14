@@ -1,142 +1,234 @@
-# Plan: off-site backups (T-1)
+# Plan: Aufgaben (T-7)
 
-**Done 2026-11-13.** The owner set up R2, healthchecks.io and the VPS and restored successfully from R2. Reviewed by
-an independent agent before building; its findings are worked in (section 5). The previous plan (FE-7, FE-8) is done; see git history and REVIEW.md.
+Tasks linked to material: one-off and recurring tasks, rules (one recurring task per item of a material) and
+routines (several tasks at once around a date, e.g. before a camp). The design was settled with the owner on
+2026-11-13/14 using standalone mockups (`fe:src/routes/mockups/aufgaben`, removed when this is built); the decisions
+are in TODO.md under T-7. The previous plan (T-1 backups) is done; see git history.
 
-Status: `[ ]` open, `[x]` done, `[?]` waiting for a decision. Who: **C** = Claude (this repo and
-`~/projects/vps-deployments`), **O** = owner (Cloudflare account, VPS, Bitwarden).
+Status: `[ ]` open, `[x]` done. `api:` = this repo, `fe:` = `~/projects/material-frontend`.
 
 ---
 
-## 0. Situation
+## 1. Concepts
 
-- Only the material database holds data on the VPS. Everything else is in git (`vps-deployments`) or can be made
-  again (certificates: certbot; the letter app and personal website have no volumes).
-- `material/backup-db.sh` writes a `pg_dump -Fc` to `material/backups/` on the VPS and keeps 30 days. The cron job is
-  documented in `material/README.md` but not enabled. Nothing leaves the VPS.
-- The database is a few MB and contains personal data (usernames, borrower names).
+- **Task:** title, optional note, optional due date, "dringend" flag, label (Prüfung, Reparatur, Pflege, Einkauf,
+  Sonstiges), optional assignee (a member), links to materials and/or individual items (several). Open until
+  completed; completing records when, who (name as of then) and an optional note.
+- **Checklist:** part of the note. Lines starting with `[ ] ` / `[x] ` are checkboxes; the API stores the note as
+  text and knows nothing about them. Ticking a box is editing the note (editors). A recurring task's next instance
+  gets the note with all boxes unticked.
+- **Recurring:** `repeatMonths`. Completing creates the next task, due `repeatMonths` after completion by default
+  (the completion dialog shows the date and lets you change it). The next task points to the completed one
+  (`previousId`), which gives the history ("zuletzt erledigt am … von …") without matching titles.
+- **Rule:** "Gasschlauch tauschen, alle 5 Jahre, für jeden Gaskocher". Only for individually tracked materials. On
+  creation, one recurring task per item (active or in repair), linked to the item, due `repeatMonths` after the
+  item's purchase date if known and wanted, else after today. New items of the material get theirs when created.
+  The next task after completing a rule task takes title, note, assignee, label and interval from the rule, so
+  editing a rule affects every task created afterwards, never existing ones.
+- **Routine:** a name, what day 0 is ("Lagerbeginn"), and steps (a task template with a day offset, negative =
+  before). Starting it for an occasion ("Pfingstlager 2027") and a date creates one task per step, due date + offset,
+  marked with the routine and the occasion. A routine's past runs are derived from those tasks.
+- **From a damage report:** a task can reference the report it came from. Neither closes the other; the completion
+  dialog offers "Schadensmeldung als behoben markieren" as an explicit, unticked option.
 
-## 1. Decisions (owner, 2026-11-13)
+## 2. Decisions made while planning (owner may veto in review)
 
-- **Off-site target: restic → Cloudflare R2** (free up to 10 GB; the owner's Cloudflare account, a card is already on
-  file). Considered and dropped: B2 (the same thing with another account), Hetzner Storage Box (paid), a pull to a home
-  machine, Google Drive. Hetzner Cloud Backups (~20 % of the server price) would be a good extra against broken
-  updates; skipped for now to stay free.
-- **Secrets go into the owner's Bitwarden**: restic password, R2 keys, endpoint, healthchecks ping URL. Without the
-  restic password the backups can't be decrypted, so this is mandatory, not optional.
-- **Bus factor accepted for now:** the owner holds all secrets (Bitwarden) and the Cloudflare account. Considered: a
-  free two-person Bitwarden organisation, a sealed printout with the Vorstand. The README says who holds them.
-- **The `vps-deployments` repo is public**, so nothing secret goes into it: keys, password and the ping URL (anyone
-  with it could send fake "OK" pings) live only in `backup.env` and Bitwarden.
-- **Keep it simple:** no object lock or append-only setup against a compromised VPS (it could delete the backups; we
-  accept that), no extra tooling beyond restic.
+1. **Deleting a rule** deletes its open tasks too (the confirmation says so); completed ones stay as history.
+   Keeping them would leave orphans that recur forever on their own.
+2. **Reopening a completed task** ("Rückgängig", or "Wieder öffnen" in the task dialog; the check of a done task is
+   inert) also deletes the task created by that completion; the toast says so. It is the exact inverse of completing.
+   If that next task is completed too, reopening answers 409 (it would fork the series).
+3. **Retired items** (lost, decommissioned) get no new rule tasks; their existing open tasks stay until someone
+   deletes them (no hidden side effect on retiring).
+4. **Merging materials** moves task links and rules of the merged materials to the remaining one (otherwise links
+   would silently disappear with the deleted materials).
+5. **Viewers** see all tasks and may change, complete and reopen those assigned to them (permission
+   `WORK_ON_TASKS`), but not hand them to someone else. So they can tick checklists through the normal update; owner,
+   2026-11-14, instead of a separate checklist endpoint.
+6. **All tasks are loaded at once** (open and done, a few hundred over years); filters are client-side.
+7. "Today" on the server (default next due date, first rule due date) is the date in Europe/Berlin.
 
-## 2. Design
+## 3. Schema (`V7__tasks.sql`)
 
-- **One script, one cron job.** `backup-db.sh` keeps writing the local dump (useful for quick restores and the manual
-  backup before updates), then pushes the same dump to R2:
+All tables tenant-owned per the README convention (tenant_id default, composite foreign keys, RLS policy).
 
-  ```sh
-  restic backup --host material --stdin-filename scout_material.dump --stdin < "$file"
-  restic forget --host material --keep-daily 7 --keep-weekly 5 --keep-monthly 12 --prune
-  restic check --read-data
-  curl -fsS -m 10 --retry 5 -o /dev/null "$HC_PING_URL"
-  ```
+- `task_label` enum: `INSPECTION, REPAIR, CARE, PURCHASE, OTHER`.
+- `task_rules`: id, title VARCHAR(255), material_id → materials ON DELETE CASCADE, repeat_months INT > 0,
+  from_purchase BOOL, assignee_id → users ON DELETE SET NULL, label, note TEXT.
+- `task_routines`: id, name VARCHAR(100) unique per tenant, anchor VARCHAR(100).
+- `task_routine_steps`: id, routine_id → task_routines ON DELETE CASCADE, position, offset_days INT
+  (−365…365), title, note, assignee_id → users SET NULL, label, urgent.
+- `task_routine_step_links`: step_id → steps CASCADE, material_id → materials CASCADE, or item_id →
+  individual_items CASCADE (exactly one).
+- `tasks`: id, title, note, due_date DATE, urgent, label, assignee_id → users SET NULL, repeat_months,
+  completed_at TIMESTAMPTZ, completed_by VARCHAR(255), completion_note TEXT,
+  previous_id → tasks ON DELETE SET NULL (previous_id), rule_id → task_rules ON DELETE SET NULL (rule_id),
+  routine_id → task_routines ON DELETE SET NULL (routine_id), occasion VARCHAR(100),
+  damage_report_id → damage_reports ON DELETE SET NULL (damage_report_id); `completed_by` set iff `completed_at`.
+  (`SET NULL (column)` keeps tenant_id, needs Postgres 15+; we run 18.)
+- `task_links`: task_id → tasks CASCADE, material_id → materials CASCADE, or item_id → individual_items CASCADE
+  (exactly one); unique per task.
+- Indexes on the foreign keys used for lookups; `updated_at` triggers like the other tables.
 
-  - `--stdin-filename` gives every snapshot the same file name, so a restore is `restic dump latest
-    scout_material.dump`, without knowing dates or VPS paths.
-  - `--host material` fixes the name restic groups snapshots by, so a rebuilt server continues the same series
-    instead of starting a second one that `forget` treats separately.
-  - Retention: one per day for a week, one per week for 5 weeks, one per month for a year. At a few MB each this
-    stays far below 10 GB.
-  - `check --read-data` downloads and verifies everything stored (a few MB, free egress), so silent corruption in
-    R2 also stops the ping.
-  - Local copies: 30 days, as now, but readable only by the deploy user (`umask 077`; they hold personal data
-    unencrypted).
-  - `set -euo pipefail`: any failing step stops the script before the ping, so healthchecks.io alerts. The local dump
-    is kept; the error lands in `backup.log`. A missing `backup.env` is an error, not a reason to skip the push.
-  - Not handled (rare): a manual run at the same moment as the cron run. restic's lock makes one of them fail, which
-    only costs one alert.
-- **Configuration:** `material/backup.env` on the VPS (git-ignored, `chmod 600`), read by the script:
+## 4. API (`api:`)
 
-  ```sh
-  RESTIC_REPOSITORY=s3:https://<account-id>.eu.r2.cloudflarestorage.com/material-backups
-  RESTIC_PASSWORD=…          # openssl rand -base64 32
-  AWS_ACCESS_KEY_ID=…        # R2 API token, "Object Read & Write", this bucket only
-  AWS_SECRET_ACCESS_KEY=…
-  AWS_DEFAULT_REGION=auto
-  HC_PING_URL=https://hc-ping.com/…
-  ```
+Models (`Models.kt`): `TaskLabel`; `Task` (id, title, note, dueDate, urgent, label, assigneeId, assigneeName,
+repeatMonths, materialIds, itemIds, completedAt, completedBy, completionNote, previousId, ruleId, routineId, occasion,
+damageReportId); `NewTask` (the editable fields plus damageReportId on create); `TaskCompletion` (note, nextDueDate);
+`TaskRule`/`NewTaskRule`; `TaskRoutine`/`NewTaskRoutine` with `RoutineStep`; `RoutineStart` (occasion, anchorDate).
 
-  Loaded with `set -a; . ./backup.env; set +a` (plain sourcing wouldn't export the variables to restic). The README
-  gives the same line for interactive commands (`restic init`, `restic snapshots`, restores).
+Permissions: new `WORK_ON_TASKS` for all roles (like REPORT_DAMAGE: the service restricts viewers further).
 
-  A `backup.env.example` without values goes into git. The bucket uses Cloudflare's **EU jurisdiction** (data stays in
-  the EU; free). Such a bucket is only reachable through the `.eu.` endpoint, and the bucket-scoped token must be
-  created for it; if `restic init` says Access Denied, check these two first. restic needs delete rights for
-  `forget --prune`, so the token can't be read-only.
-- **restic on the VPS from the distribution's package** (`apt install restic`): no container to manage, and a fresh
-  server needs the same one command.
-- **Noticing failures: healthchecks.io** (owner, 2026-11-13): a check with cron schedule `15 3 * * *` in the VPS's
-  timezone and about 1 hour grace; pinged only when everything succeeded (see above).
+| Route | Permission |
+|---|---|
+| `GET /tasks` (query `open`, `materialId` = linked to the material or one of its items), `GET /tasks/{id}` | READ |
+| `PUT /tasks/{id}`, `POST /tasks/{id}/complete` (returns the task and the next one), `POST /tasks/{id}/reopen` | WORK_ON_TASKS (viewers: only assigned to them) |
+| `POST /tasks`, `DELETE /tasks/{id}` | EDIT |
+| `GET /task-rules`, `GET /task-routines` | READ |
+| `POST/PUT/DELETE /task-rules…`, `POST/PUT/DELETE /task-routines…`, `POST /task-routines/{id}/start` | EDIT |
 
-## 3. Steps
+Services: `TaskService` (tasks, completion, rules, routines in one service or split into `TaskRuleService` and
+`TaskRoutineService` if it grows), hooks in `ItemService.createAll` (rule tasks for new items) and
+`MaterialService.merge` (move links and rules). Checks: assignee must be a member (unless unchanged, as for loans),
+linked materials/items must exist, rule material must be individually tracked, completing a done task → 409.
 
-1. `[x]` **C** `backup-db.sh` as above.
-2. `[x]` **C** `material/.gitignore`: `backup.env`; add `backup.env.example`.
-3. `[x]` **C** `material/README.md`, section "Backups" rewritten:
-   - one-time setup: R2 bucket and token, `backup.env`, `restic init`, crontab line, entries in Bitwarden (what
-     exactly to store);
-   - checking: `restic snapshots` shows the latest backups;
-   - restore into the running database (as now, plus `restic dump` to fetch a dump from R2);
-   - **restore onto a fresh server**: clone repo, `.env` with a new `POSTGRES_PASSWORD`, `backup.env` from Bitwarden,
-     start only `material-db`, `CREATE ROLE material_app NOLOGIN` (the role belongs to the server, so the dump doesn't
-     contain it and its GRANTs fail without it), then
+Tests: `TaskApiTest` (CRUD, links, validation, completion with recurrence and next due date, reopen, history via
+previousId, rules: creation from purchase date / today, new items, next from rule, delete; routines: write, start,
+offsets; merge moves links and rules), viewer rules in `PermissionTest`, tasks/rules/routines in
+`TenantIsolationTest`. `UPDATE_OPENAPI=1 ./gradlew clean test`. README: features, permission table.
 
-     ```sh
-     restic dump latest scout_material.dump \
-       | docker compose exec -T material-db pg_restore -U scout -d scout_material --exit-on-error --single-transaction
-     ```
+## 5. Frontend (`fe:`)
 
-     and start the rest; the API's Flyway sees the schema history from the dump and only applies newer migrations.
-     Without `--exit-on-error --single-transaction`, `pg_restore` carries on past errors and leaves a partial database
-     the API would happily start on; with them a failure leaves the database empty to retry. If `pg_restore` can't
-     read the piped archive (non-seekable input), write it to a file and `docker cp` it in; the test restore decides;
-   - one sentence on data protection: deleted personal data stays in the backups for up to 12 months (retention);
-   - "Future improvements": remove the off-site item, keep Hetzner Cloud Backups as an option.
-   Tested locally 2026-11-13 (restic 0.18 in Docker, a local repository, the 2026-10-22 production dump): the script
-   backs up and exits 0; a wrong password and a missing `backup.env` stop it before the ping; the README's "Test a
-   restore" commands, run as written, restore through the pipe with identical row counts. `forget` keeps the oldest
-   snapshot while the daily/weekly/monthly slots aren't full yet (restic ≥ 0.17), so early on there are more
-   snapshots than the policy suggests. Not testable here: R2 itself, cron, the real ping.
-4. `[x]` **O** healthchecks.io: account and check (see 2), ping URL into `backup.env` and Bitwarden. Chosen over
-   "look at `restic snapshots` when deploying" because a backup that silently stopped is the usual way backups fail.
-5. `[x]` **O** Cloudflare: create bucket `material-backups` (EU jurisdiction) and an R2 API token limited to it.
-6. `[x]` **O** VPS: pull the repo, `apt install restic`, fill `backup.env`, `restic init`, store the values in
-   Bitwarden, run `./backup-db.sh` once by hand, enable the cron job.
-7. `[x]` **O** (Claude walks through it) **Test restore** into a throwaway Postgres container on the VPS, with exactly
-   the fresh-server commands from the README, and compare row counts with the live database. Also let the
-   healthchecks check go red once (e.g. a wrong key in a copy of `backup.env`) to see the alert arrive. Fix the README
-   where it was wrong.
-8. `[x]` **C** Tick T-1 in TODO.md, entry in the REVIEW.md progress log, update `material/README.md`'s "Not set up yet".
+- `npm run api:generate`; types in `lib/api/index.ts`; `WORK_ON_TASKS` in `lib/permissions.ts`.
+- `lib/tasks.ts` (+ tests): labels, loose due dates, grouping (Überfällig / Nächste 2 Wochen / Später / Ohne Datum),
+  sorting, note parsing (checklist), history chain, routine offsets text.
+- Components (from the mockups, wired to the API): `TaskList`, `TaskMeta`, `TaskCheck`, `TaskDialog` (read-only
+  view with tickable boxes for editors, "Bearbeiten" switches to the form), `TaskForm` (title, `NoteEditor`, dashed
+  property buttons), `NoteEditor`, `NoteView`, `TaskLinkPicker` (materials and items), `CompleteDialog` (note, next
+  due date, follow-ups: Kauf erfassen, item back to active, damage report resolved), `RuleDialog`, `RoutineDialog`
+  with `RoutineTimeline` (drag & drop, arrow keys), `RoutineStartDialog`, `InfoHint`.
+- Pages: `/[tenant]/tasks` (list, toolbar: search, assignee, Art multi-select, Erledigte; "Neue Aufgabe" and
+  "Verwalten" for editors), `/[tenant]/tasks/manage` (Routinen, Regeln, Wiederkehrende Aufgaben; editors).
+- Material page: Aufgaben section (open tasks of the material and its items, last completions; hidden when there
+  are none); "Aufgabe erstellen" in the ⋯ menu and on open damage reports.
+- Overview: "Aufgaben" card (overdue and next 2 weeks).
+- Packing list: a subtle marker on lines whose material or items have an open urgent task (one set built from the
+  open urgent tasks; no effect on the allocation).
+- Navigation: "Aufgaben" for everyone; on phones it replaces "Lagerorte" in the bottom bar.
+- Remove the mockups, the variant switcher and the `/mockups` hook exception.
 
-## 4. Not in scope
+## 6. Review (2026-11-14, before building)
 
-- Backups of anything but the material database (see 0).
-- Photos (T-15): they'd need to go into the same restic repository once they exist; `latest` must then be narrowed
-  with `--path /scout_material.dump`.
-- A second copy elsewhere, Hetzner Cloud Backups, object lock.
+Checked against the code and the owner's "keep it simple" rule. Changes worked in:
 
-## 5. Review (2026-11-13)
+- `damage_reports` has no `UNIQUE (id, tenant_id)` yet, which the composite foreign key from `tasks` needs: V7 adds it.
+- A rule's material can't be changed (400, like the item of a damage report): its tasks are linked to its items.
+- Starting a routine whose step assignee is no longer a member creates that task unassigned instead of failing:
+  the template was valid when written, and failing a whole start over it helps nobody.
+- Task responses carry the assignee's display name, which viewers otherwise don't see (no VIEW_MEMBERS). Accepted:
+  within a Stamm, who does a task is not sensitive, and loans already show names to editors.
 
-An independent review agent checked the plan against the scripts, compose file, migrations and restic/R2 docs.
-Worked in above: no skipping the push without `backup.env` (would ping success with no off-site copy), ping only
-after everything succeeded and its URL out of the public repo, `set -a` to export the variables, `pg_restore
---exit-on-error --single-transaction`, the EU-jurisdiction endpoint/token caveat, `umask 077`, `restic check
---read-data`, the second-person question, the data-protection sentence.
-Found correct: the restic flags (`--stdin-filename`, `--host`, `dump latest scout_material.dump` without a leading
-slash; `forget` grouping), restic versions in Debian/Ubuntu, the R2 endpoint and `AWS_DEFAULT_REGION=auto`, running
-from cron, and the restore: the dump contains the RLS policies, grants and Flyway history; the migrations have no
-extensions or database-level settings, so `CREATE ROLE material_app NOLOGIN` is the only thing to add (scout is a
-superuser, so `GRANT material_app TO scout` is optional).
-Not taken: `flock` against parallel runs (rare; costs one alert at most).
+Considered and left as is:
+
+- Rule tasks follow the rule when recurring, so a manually changed assignee on one of them is reset at the next
+  instance. Simple and predictable; the rule is the place to change it.
+- Old purchase dates make rule tasks overdue right away. That's true information, and the rule dialog's preview
+  shows it before saving.
+
+## 7. Order
+
+1. [x] Migration, tables, models, services, routes, tests, openapi.json, README.
+2. [x] Frontend types, `lib/tasks.ts` with tests, components, pages, material page, overview, packing hint, nav.
+3. [x] Remove mockups and switcher; lint, check, tests in both repos; try it in the browser against a local API.
+4. [x] Work in the review findings (section 8), 2026-11-14.
+5. [x] REVIEW.md progress log, TODO.md T-7 ticked.
+6. [x] Browser pass of the changes, desktop and phone (DevTools device mode), 2026-11-14.
+7. [ ] Commit and deploy when the owner asks.
+
+## 8. State on 2026-11-14 and findings of the independent reviews (to work in next)
+
+Everything above is built and uncommitted in both repos. Backend: 111 tests pass, openapi.json regenerated. Frontend:
+svelte-check, eslint, prettier clean, 136 vitest tests pass. Tried in Chrome against a local API: ticking boxes,
+completing with next date, follow-ups (item active, damage resolved), rule tasks, material page, overview card,
+packing hint all work. Local test data: Stamm `claude-test` ("Claude Testlager") with the platform admin
+`claude.test` (also EDITOR member there); its password is not kept anywhere durable, so start the API with
+`ADMIN_SETUP_LINK_FOR=claude.test` for a new setup link if needed. Phone width was not tested in the browser.
+
+Three independent agents reviewed (backend, frontend code, UI/UX). Findings, deduplicated, by priority:
+
+**Bugs (fix):**
+- [x] fe: Ticking checklist boxes quickly loses ticks (`TaskDialogs.toggle` builds each PUT from the last loaded
+  note). Keep the note locally, apply ticks at once, send saves one after another.
+- [x] fe: Task form (hand-rolled dialog in `TaskDialogs`) has no saving state (double "Anlegen" creates two tasks)
+  and Escape / tap outside discards edits without asking. Reuse FormDialog's guard (values comparison + confirm)
+  and a `saving` flag.
+- [x] fe: `purchaseMaterial` is never reset, so the purchase dialog reappears after later completions; use `tick()`.
+- [x] fe: Follow-ups are offered to viewers but need EDIT: only offer them with EDIT. No "Rückgängig" in the toast
+  when follow-ups ran (they aren't undone). Name the failed follow-up in the error instead of the vague message.
+- [x] fe: The completion dialog always sends `nextDueDate` computed from the task's own interval, so a rule's changed
+  interval is ignored; send it only if the user changed the date (server default uses the rule).
+- [x] fe: One tap on the check of a completed task (Erledigte list, material page) reopens it and may delete the next
+  task: make the check inert for completed tasks; reopening only via "Wieder öffnen" in the dialog.
+- [x] fe: Routine step "Tage" field: clearing it gives 0 and flips to "am Tag", hiding the field. Ignore empty input.
+- [x] fe: Routines can end up empty (untitled steps dropped silently; card shows "Infinity Tage"). Validate step
+  titles visibly; require ≥1 step (API already does); guard `span()` for no steps.
+- [x] fe: Arrow keys in `RoutineTimeline` aren't clamped to ±365.
+- [x] fe: NoteEditor: Shift+Enter or pasting several lines puts line breaks inside one line, which breaks checkbox
+  lines on save. Treat Shift+Enter as Enter, split pasted text into lines.
+- [x] api: Deleting an item cascades its task links, leaving rule tasks without links that recur forever.
+  `ItemService.delete` should delete the item's open rule tasks (same rule as deleting a rule); test.
+- [x] api: Reopening a task whose next task is already completed forks the series (completing again creates a second
+  next). Answer 409 ("Die nächste Aufgabe ist schon erledigt …") when a completed task has `previousId = id`; test.
+- [x] api: `createNext` creates rule tasks for items that are now LOST/DECOMMISSIONED (against decision 3), and
+  `createNext`/`createRuleTasks` keep assignees who left the Stamm (routine start drops them). One helper for the
+  member filter; skip the next rule task for retired items.
+
+**Decided (owner, 2026-11-14):**
+- [x] Viewers tick checklists: instead of a separate endpoint, viewers may change tasks assigned to them through the
+  normal `PUT` (permission `COMPLETE_TASKS` renamed to `WORK_ON_TASKS`), but can't hand them to someone else. See
+  decision 5.
+- [x] No nav badge for overdue tasks; the overview card is enough.
+- [x] The Members page subtitle stays removed.
+
+**Smaller (do if cheap):**
+- [x] api: Routine name uniqueness: drop the pre-check, map `task_routines_name_key` in `constraintMessages`
+  (`ErrorHandling.kt`) and document 409, like kits/materials. Document 400 on the PUT routes. Fix `findTasks` KDoc,
+  drop redundant index `idx_task_links_task_id` (only if before the migration is applied anywhere real; it's
+  unreleased), untick the rule note in `createRuleTasks` too, rename shadowing `id` params, reuse `isMember` in
+  LoanService. Drop `GET /tasks?open` if unused (kits page uses it — keep).
+- [x] api tests: merge moving rules and routine-step links and the `keep = first()` path; routine start with a
+  former member; viewer reopening others' task (403); rule with `fromPurchase = false`; damageReportId of another
+  tenant.
+- [x] fe duplication: shared helper for the item update body (also in `ItemTable.setStatus`); interval
+  (N months/years) helpers in `tasks.ts` used by TaskForm and RuleDialog (no `$effect` write-back); shared
+  member/label options and the "active or in repair" filter; `provideTaskData` should return its maps instead of
+  pages rebuilding them; overview card via `grouped()`; "N weitere später" counts undated tasks too.
+- [x] fe: RuleDialog preview copies server logic (first due); keep it simple or drop the toast count derived from it;
+  when editing, items without an open task show a date that won't be created.
+- [x] fe UX: overview card should show links (rule tasks share titles); damage-report task: short title
+  ("Reparieren: Kohte K03"), description into the note; viewers: explain greyed checks ("Erledigen kann, wem die
+  Aufgabe zugewiesen ist."); InfoHint: hover opens then click closes (drop hover or keep open while hovering;
+  distinct labels); RuleDialog wording ("1 Jahr nach dem Kauf" instead of "jährlich nach dem Kauf", "Erste
+  Fälligkeit"), shadcn RadioGroup instead of native radios; plurals ("1 Aufgaben", "1 von 5 Punkten sind");
+  "seit 26 Monaten" → years; "Tag 0 ist der" breaks for feminine words; search should cover `occasion`.
+- [x] fe a11y/touch: `pointer-coarse:h-11` on property buttons, corner checkbox button, packing-hint icon; `touch-none`
+  only on the timeline grip; assignee avatar initials + sr-only name; labels for SelectFields (assignee filter,
+  routine selects, repeat unit), note editor, phone "Verwalten" button; `aria-pressed` on "Dringend"; property buttons
+  read "Fällig: in 3 Wochen"; checkbox labels in NoteEditor; check label "„X“ als erledigt markieren"; visible focus on
+  the title input; scroll the selected timeline step's fields into view.
+- [x] fe tests for `tasks.ts`: boundaries of `looseDue`/`groupOf` (13/14, 59/60 days, "im März" same year),
+  `loosePast` near midnight, `isOverdue` for completed, `historyOf` skipping open ones, note parsing edge cases
+  (`[x]` without space, `[X]`, `- [ ]`), `toggleLine` on a non-checkbox line, unknown ids in `linkNames`/
+  `materialIdsOf`, `mayComplete`, `repeatText(1/18/24)`, `offsetText(0, '')`.
+- Later / maybe: deep links (`?q=` on /tasks for routine runs and the packing hint), shadcn Drawer for pickers on
+  phones (test on a real device), limit for the Erledigte list.
+
+### Worked in (2026-11-14)
+
+All items above are done; two agents did the frontend bugs and cleanups, one added `tasks.ts` edge-case tests. A
+second independent review of the result found, besides frontend races in `TaskDialogs` (ticks per task, save bound to
+the form it started from, hidden close button while saving, stale checklist count, double taps), that a rule's "one
+open task per item" broke for items found again and after a merge. `createMissingRuleTasks` now skips (rule, item)
+pairs with an open task and runs on item create/update, damage-report status changes and merge. All worked in.
+Backend 114 tests, frontend 215 tests, check and lint clean; openapi.json and `schema.d.ts` regenerated. The local dev
+database got V7's changed checksum and lost the dropped index by hand. Not tried in the browser after these changes.

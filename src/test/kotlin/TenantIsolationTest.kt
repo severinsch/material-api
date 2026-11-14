@@ -24,6 +24,11 @@ class TenantIsolationTest {
             .expect(HttpStatusCode.Created)
         val kit: Kit = post("kits") { setBody(kitOf(bulk.id)) }.expect(HttpStatusCode.Created)
         val loan: Loan = post("loans") { setBody(loanOf(itemIds = listOf(item.id))) }.expect(HttpStatusCode.Created)
+        val task: Task = post("tasks") { setBody(NewTask("Prüfen", materialIds = listOf(bulk.id))) }.expect(HttpStatusCode.Created)
+        val rule: TaskRule = post("task-rules") { setBody(NewTaskRule("Prüfen", individual.id, 12)) }.expect(HttpStatusCode.Created)
+        val routine: TaskRoutine = post("task-routines") {
+            setBody(NewTaskRoutine("Vor dem Lager", "Lagerbeginn", listOf(NewRoutineStep(-1, "Packen"))))
+        }.expect(HttpStatusCode.Created)
 
         // The other tenant's bodies reference its own data, so a PUT fails only because the id is unknown there.
         val other = context.clientFor(TenantRole.EDITOR, TestDatabase.createTenant("Stamm West"))
@@ -37,6 +42,9 @@ class TenantIsolationTest {
             Triple("damages", damage.id, ApiJson.encodeToString(NewDamageReport(otherItem.id, "Riss"))),
             Triple("kits", kit.id, ApiJson.encodeToString(kitOf(otherBulk.id))),
             Triple("loans", loan.id, ApiJson.encodeToString(loanOf(itemIds = listOf(otherItem.id)))),
+            Triple("tasks", task.id, ApiJson.encodeToString(NewTask("Prüfen", itemIds = listOf(otherItem.id)))),
+            Triple("task-rules", rule.id, ApiJson.encodeToString(NewTaskRule("Prüfen", otherBulk.id, 12))),
+            Triple("task-routines", routine.id, ApiJson.encodeToString(NewTaskRoutine("Routine", "Tag", listOf(NewRoutineStep(0, "X"))))),
         )
         for ((path, id, body) in resources) {
             val list: List<JsonObject> = other.get(path).expect(HttpStatusCode.OK)
@@ -61,6 +69,8 @@ class TenantIsolationTest {
         val bulk = createBulk()
         val individual = createIndividual()
         val item = createItem(individual, "1")
+        val damage: DamageReport = post("damages") { setBody(NewDamageReport(item.id, "Riss")) }
+            .expect(HttpStatusCode.Created)
 
         val other = context.clientFor(TenantRole.EDITOR, TestDatabase.createTenant("Stamm West"))
         val otherIndividual = other.createIndividual()
@@ -81,6 +91,13 @@ class TenantIsolationTest {
             other.post("kits") { setBody(kitOf(otherIndividual.id, variantId = individual.variantId)) },
             other.post("loans") { setBody(loanOf(itemIds = listOf(item.id))) },
             other.post("loans") { setBody(loanOf(materials = listOf(LoanQuantity(bulk.variantId, 1)))) },
+            other.post("tasks") { setBody(NewTask("Prüfen", materialIds = listOf(bulk.id))) },
+            other.post("tasks") { setBody(NewTask("Prüfen", itemIds = listOf(item.id))) },
+            other.post("tasks") { setBody(NewTask("Prüfen", damageReportId = damage.id)) },
+            other.post("task-rules") { setBody(NewTaskRule("Prüfen", individual.id, 12)) },
+            other.post("task-routines") {
+                setBody(NewTaskRoutine("Vor dem Lager", "Lagerbeginn", listOf(NewRoutineStep(0, "X", itemIds = listOf(item.id)))))
+            },
         )
         requests.forEach { assertEquals(HttpStatusCode.BadRequest, it.status, it.bodyAsText()) }
 
@@ -188,7 +205,7 @@ class TenantIsolationTest {
               AND c.relname <> 'tenant_members'
             """
         )
-        assertEquals(13, tables.size)
+        assertEquals(19, tables.size)
         for ((table, rowSecurity, default, hasPolicy) in tables) {
             assertEquals(true, rowSecurity, "row-level security on $table")
             assertEquals("current_tenant_id()", default, "default of $table.tenant_id")

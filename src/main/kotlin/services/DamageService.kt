@@ -35,7 +35,7 @@ class DamageService(private val db: Db) {
                 it[resolvedAt] = if (report.isResolved) Clock.System.now() else null
                 it[resolutionNotes] = report.resolutionNotes
             }
-            updateItemStatus(report)
+            updateItemStatus(tenant, report)
             find(id.value)
         }
 
@@ -49,7 +49,7 @@ class DamageService(private val db: Db) {
             it[resolvedAt] = if (report.isResolved) existing.resolvedAt ?: Clock.System.now() else null
             it[resolutionNotes] = report.resolutionNotes
         }
-        updateItemStatus(report)
+        updateItemStatus(tenant, report)
         find(id)
     }
 
@@ -69,9 +69,10 @@ class DamageService(private val db: Db) {
         }
     }
 
-    private fun updateItemStatus(report: NewDamageReport) {
+    private fun updateItemStatus(tenant: TenantId, report: NewDamageReport) {
         val status = report.itemStatus ?: return
         IndividualItems.update({ IndividualItems.id eq report.itemId }) { it[IndividualItems.status] = status }
+        createMissingRuleTasks(tenant, listOf(report.itemId))
     }
 
     private fun find(id: Uuid): DamageReport =

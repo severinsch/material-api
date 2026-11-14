@@ -12,6 +12,9 @@ The frontend for this tool can be found [here](https://github.com/severinsch/mat
 * **Loan Book:** Record what was lent to whom and when it came back: quantities ("4 Kohtenblätter, 10 Heringe") or,
   where it matters, specific items.
 * **Purchase History:** Record purchase batches of bulk materials; purchased quantities are added to the stock.
+* **Tasks:** One-off and recurring tasks about materials and items ("Gasschlauch tauschen", "Erste-Hilfe-Kasten
+  prüfen" every year), rules that keep one recurring task per item of a material, and routines that create several
+  tasks around a date ("Vor dem Lager").
 * **Accounts and tenants:** Each Stamm has its own, fully separated inventory. Members log in with username and
   password and have a role per Stamm.
 
@@ -30,8 +33,8 @@ Each user has a role per tenant:
 
 | Role | May |
 |---|---|
-| `VIEWER` | read inventory, kits and locations, report damage (without resolving it or retiring items), lend to themselves and see and change their own loans |
-| `EDITOR` | also change inventory, damage reports, kits and locations, manage all loans, and see the members |
+| `VIEWER` | read inventory, kits, locations and tasks, report damage (without resolving it or retiring items), lend to themselves and see and change their own loans, change and complete tasks assigned to them |
+| `EDITOR` | also change inventory, damage reports, kits, locations and tasks, manage all loans, and see the members |
 | `ADMIN` | also manage the members of the tenant |
 
 Loans to members are linked to their account (`borrowerId`), so they see them as their own; loans to someone
@@ -137,6 +140,27 @@ number of units, filled by one or more interchangeable materials.
   variant with the same unit value, so variants that count differently (Kanister 10 L and 20 L in a "Wasser" group)
   are listed individually. Within a group, a material appears either once as "any variant" or with distinct
   variants.
+
+### Tasks
+
+A task (`/tasks`) has a title, an optional note, due date, assignee (a member) and label, and is about materials and
+specific items. It is open until completed; completing records when, who and an optional note. The note is plain
+text; lines starting with `[ ] ` or `[x] ` are a checklist, which only clients interpret.
+
+* **Recurring tasks** (`repeatMonths`): completing one creates the next, due that many months after completion unless
+  the completion names another date. The next task points to the completed one (`previousId`), which is the task's
+  history. Reopening a completed task deletes the next one, so it undoes the completion; if the next one is completed
+  too, it has to be reopened first. New tasks from a previous task, rule or routine leave out an assignee who has left
+  the Stamm.
+* **Rules** (`/task-rules`) keep one recurring task per item (active or in repair) of an individually tracked
+  material, also for items added later. The first due date counts from the item's purchase date if wanted and known,
+  else from the day the task is created. Changing a rule affects tasks created afterwards (for new items, and the next
+  task after completing one); deleting it deletes its open tasks. A retired item's open task stays, but completing it
+  creates no next one; an item that is current again, or that comes to the rule's material by a merge, gets its
+  missing task. Deleting an item deletes its open rule tasks.
+* **Routines** (`/task-routines`) are task templates with a day offset around a day 0 ("Lagerbeginn"). Starting one
+  for an occasion and a date creates its tasks with their due dates.
+* A task can come from a damage report (`damageReportId`); neither changes the other.
 
 ## API Documentation
 

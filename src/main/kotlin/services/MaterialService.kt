@@ -184,12 +184,37 @@ class MaterialService(private val db: Db) {
         MaterialVariants.update({ MaterialVariants.materialId inList sourceIds }) {
             it[MaterialVariants.materialId] = EntityID(targetId, Materials)
         }
+        // Tasks, routine steps and rules about a merged material are about the remaining one now, instead of losing
+        // the link with the deleted material.
+        moveMaterialLinks(TaskLinks, TaskLinks.taskId, TaskLinks.materialId, targetId, sourceIds)
+        moveMaterialLinks(TaskRoutineStepLinks, TaskRoutineStepLinks.stepId, TaskRoutineStepLinks.materialId, targetId, sourceIds)
+        TaskRules.update({ TaskRules.materialId inList sourceIds }) { it[TaskRules.materialId] = EntityID(targetId, Materials) }
+        // The rules of each merged material now cover the other materials' items too.
+        val items = IndividualItems.select(IndividualItems.id).where { IndividualItems.variantId inList variantIds }
+        createMissingRuleTasks(tenant, items.map { it[IndividualItems.id].value })
         Materials.deleteWhere { Materials.id inList sourceIds }
         Materials.update({ Materials.id eq targetId }) { it[Materials.name] = merge.name }
         names.forEach { (id, name) ->
             MaterialVariants.update({ MaterialVariants.id eq id }) { it[MaterialVariants.name] = name }
         }
         find(targetId)
+    }
+
+    /** Points links of [owner]s (tasks or routine steps) to [sourceIds] to [targetId], one link per owner. */
+    private fun moveMaterialLinks(
+        table: Table,
+        owner: Column<EntityID<Uuid>>,
+        material: Column<EntityID<Uuid>?>,
+        targetId: Uuid,
+        sourceIds: List<Uuid>
+    ) {
+        val links = table.select(owner, material).where { material inList (sourceIds + targetId) }
+            .groupBy({ it[owner].value }) { it[material]!!.value }
+        for ((ownerId, materialIds) in links) {
+            val keep = if (targetId in materialIds) null else materialIds.first()
+            table.deleteWhere { (owner eq ownerId) and (material inList sourceIds) and (keep?.let { material neq it } ?: Op.TRUE) }
+            if (keep != null) table.update({ (owner eq ownerId) and (material eq keep) }) { it[material] = EntityID(targetId, Materials) }
+        }
     }
 
     /**

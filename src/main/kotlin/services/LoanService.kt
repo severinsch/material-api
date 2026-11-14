@@ -69,10 +69,9 @@ class LoanService(private val db: Db) {
         }
         // Without a member, NewLoan requires the name.
         if (borrowerId == null) return loan.borrower!!
-        val isMember = borrowerId == existing?.borrowerId || TenantMembers.selectAll()
-            .where { (TenantMembers.tenantId eq access.tenant.value) and (TenantMembers.userId eq borrowerId) }
-            .any()
-        if (!isMember) invalid("Die ausleihende Person ist kein Mitglied dieses Stamms.")
+        if (borrowerId != existing?.borrowerId && !isMember(access.tenant, borrowerId)) {
+            invalid("Die ausleihende Person ist kein Mitglied dieses Stamms.")
+        }
         return Users.select(Users.displayName).where { Users.id eq borrowerId }.single()[Users.displayName]
     }
 

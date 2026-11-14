@@ -548,6 +548,207 @@ data class LoanQuantity(
     }
 }
 
+// ========= Tasks =========
+
+@Serializable
+@SerialName("TaskLabel")
+enum class TaskLabel { INSPECTION, REPAIR, CARE, PURCHASE, OTHER }
+
+/**
+ * A task is open until [completedAt] is set. [note] is plain text; lines starting with "[ ] " or "[x] " are a
+ * checklist, which only clients interpret. A task is about materials ([materialIds], any tracking type) and specific
+ * items ([itemIds]).
+ *
+ * Completing a recurring task ([repeatMonths]) creates the next one, whose [previousId] is the completed task. Tasks of
+ * a rule ([ruleId]) take the rule's values when the next one is created. Tasks of a routine ([routineId], kept as
+ * [occasion] after the routine is deleted) were created by starting it for that occasion.
+ */
+@Serializable
+data class Task(
+    val id: Uuid,
+    val title: String,
+    val note: String?,
+    val dueDate: LocalDate?,
+    val urgent: Boolean,
+    val label: TaskLabel,
+    val assigneeId: Uuid?,
+    /** The assignee's current display name. */
+    val assigneeName: String?,
+    val repeatMonths: Int?,
+    val materialIds: List<Uuid>,
+    val itemIds: List<Uuid>,
+    val completedAt: Instant?,
+    /** The completing member's name as of completion. */
+    val completedBy: String?,
+    val completionNote: String?,
+    val previousId: Uuid?,
+    val ruleId: Uuid?,
+    val routineId: Uuid?,
+    val occasion: String?,
+    /** The damage report the task was created from. */
+    val damageReportId: Uuid?
+)
+
+/**
+ * The assignee must be a member of the tenant (unless unchanged). [damageReportId] can only be set on creation and
+ * must be sent unchanged afterwards.
+ */
+@Serializable
+data class NewTask(
+    val title: TrimmedString,
+    val note: String? = null,
+    val dueDate: LocalDate? = null,
+    val urgent: Boolean = false,
+    val label: TaskLabel = TaskLabel.OTHER,
+    val assigneeId: Uuid? = null,
+    val repeatMonths: Int? = null,
+    val materialIds: List<Uuid> = emptyList(),
+    val itemIds: List<Uuid> = emptyList(),
+    val damageReportId: Uuid? = null
+) {
+    init {
+        requireText(title, "Die Aufgabe", maxLength = 255)
+        requireRepeat(repeatMonths)
+        requireDistinctLinks(materialIds, itemIds)
+    }
+}
+
+/**
+ * [nextDueDate] is the due date of the next task of a recurring one; by default [Task.repeatMonths] after today.
+ * Ignored for tasks that don't recur.
+ */
+@Serializable
+data class TaskCompletion(
+    val note: String? = null,
+    val nextDueDate: LocalDate? = null
+)
+
+/** A completed task and, for a recurring one, the next one it created. */
+@Serializable
+data class CompletedTask(val task: Task, val next: Task?)
+
+/**
+ * One recurring task for every item (active or in repair) of an individually tracked material, also for items
+ * added later. The first due date of an item is [repeatMonths] after its purchase date if [fromPurchase] and the
+ * date is known, otherwise after the day its task is created.
+ */
+@Serializable
+data class TaskRule(
+    val id: Uuid,
+    val title: String,
+    val materialId: Uuid,
+    val repeatMonths: Int,
+    val fromPurchase: Boolean,
+    val assigneeId: Uuid?,
+    val assigneeName: String?,
+    val label: TaskLabel,
+    val note: String?
+)
+
+/**
+ * Creating a rule creates the tasks of the material's items. Changes apply to tasks created afterwards (for new
+ * items, and the next task after completing one), not to existing ones. [materialId] can't be changed.
+ */
+@Serializable
+data class NewTaskRule(
+    val title: TrimmedString,
+    val materialId: Uuid,
+    val repeatMonths: Int,
+    val fromPurchase: Boolean = true,
+    val assigneeId: Uuid? = null,
+    val label: TaskLabel = TaskLabel.OTHER,
+    val note: String? = null
+) {
+    init {
+        requireText(title, "Die Aufgabe", maxLength = 255)
+        requireRepeat(repeatMonths)
+    }
+}
+
+/** Steps are ordered by [RoutineStep.offsetDays]. */
+@Serializable
+data class TaskRoutine(
+    val id: Uuid,
+    val name: String,
+    /** What day 0 is, e.g. "Lagerbeginn". */
+    val anchor: String,
+    val steps: List<RoutineStep>
+)
+
+/** A task template; [offsetDays] is relative to day 0 of the routine, negative is before. */
+@Serializable
+data class RoutineStep(
+    val offsetDays: Int,
+    val title: String,
+    val note: String?,
+    val assigneeId: Uuid?,
+    val assigneeName: String?,
+    val label: TaskLabel,
+    val urgent: Boolean,
+    val materialIds: List<Uuid>,
+    val itemIds: List<Uuid>
+)
+
+/** Written with its complete list of steps. */
+@Serializable
+data class NewTaskRoutine(
+    val name: TrimmedString,
+    val anchor: TrimmedString,
+    val steps: List<NewRoutineStep>
+) {
+    init {
+        requireText(name, "Der Name", maxLength = 100)
+        requireText(anchor, "Der Bezugstag", maxLength = 100)
+        require(steps.isNotEmpty()) { "Eine Routine braucht mindestens eine Aufgabe." }
+        require(steps.size <= MAX_ROUTINE_STEPS) { "Eine Routine kann höchstens $MAX_ROUTINE_STEPS Aufgaben haben." }
+    }
+}
+
+@Serializable
+data class NewRoutineStep(
+    val offsetDays: Int,
+    val title: TrimmedString,
+    val note: String? = null,
+    val assigneeId: Uuid? = null,
+    val label: TaskLabel = TaskLabel.OTHER,
+    val urgent: Boolean = false,
+    val materialIds: List<Uuid> = emptyList(),
+    val itemIds: List<Uuid> = emptyList()
+) {
+    init {
+        requireText(title, "Die Aufgabe", maxLength = 255)
+        require(offsetDays in -MAX_OFFSET_DAYS..MAX_OFFSET_DAYS) {
+            "Eine Aufgabe einer Routine kann höchstens $MAX_OFFSET_DAYS Tage vor oder nach dem Bezugstag liegen."
+        }
+        requireDistinctLinks(materialIds, itemIds)
+    }
+}
+
+/** Starts a routine: one task per step, due [anchorDate] plus the step's offset, marked with [occasion]. */
+@Serializable
+data class RoutineStart(
+    val occasion: TrimmedString,
+    val anchorDate: LocalDate
+) {
+    init {
+        requireText(occasion, "Der Anlass", maxLength = 100)
+    }
+}
+
+private const val MAX_REPEAT_MONTHS = 1200
+private const val MAX_ROUTINE_STEPS = 50
+private const val MAX_OFFSET_DAYS = 365
+
+private fun requireRepeat(months: Int?) = require(months == null || months in 1..MAX_REPEAT_MONTHS) {
+    "Das Intervall muss zwischen 1 Monat und 100 Jahren liegen."
+}
+
+private fun requireDistinctLinks(materialIds: List<Uuid>, itemIds: List<Uuid>) {
+    require(materialIds.toSet().size == materialIds.size && itemIds.toSet().size == itemIds.size) {
+        "Ein Material oder Gegenstand kann nur einmal ausgewählt werden."
+    }
+}
+
 // ========= Validation helpers =========
 
 /**

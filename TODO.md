@@ -151,7 +151,8 @@ CLAUDE.md). Deploying is manual: images are built and pushed, the owner rolls th
 
 ## Care and replacement
 
-- [~] **T-7 Aufgaben: one-off and recurring tasks linked to material.** A small built-in task list rather than a
+- [x] **T-7 Aufgaben: one-off and recurring tasks linked to material.** Built 2026-11-14 with the review findings
+  worked in (PLAN.md, REVIEW.md); uncommitted in both repos until the browser pass. A small built-in task list rather than a
   special "inspection" feature. Examples: "Gasschlauch Kocher 2 tauschen" (due 03/2027; the gas hose expires and is
   replaced, the cooker stays the same item), "Erste-Hilfe-Kasten prüfen" every 12 months, "Jurte 1 nach Lager
   trocknen" (one-off, urgent; wet tents get mouldy), "Kohten imprägnieren" every few years.
@@ -187,6 +188,58 @@ CLAUDE.md). Deploying is manual: images are built and pushed, the owner rolls th
   **Open, to explore with the owner:** permissions (likely: viewers see tasks and complete ones assigned to them;
   editors create and edit); whether "Einkauf" tasks form a simple shopping list view; the page layout (compare live
   before building).
+
+  **Decisions (owner, 2026-11-13):**
+  - Core concept as drafted, with these simplifications: recurring only "alle N Monate/Jahre ab Erledigung" (no fixed
+    dates); links only to materials, several per task, where a link is a material (bulk) or an individual item (one
+    1-n relationship from the user's view; how the "one rule for many items" fits in is explored before building that
+    part); assignee is a member (needed for "Meine"), no free text; an "dringend" flag instead of priorities; due
+    date is a normal date, shown loosely ("in 3 Wochen"); labels stay.
+  - Damage report and task never close each other automatically.
+  - Permissions: viewers see tasks and complete those assigned to them; editors create and edit.
+  - Wanted: checklists inside tasks, unobtrusive (a very stripped-down editor with checkboxes; plain text is the
+    95 % case and the main mode); routines (most common: "Vor dem Lager", e.g. Kocher prüfen, Gasvorrat prüfen,
+    Teilnehmerzahlen aus der Leitungsrunde holen, Mitnahme planen), with optional due offsets in days, negative
+    allowed (relative to the camp); a "Aufgaben verwalten" area for recurring tasks, routines and rules (plus a
+    "Wiederholen" toggle in the normal task dialog); one rule for many items; unobtrusive actions on completion;
+    a very subtle packing-list hint; a shopping list from plain-text Einkauf tasks ("we want a new X", no target
+    stock). No iCal.
+  - Usage: the app is opened rarely, so due tasks must be visible on the overview without being annoying; fewer
+    than 50 open tasks, often more than 15; tasks are assigned mostly between the two Materialwarte; managing
+    rules happens on a laptop, but creating and completing tasks must work well on a phone. Most important
+    recurring tasks: gas hoses, first-aid kit.
+  - Next: standalone UI mockups with several design approaches (no real functionality), iterate on them, then plan.
+
+  **UI chosen from the mockups (owner, 2026-11-13/14; mockups in `fe:src/routes/mockups/aufgaben`, temporary):**
+  - Aufgaben page: one list grouped Überfällig / Nächste 2 Wochen / Später / Ohne Datum; toolbar with search,
+    assignee (Alle, Meine, a member, Niemand), "Art" as a multi-select, switch "Erledigte". No page subtitles.
+  - A task opens read-only in a dialog (facts, note with tickable checkboxes, origin, last completions);
+    "Bearbeiten" switches the same dialog to the form.
+  - Form: title first, the rich note editor (plain text; a small corner button or "[] " turns a line into a
+    checkbox), then the other fields as small buttons: dashed with "+" while empty, filled with their value
+    (Fällig with quick dates, Material, Zuständig, Art, Wiederholen, Dringend).
+  - Completing (round check in the list, or "Erledigt…") always opens a small completion dialog, deliberately
+    unlike the task dialog: optional note, next due date for recurring tasks, follow-up actions as unticked
+    checkboxes.
+  - Material page: an "Aufgaben" section with open tasks and the last completions, hidden when there are none;
+    "Aufgabe erstellen" also in the material's "⋯" menu and on damage reports.
+  - Overview: an "Aufgaben" card with overdue and next-2-weeks tasks.
+  - "Aufgaben verwalten" (own page, linked from the Aufgaben page): one page with three sections, each with its
+    explanation behind an info icon:
+    - Routinen: cards with tasks, time span and past runs ("Winterwochenende (0/4 erledigt)"); "Starten…" asks for
+      the occasion and the day-0 date and previews the dates. Routines are started only here. Editing shows the
+      tasks on a time line around day 0, roughly proportional to the days; dragging a task (or arrow keys) changes
+      its day, a click opens its fields below (days vorher/am Tag/danach, assignee, Dringend, Art, Material, note).
+    - Regeln: one recurring task per item of a material (individually tracked materials only; targeting a category
+      was decided against for now); first due date from the purchase date if known, else from today; expandable
+      list of the items with due date and last completion. Editing a rule only affects tasks created afterwards.
+    - Wiederkehrende Aufgaben: ordinary tasks with "Wiederholen", listed with next due and last completion.
+  - Packing list: a subtle hint only for packed items/materials with an open *urgent* task (a "re-impregnate in
+    5 months" task doesn't matter for packing), and only if the check doesn't slow the packing list down
+    noticeably (expected: one lookup set built once).
+  - Viewers: see all tasks, complete only those assigned to them; no "Neue Aufgabe", no "Verwalten".
+  - Navigation: "Aufgaben" replaces "Lagerorte" in the phone's bottom bar (Lagerorte isn't needed regularly);
+    the desktop header keeps all entries. No mockups needed for these three.
 - [x] **T-8 Damaged bulk stock on the overview, separately.** The overview (`fe:src/routes/[tenant]/overview/
   +page.svelte:25-33`) lists only individual items and says "Alle Gegenstände sind in Ordnung." even when bulk stock
   is marked damaged (`quantity_damaged`). Show bulk damage too, but separate and low-key: a few bad Heringe matter much

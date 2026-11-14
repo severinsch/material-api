@@ -5,9 +5,13 @@ import database.IndividualItems
 import database.MaterialVariants
 import database.Materials
 import database.StorageLocations
+import database.TenantId
+import database.TenantMembers
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
 
 // Checks for ids referenced in request bodies. They give readable 400 errors for the common mistakes; the foreign
@@ -66,3 +70,8 @@ internal fun requireLocation(id: Uuid?) {
 internal fun requireUnchanged(field: String, old: Uuid, new: Uuid) {
     if (old != new) invalid("$field kann nicht geändert werden.")
 }
+
+/** Whether the user is a member of the tenant (assignees, borrowers). */
+internal fun isMember(tenant: TenantId, userId: Uuid): Boolean = TenantMembers.selectAll()
+    .where { (TenantMembers.tenantId eq tenant.value) and (TenantMembers.userId eq userId) }
+    .any()

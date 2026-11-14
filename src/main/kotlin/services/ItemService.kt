@@ -37,6 +37,8 @@ class ItemService(private val db: Db) {
                 requireFreeIdentifiers(variantId, identifiers)
             }
             val ids = IndividualItems.batchInsert(items) { fill(it) }.map { it[IndividualItems.id].value }
+            // Rules of the material ("Gasschlauch alle 5 Jahre") cover new items too.
+            createMissingRuleTasks(tenant, ids)
             findWhere { IndividualItems.id inList ids }
         }
 
@@ -53,10 +55,15 @@ class ItemService(private val db: Db) {
         requireLocation(item.storageLocationId)
         requireFreeIdentifiers(item.variantId, listOf(item.identifier), exceptItem = id)
         IndividualItems.update({ IndividualItems.id eq id }) { it.fill(item) }
+        // An item found again or back from decommissioning gets its rule tasks again.
+        createMissingRuleTasks(tenant, listOf(id))
         find(id)
     }
 
+    /** Deletes the item and its open rule tasks, which would otherwise recur without an item (see [TaskRules]). */
     suspend fun delete(tenant: TenantId, id: Uuid) = db.tenantQuery(tenant) {
+        val linked = TaskLinks.select(TaskLinks.taskId).where { TaskLinks.itemId eq id }
+        Tasks.deleteWhere { (Tasks.id inSubQuery linked) and Tasks.ruleId.isNotNull() and Tasks.completedAt.isNull() }
         if (IndividualItems.deleteWhere { IndividualItems.id eq id } == 0) notFound("Diesen Gegenstand")
     }
 

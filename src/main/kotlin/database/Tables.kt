@@ -4,6 +4,7 @@ import api.ItemCondition
 import api.ItemStatus
 import api.LoginMethod
 import api.MaterialTrackingType
+import api.TaskLabel
 import api.TenantRole
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.ReferenceOption
@@ -181,4 +182,62 @@ object LoanLines : UuidTable("loan_lines") {
     val individualItemId = optReference("individual_item_id", IndividualItems)
     val variantId = optReference("variant_id", MaterialVariants)
     val quantity = integer("quantity").nullable()
+}
+
+// ========= Tasks =========
+
+object TaskRules : UuidTable("task_rules") {
+    val title = varchar("title", 255)
+    val materialId = reference("material_id", Materials)
+    val repeatMonths = integer("repeat_months")
+    val fromPurchase = bool("from_purchase")
+    val assigneeId = optReference("assignee_id", Users, onDelete = ReferenceOption.SET_NULL)
+    val label = pgEnum<TaskLabel>("label", "task_label")
+    val note = text("note").nullable()
+}
+
+object TaskRoutines : UuidTable("task_routines") {
+    val name = varchar("name", 100)
+    val anchor = varchar("anchor", 100)
+}
+
+object TaskRoutineSteps : UuidTable("task_routine_steps") {
+    val routineId = reference("routine_id", TaskRoutines, onDelete = ReferenceOption.CASCADE)
+    val position = integer("position")
+    val offsetDays = integer("offset_days")
+    val title = varchar("title", 255)
+    val note = text("note").nullable()
+    val assigneeId = optReference("assignee_id", Users, onDelete = ReferenceOption.SET_NULL)
+    val label = pgEnum<TaskLabel>("label", "task_label")
+    val urgent = bool("urgent")
+}
+
+object TaskRoutineStepLinks : Table("task_routine_step_links") {
+    val stepId = reference("step_id", TaskRoutineSteps, onDelete = ReferenceOption.CASCADE)
+    val materialId = optReference("material_id", Materials)
+    val itemId = optReference("item_id", IndividualItems)
+}
+
+object Tasks : UuidTable("tasks") {
+    val title = varchar("title", 255)
+    val note = text("note").nullable()
+    val dueDate = date("due_date").nullable()
+    val urgent = bool("urgent")
+    val label = pgEnum<TaskLabel>("label", "task_label")
+    val assigneeId = optReference("assignee_id", Users, onDelete = ReferenceOption.SET_NULL)
+    val repeatMonths = integer("repeat_months").nullable()
+    val completedAt = timestamp("completed_at").nullable()
+    val completedBy = varchar("completed_by", 255).nullable()
+    val completionNote = text("completion_note").nullable()
+    val previousId = optReference("previous_id", Tasks)
+    val ruleId = optReference("rule_id", TaskRules)
+    val routineId = optReference("routine_id", TaskRoutines)
+    val occasion = varchar("occasion", 100).nullable()
+    val damageReportId = optReference("damage_report_id", DamageReports)
+}
+
+object TaskLinks : Table("task_links") {
+    val taskId = reference("task_id", Tasks, onDelete = ReferenceOption.CASCADE)
+    val materialId = optReference("material_id", Materials)
+    val itemId = optReference("item_id", IndividualItems)
 }

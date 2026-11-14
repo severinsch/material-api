@@ -28,6 +28,7 @@ fun Application.configureRouting(db: Db, authService: AuthService) {
                 kitRoutes(KitService(db))
                 loanRoutes(LoanService(db))
                 memberRoutes(MemberService(db))
+                taskRoutes(TaskService(db), TaskRuleService(db), TaskRoutineService(db))
             }
             platformAdminRoutes {
                 tenantAdministrationRoutes(tenantService)
